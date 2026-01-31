@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require
     username: postgres.tdhhdbipbnlfdjlbxege
-    password: KLTKu3v54ka05ShT
+    password: ${SUPABASE_SERVER_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
     hikari:
@@ -16,7 +16,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
 
     properties:
       '[format_sql]': true

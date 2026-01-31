@@ -49,13 +49,13 @@ public class DatabaseDebugger {
   }
 
   // Testing whether writing to DB works.
-  @Bean
-  ApplicationRunner writeDebug(TransactionTemplate tx, DataSource dataSource) {
-    return args -> tx.execute(status -> {
-      em.createNativeQuery("insert into testing (name) values ('tester 3')").executeUpdate();
-      return null;
-    });
-  }
+  // @Bean
+  // ApplicationRunner writeDebug(TransactionTemplate tx, DataSource dataSource) {
+  //   return args -> tx.execute(status -> {
+  //     em.createNativeQuery("insert into testing (name) values ('tester 3')").executeUpdate();
+  //     return null;
+  //   });
+  // }
   
 }
 

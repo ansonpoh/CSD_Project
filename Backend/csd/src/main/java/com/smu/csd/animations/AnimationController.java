@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,8 +28,8 @@ public class AnimationController {
         this.service = service;
     }
 
-    @GetMapping
-    public Optional<Animation> getAnimation(@RequestParam UUID animation_id) {
+    @GetMapping("/{animation_id}")
+    public Optional<Animation> getAnimation(@PathVariable UUID animation_id) {
         return service.getAnimationById(animation_id);
     } 
 

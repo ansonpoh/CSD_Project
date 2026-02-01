@@ -27,4 +27,19 @@ public class MonsterService {
     public Monster saveMonster(Monster monster) {
         return repository.save(monster);
     }
+
+    public Monster updateMonster(UUID monster_id, Monster monster) {
+        return repository.findById(monster_id).map(current -> {
+            current.setName(monster.getName());
+            current.setDescription(monster.getDescription());
+            current.setAsset(monster.getAsset());
+            return repository.save(current);
+        }).orElseThrow(() -> new RuntimeException("Monster not found"));
+    }
+
+    public void deleteMonster(UUID monster_id) {
+        repository.deleteById(monster_id);
+    }
+
+
 }

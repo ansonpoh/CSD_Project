@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MapRepository extends JpaRepository<Map, UUID>{
     
-    List<Map> findByWorld_world_id(UUID world_id);
+    List<Map> findByWorld_worldId(UUID world_id);
 }

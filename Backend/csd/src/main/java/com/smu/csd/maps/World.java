@@ -1,7 +1,8 @@
 package com.smu.csd.maps;
 
+import java.util.UUID;
+
 import org.hibernate.annotations.UuidGenerator;
-import org.hibernate.validator.constraints.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +22,8 @@ import lombok.NoArgsConstructor;
 public class World {
     @Id
     @UuidGenerator
-    private UUID world_id;
+    @Column(name = "world_id")
+    private UUID worldId;
     @Column
     private String name;
     @Column

@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
@@ -42,6 +44,16 @@ public class MonsterController {
     @PostMapping("/add")
     public Monster addMonster(@Valid @RequestBody Monster monster) {
         return service.saveMonster(monster);
+    }
+
+    @PutMapping("/{monster_id}")
+    public Monster updateMonster(@PathVariable UUID monster_id, @Valid @RequestBody Monster monster) {
+        return service.updateMonster(monster_id, monster);
+    }
+
+    @DeleteMapping("/{monster_id}")
+    public void deleteMonster(@PathVariable UUID monseter_id) {
+        service.deleteMonster(monseter_id);
     }
     
     

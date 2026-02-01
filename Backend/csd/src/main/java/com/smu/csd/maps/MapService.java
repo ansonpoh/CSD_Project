@@ -24,7 +24,7 @@ public class MapService {
     }
 
     public List<Map> getMapsByWorldId(UUID world_id) {
-        return repository.findByWorld_world_id(world_id);
+        return repository.findByWorld_worldId(world_id);
     }
 
     //Post requests

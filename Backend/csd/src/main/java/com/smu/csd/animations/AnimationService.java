@@ -27,4 +27,19 @@ public class AnimationService {
     public Animation saveAnimation(Animation animation) {
         return repository.save(animation);
     }
+
+    //Put requets
+    public Animation updateAnimation(UUID animation_id, Animation animation) {
+        return repository.findById(animation_id).map(current -> {
+            current.setAsset(animation.getAsset());
+            current.setDescription(animation.getDescription());
+            current.setStorage_path(animation.getStorage_path());
+            return repository.save(current);
+        }).orElseThrow(() -> new RuntimeException("Animation not found"));
+    }
+
+    //Delete requests
+    public void deleteAnimation(UUID animation_id) {
+        repository.deleteById(animation_id);
+    }
 }

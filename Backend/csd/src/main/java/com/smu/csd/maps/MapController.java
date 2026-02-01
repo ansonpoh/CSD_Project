@@ -1,4 +1,4 @@
-package com.smu.csd.monsters;
+package com.smu.csd.maps;
 
 import java.util.List;
 import java.util.Optional;
@@ -7,9 +7,6 @@ import java.util.UUID;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.validation.Valid;
-
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,29 +17,36 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @CrossOrigin(origins = "*")
-@RequestMapping("/api/monsters")
-public class MonsterController {
-    private final MonsterService service;
+@RequestMapping("/api/maps")
+public class MapController {
+    private final MapService service;
 
-    public MonsterController(MonsterService service) {
+    public MapController(MapService service) {
         this.service = service;
     }
 
-    @GetMapping("/{monster_id}")
-    public Optional<Monster> getMonsterById(@PathVariable UUID monster_id) {
-        return service.getMonsterById(monster_id);
+    @GetMapping("/{map_id}")
+    public Optional<Map> getMapById(@PathVariable UUID map_id) {
+        return service.getMapById(map_id);
     }
 
     @GetMapping("/all")
-    public List<Monster> getAllMonsters() {
-        return service.getAllMonsters();
+    public List<Map> getAllMaps() {
+        return service.getAllMaps();
+    }
+
+    @GetMapping("/{world_id}")
+    public String getMethodName(@RequestParam String param) {
+        return new String();
     }
     
 
+    
     @PostMapping("/add")
-    public Monster addMonster(@Valid @RequestBody Monster monster) {
-        return service.saveMonster(monster);
+    public Map addMap(@RequestBody Map map) {
+        return service.saveMap(map);
     }
+    
     
     
 }

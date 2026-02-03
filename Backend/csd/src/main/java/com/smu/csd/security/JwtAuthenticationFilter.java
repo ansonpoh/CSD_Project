@@ -98,8 +98,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return "ADMIN";
         }
         // Add more role checks here:
-        // if (customerRepository.existsBySupabaseUserId(supabaseUserId)) {
-        //     return "CUSTOMER";
+        // if (LearnerRepository.existsBySupabaseUserId(supabaseUserId)) {
+        //     return "LEARNER";
         // }
         return "USER";  // Default role for authenticated users not in any role table
     }

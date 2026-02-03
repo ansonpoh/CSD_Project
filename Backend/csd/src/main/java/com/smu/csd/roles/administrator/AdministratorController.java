@@ -27,6 +27,7 @@ public class AdministratorController {
     @PostMapping
     public ResponseEntity<Administrator> createAdministrator(@RequestBody CreateAdminRequest request) {
         Administrator admin = service.createAdministrator(
+                request.id(),
                 request.supabaseUserId(),
                 request.email(),
                 request.fullName()
@@ -40,7 +41,7 @@ public class AdministratorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Administrator> getById(@PathVariable Long id) {
+    public ResponseEntity<Administrator> getById(@PathVariable String id) {
         return ResponseEntity.ok(service.getById(id));
     }
 
@@ -56,26 +57,26 @@ public class AdministratorController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Administrator> updateAdministrator(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody UpdateAdminRequest request) {
         Administrator admin = service.updateAdministrator(id, request.fullName(), request.isActive());
         return ResponseEntity.ok(admin);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAdministrator(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteAdministrator(@PathVariable String id) {
         service.deleteAdministrator(id);
         return ResponseEntity.noContent().build();  // 204 No Content
     }
 
     @PutMapping("/{id}/deactivate")
-    public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable Long id) {
+    public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable String id) {
         return ResponseEntity.ok(service.deactivateAdministrator(id));
     }
 
     // Records: When frontend sends JSON like {"email": "x", "fullName": "y"}, Spring converts it to these objects.
     // We use records instead of Entity directly so frontend can only send the fields we allow (not id, createdAt, etc).
     // basically means that we only accept these fields
-    public record CreateAdminRequest(UUID supabaseUserId, String email, String fullName) {}
+    public record CreateAdminRequest(String id, UUID supabaseUserId, String email, String fullName) {}
     public record UpdateAdminRequest(String fullName, Boolean isActive) {}
 }

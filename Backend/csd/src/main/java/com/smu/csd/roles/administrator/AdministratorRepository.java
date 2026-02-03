@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface AdministratorRepository extends JpaRepository<Administrator, Long> {
+public interface AdministratorRepository extends JpaRepository<Administrator, String> {
 
     /*
      * Why do we need these custom methods?

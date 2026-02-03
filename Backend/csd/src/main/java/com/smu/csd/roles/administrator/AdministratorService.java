@@ -17,7 +17,12 @@ public class AdministratorService {
 
     // @Transactional ensures if something fails, the database rolls back so no partial data is saved
     @Transactional
-    public Administrator createAdministrator(UUID supabaseUserId, String email, String fullName) {
+    public Administrator createAdministrator(String id, UUID supabaseUserId, String email, String fullName) {
+        // Check if id already exists
+        if (repository.existsById(id)) {
+            throw new RuntimeException("Administrator already exists with id: " + id);
+        }
+
         // Check if email already exists (prevent duplicates)
         if (repository.existsByEmail(email)) {
             throw new RuntimeException("Email already exists: " + email);
@@ -31,12 +36,13 @@ public class AdministratorService {
         // Build the Administrator object using Lombok's @Builder
         // Dont need to create constructors, getters and setters in Administrator
         Administrator admin = Administrator.builder()
+                .aid(id)
                 .supabaseUserId(supabaseUserId)
                 .email(email)
                 .fullName(fullName)
                 .build();
 
-        // Save to database and return the saved entity (now has generated id)
+        // Save to database and return the saved entity
         return repository.save(admin);
     }
 
@@ -44,7 +50,7 @@ public class AdministratorService {
         return repository.findAll();
     }
 
-    public Administrator getById(Long id) {
+    public Administrator getById(String id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Administrator not found with id: " + id));
     }
@@ -60,7 +66,7 @@ public class AdministratorService {
     }
 
     @Transactional
-    public Administrator updateAdministrator(Long id, String fullName, Boolean isActive) {
+    public Administrator updateAdministrator(String id, String fullName, Boolean isActive) {
         // First, fetch the existing administrator
         Administrator admin = getById(id);
 
@@ -78,7 +84,7 @@ public class AdministratorService {
 
     // also deletes from auth.users due to ON DELETE CASCADE in SQL
     @Transactional
-    public void deleteAdministrator(Long id) {
+    public void deleteAdministrator(String id) {
         if (!repository.existsById(id)) {
             throw new RuntimeException("Administrator not found with id: " + id);
         }
@@ -87,7 +93,7 @@ public class AdministratorService {
 
     // Deactivate instead of deleting. Keeps the record but marks as inactive.
     @Transactional
-    public Administrator deactivateAdministrator(Long id) {
+    public Administrator deactivateAdministrator(String id) {
         Administrator admin = getById(id);
         admin.setIsActive(false);
         return repository.save(admin);

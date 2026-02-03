@@ -10,19 +10,29 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdministratorService {
     private final AdministratorRepository repository;
 
+    private static final String ID_PREFIX = "ADM";
+
     // Spring sees AdministratorService needs AdministratorRepository so it will create repo and pass to this constructor
     public AdministratorService(AdministratorRepository repository) {
         this.repository = repository;
     }
 
+    // Generate next ID: ADM001, ADM002, ADM003, etc.
+    private String generateNextId() {
+        return repository.findTopByOrderByAidDesc()
+                .map(admin -> {
+                    // Extract numeric part from "ADM001" -> 1
+                    String currentId = admin.getAid();
+                    int number = Integer.parseInt(currentId.substring(ID_PREFIX.length()));
+                    // Increment and format back to "ADM002"
+                    return String.format("%s%03d", ID_PREFIX, number + 1);
+                })
+                .orElse(ID_PREFIX + "001"); // First admin gets ADM001
+    }
+
     // @Transactional ensures if something fails, the database rolls back so no partial data is saved
     @Transactional
-    public Administrator createAdministrator(String id, UUID supabaseUserId, String email, String fullName) {
-        // Check if id already exists
-        if (repository.existsById(id)) {
-            throw new RuntimeException("Administrator already exists with id: " + id);
-        }
-
+    public Administrator createAdministrator(UUID supabaseUserId, String email, String fullName) {
         // Check if email already exists (prevent duplicates)
         if (repository.existsByEmail(email)) {
             throw new RuntimeException("Email already exists: " + email);
@@ -33,10 +43,13 @@ public class AdministratorService {
             throw new RuntimeException("Administrator profile already exists for this user");
         }
 
+        // Generate the next ID automatically
+        String newId = generateNextId();
+
         // Build the Administrator object using Lombok's @Builder
         // Dont need to create constructors, getters and setters in Administrator
         Administrator admin = Administrator.builder()
-                .aid(id)
+                .aid(newId)
                 .supabaseUserId(supabaseUserId)
                 .email(email)
                 .fullName(fullName)

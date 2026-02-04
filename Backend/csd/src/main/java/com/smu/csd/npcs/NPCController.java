@@ -1,0 +1,55 @@
+package com.smu.csd.npcs;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
+
+
+@RestController
+@CrossOrigin(origins = "*")
+@RequestMapping("/api/npcs")
+public class NPCController {
+    
+    private final NPCService service;
+
+    public NPCController(NPCService service) {
+        this.service = service;
+    }
+
+    @GetMapping("/{npc_Id}")
+    public Optional<NPC> getNPCById(@PathVariable UUID npc_id) {
+        return service.getNPCById(npc_id);
+    }
+
+    @GetMapping("/all")
+    public List<NPC> getAllNPCs() {
+        return service.getAllNPCs();
+    }
+
+    @PostMapping("/{npc_id}")
+    public NPC updateNPC(@PathVariable UUID npc_id, @Valid @RequestBody NPC npc) {
+        return service.updateNPC(npc_id, npc);
+    }
+
+    @DeleteMapping("/{npc_id}")
+    public void deleteNPC(@PathVariable UUID npc_id) {
+        service.deleteNPC(npc_id);
+    }
+    
+    
+    
+}

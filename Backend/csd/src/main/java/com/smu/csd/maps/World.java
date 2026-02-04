@@ -1,4 +1,4 @@
-package com.smu.csd.monsters;
+package com.smu.csd.maps;
 
 import java.util.UUID;
 
@@ -18,15 +18,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(schema = "monsters", name = "monster")
-public class Monster {
+@Table(schema = "maps", name = "world")
+public class World {
     @Id
     @UuidGenerator
-    private UUID monster_id;
-    @Column(unique = true)
+    @Column(name = "world_id")
+    private UUID worldId;
+    @Column
     private String name;
     @Column
     private String description;
-    @Column
-    private String asset;
 }

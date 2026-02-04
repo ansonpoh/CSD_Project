@@ -1,4 +1,4 @@
-package com.smu.csd.monsters;
+package com.smu.csd.npcs;
 
 import java.util.UUID;
 
@@ -13,20 +13,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(schema = "monsters", name = "monster")
-public class Monster {
+@Table(schema = "npcs", name = "npc")
+public class NPC {
     @Id
     @UuidGenerator
-    private UUID monster_id;
-    @Column(unique = true)
-    private String name;
+    private UUID npc_id;
     @Column
-    private String description;
+    private String name;
     @Column
     private String asset;
 }

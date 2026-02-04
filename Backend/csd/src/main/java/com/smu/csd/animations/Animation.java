@@ -3,6 +3,7 @@ package com.smu.csd.animations;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import jakarta.persistence.Column;
@@ -30,6 +31,7 @@ public class Animation {
     private String storage_path;
     @Column
     private String description;
-    @Column
+    @Column(updatable = false)
+    @CreationTimestamp
     private LocalDateTime created_at;
 }

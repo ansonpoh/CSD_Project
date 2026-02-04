@@ -4,8 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import javax.management.RuntimeErrorException;
+import org.springframework.stereotype.Service;
 
+@Service
 public class NPCService {
     private final NPCRepository repository;
 

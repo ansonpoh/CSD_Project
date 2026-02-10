@@ -10,7 +10,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,10 +27,10 @@ public class Learner {
     private UUID learner_id;
     @Column
     private UUID supabase_user_id;
-    @Column
+    @Column (nullable = false)
     private String username;
-    @Column
-    private Email email;
+    @Column (nullable = false)
+    private String email;
     @Column
     private String full_name;
     @Column

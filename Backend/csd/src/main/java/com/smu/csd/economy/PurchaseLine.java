@@ -1,8 +1,13 @@
 package com.smu.csd.economy;
 
 
+import java.util.UUID;
+
+import org.hibernate.annotations.UuidGenerator;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -18,11 +23,14 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(schema = "economy", name = "purchase_line")
 public class PurchaseLine {
+    @Id
+    @UuidGenerator
+    private UUID purchase_line_id;
     @ManyToOne
-    @JoinColumn(name = "purchase_id")
+    @JoinColumn(name = "purchase_id", nullable = false)
     private Purchase purchase;
     @ManyToOne
-    @JoinColumn(name ="item_id")
+    @JoinColumn(name ="item_id", nullable = false)
     private Item item;
     @Column
     private Integer quantity;

@@ -29,7 +29,7 @@ export class Test extends Scene
 
         this.input.once('pointerdown', () => {
 
-            this.scene.start('Test');
+            this.scene.start('Game');
 
         });
     }

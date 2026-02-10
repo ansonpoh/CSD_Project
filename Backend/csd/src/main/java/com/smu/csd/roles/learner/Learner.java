@@ -1,0 +1,48 @@
+package com.smu.csd.roles.learner;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(schema = "roles", name = "learner")
+public class Learner {
+    @Id
+    @UuidGenerator
+    private UUID learner_id;
+    @Column
+    private UUID supabase_user_id;
+    @Column
+    private String username;
+    @Column
+    private Email email;
+    @Column
+    private String full_name;
+    @Column
+    private Integer total_xp;
+    @Column
+    private Integer level;
+    @Column
+    @CreationTimestamp
+    private LocalDateTime created_at;
+    @Column
+    private LocalDateTime updated_at;
+    @Column 
+    private Boolean is_active;
+}

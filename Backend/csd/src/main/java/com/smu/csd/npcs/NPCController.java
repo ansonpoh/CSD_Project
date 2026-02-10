@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
@@ -40,7 +41,12 @@ public class NPCController {
         return service.getAllNPCs();
     }
 
-    @PostMapping("/{npc_id}")
+    @PostMapping("/add")
+    public NPC addNpc(@Valid @RequestBody NPC npc) {
+        return service.saveNPC(npc);
+    }
+
+    @PutMapping("/{npc_id}")
     public NPC updateNPC(@PathVariable UUID npc_id, @Valid @RequestBody NPC npc) {
         return service.updateNPC(npc_id, npc);
     }

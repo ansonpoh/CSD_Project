@@ -5,6 +5,7 @@ import { MainMenu } from './scenes/MainMenu';
 import { Preloader } from './scenes/Preloader';
 import { Login } from './scenes/Login';
 import { AUTO, Game } from 'phaser';
+import { Test } from './scenes/Test';
 
 //  Find out more information about the Game Config at:
 //  https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
@@ -24,7 +25,8 @@ const config = {
         Login,
         MainMenu,
         MainGame,
-        GameOver
+        GameOver,
+        Test,
     ]
 };
 

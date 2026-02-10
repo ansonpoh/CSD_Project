@@ -41,6 +41,7 @@ public class SecurityConfig {
                 // Public endpoints (no authentication required)
                 .requestMatchers("/").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers("/api/*/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/health").permitAll()
 

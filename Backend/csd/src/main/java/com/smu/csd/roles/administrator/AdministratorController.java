@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.csd.exception.ResourceAlreadyExistsException;
+import com.smu.csd.exception.ResourceNotFoundException;
+
 @RestController
 @RequestMapping("/api/administrators")
 public class AdministratorController {
@@ -25,7 +28,7 @@ public class AdministratorController {
     }
 
     @PostMapping
-    public ResponseEntity<Administrator> createAdministrator(@RequestBody CreateAdminRequest request) {
+    public ResponseEntity<Administrator> createAdministrator(@RequestBody CreateAdminRequest request) throws ResourceAlreadyExistsException {
         Administrator admin = service.createAdministrator(
                 request.supabaseUserId(),
                 request.email(),
@@ -40,12 +43,12 @@ public class AdministratorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Administrator> getById(@PathVariable String id) {
+    public ResponseEntity<Administrator> getById(@PathVariable String id) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getById(id));
     }
 
     @GetMapping("/supabase/{supabaseUserId}")
-    public ResponseEntity<Administrator> getBySupabaseUserId(@PathVariable UUID supabaseUserId) {
+    public ResponseEntity<Administrator> getBySupabaseUserId(@PathVariable UUID supabaseUserId) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getBySupabaseUserId(supabaseUserId));
     }
 
@@ -57,19 +60,19 @@ public class AdministratorController {
     @PutMapping("/{id}")
     public ResponseEntity<Administrator> updateAdministrator(
             @PathVariable String id,
-            @RequestBody UpdateAdminRequest request) {
+            @RequestBody UpdateAdminRequest request) throws ResourceNotFoundException {
         Administrator admin = service.updateAdministrator(id, request.fullName(), request.isActive());
         return ResponseEntity.ok(admin);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAdministrator(@PathVariable String id) {
+    public ResponseEntity<Void> deleteAdministrator(@PathVariable String id) throws ResourceNotFoundException {
         service.deleteAdministrator(id);
         return ResponseEntity.noContent().build();  // 204 No Content
     }
 
     @PutMapping("/{id}/deactivate")
-    public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable String id) {
+    public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable String id) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.deactivateAdministrator(id));
     }
 

@@ -6,6 +6,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smu.csd.exception.ResourceAlreadyExistsException;
+import com.smu.csd.exception.ResourceNotFoundException;
+
 @Service
 public class AdministratorService {
     private final AdministratorRepository repository;
@@ -32,15 +35,15 @@ public class AdministratorService {
 
     // @Transactional ensures if something fails, the database rolls back so no partial data is saved
     @Transactional
-    public Administrator createAdministrator(UUID supabaseUserId, String email, String fullName) {
+    public Administrator createAdministrator(UUID supabaseUserId, String email, String fullName) throws ResourceAlreadyExistsException {
         // Check if email already exists (prevent duplicates)
         if (repository.existsByEmail(email)) {
-            throw new RuntimeException("Email already exists: " + email);
+            throw new ResourceAlreadyExistsException("Administrator", "email", email);
         }
 
         // Check if this Supabase user already has an admin profile
         if (repository.existsBySupabaseUserId(supabaseUserId)) {
-            throw new RuntimeException("Administrator profile already exists for this user");
+            throw new ResourceAlreadyExistsException("Administrator profile already exists for this user");
         }
 
         // Generate the next ID automatically
@@ -63,15 +66,15 @@ public class AdministratorService {
         return repository.findAll();
     }
 
-    public Administrator getById(String id) {
+    public Administrator getById(String id) throws ResourceNotFoundException {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Administrator not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Administrator", "id", id));
     }
 
     // Used after login to fetch the admin's profile.
-    public Administrator getBySupabaseUserId(UUID supabaseUserId) {
+    public Administrator getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
         return repository.findBySupabaseUserId(supabaseUserId)
-                .orElseThrow(() -> new RuntimeException("Administrator not found with supabaseUserId: " + supabaseUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("Administrator", "supabaseUserId", supabaseUserId));
     }
 
     public boolean isAdministrator(UUID supabaseUserId) {
@@ -79,7 +82,7 @@ public class AdministratorService {
     }
 
     @Transactional
-    public Administrator updateAdministrator(String id, String fullName, Boolean isActive) {
+    public Administrator updateAdministrator(String id, String fullName, Boolean isActive) throws ResourceNotFoundException {
         // First, fetch the existing administrator
         Administrator admin = getById(id);
 
@@ -97,16 +100,16 @@ public class AdministratorService {
 
     // also deletes from auth.users due to ON DELETE CASCADE in SQL
     @Transactional
-    public void deleteAdministrator(String id) {
+    public void deleteAdministrator(String id) throws ResourceNotFoundException {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("Administrator not found with id: " + id);
+            throw new ResourceNotFoundException("Administrator", "id", id);
         }
         repository.deleteById(id);
     }
 
     // Deactivate instead of deleting. Keeps the record but marks as inactive.
     @Transactional
-    public Administrator deactivateAdministrator(String id) {
+    public Administrator deactivateAdministrator(String id) throws ResourceNotFoundException {
         Administrator admin = getById(id);
         admin.setIsActive(false);
         return repository.save(admin);

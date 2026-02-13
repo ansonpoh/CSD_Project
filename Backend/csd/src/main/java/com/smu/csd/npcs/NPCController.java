@@ -31,7 +31,7 @@ public class NPCController {
         this.service = service;
     }
 
-    @GetMapping("/{npc_Id}")
+    @GetMapping("/{npc_id}")
     public Optional<NPC> getNPCById(@PathVariable UUID npc_id) {
         return service.getNPCById(npc_id);
     }

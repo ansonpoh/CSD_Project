@@ -52,8 +52,8 @@ public class MonsterController {
     }
 
     @DeleteMapping("/{monster_id}")
-    public void deleteMonster(@PathVariable UUID monseter_id) {
-        service.deleteMonster(monseter_id);
+    public void deleteMonster(@PathVariable UUID monster_id) {
+        service.deleteMonster(monster_id);
     }
     
     

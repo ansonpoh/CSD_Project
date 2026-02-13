@@ -44,6 +44,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/*/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/health").permitAll()
+                .requestMatchers("/swagger-ui").permitAll()
+                .requestMatchers("/swagger-ui/**").permitAll()
+                .requestMatchers("/swagger-ui.html").permitAll()
+                .requestMatchers("/v3/api-docs/**").permitAll()
+                .requestMatchers("/webjars/**").permitAll()
 
                 // Admin endpoints - requires ROLE_ADMIN
                 .requestMatchers("/api/administrators/**").hasRole("ADMIN")

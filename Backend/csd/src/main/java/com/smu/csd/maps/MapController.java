@@ -35,9 +35,9 @@ public class MapController {
         return service.getAllMaps();
     }
 
-    @GetMapping("/{world_id}")
-    public String getMethodName(@RequestParam String param) {
-        return new String();
+    @GetMapping("/world/{world_id}")
+    public List<Map> getMapsByWorldId(@PathVariable("world_id") UUID world_id) {
+        return service.getMapsByWorldId(world_id);
     }
     
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../config/supabaseClient';
 
 class ApiService {
   constructor() {
@@ -8,6 +9,14 @@ class ApiService {
         'Content-Type': 'application/json'
       }
     });
+
+    this.api.interceptors.request.use(async (config) => {
+      const {data: {session}} = await supabase.auth.getSession();
+      if(session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+      }
+      return config;
+    })
   }
 
   // Animation endpoints
@@ -144,6 +153,11 @@ class ApiService {
 
   async updateLearner(id, learner) {
     const { data } = await this.api.put(`/learner/${id}`, learner);
+    return data;
+  }
+
+  async getCurrentLearner() {
+    const { data } = await this.api.get(`/learner/me`);
     return data;
   }
 

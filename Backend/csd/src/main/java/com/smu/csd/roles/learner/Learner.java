@@ -25,8 +25,8 @@ public class Learner {
     @Id
     @UuidGenerator
     private UUID learner_id;
-    @Column
-    private UUID supabase_user_id;
+    @Column(name = "supabase_user_id")
+    private UUID supabaseUserId;
     @Column (nullable = false)
     private String username;
     @Column (nullable = false)

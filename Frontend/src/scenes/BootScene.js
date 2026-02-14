@@ -47,11 +47,11 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     // DEVELOPMENT MODE - Skip login and go directly to WorldMapScene
-    this.scene.start('WorldMapScene');
-    this.scene.launch('UIScene');
+    // this.scene.start('WorldMapScene');
+    // this.scene.launch('UIScene');
     
     // ORIGINAL CODE - Uncomment this when you want to re-enable login:
-    /*
+    
     // Check if user is logged in
     const savedState = localStorage.getItem('gameState');
     
@@ -67,6 +67,6 @@ export class BootScene extends Phaser.Scene {
     
     // No saved state, go to login
     this.scene.start('LoginScene');
-    */
+    
   }
 }

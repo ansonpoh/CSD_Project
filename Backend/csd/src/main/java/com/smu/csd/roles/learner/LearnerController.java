@@ -1,6 +1,7 @@
 package com.smu.csd.roles.learner;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,7 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
-
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;;
 
 
 
@@ -39,6 +41,13 @@ public class LearnerController {
     @GetMapping("/all")
     public List<Learner> getAllLearners() {
         return service.getAllLearners();
+    }
+
+    @GetMapping("/me")
+    public Optional<Learner> getCurrentLearner(Authentication authentication) {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        return service.getBySupabaseUserId(supabaseUserId);
     }
 
     @PostMapping("add")

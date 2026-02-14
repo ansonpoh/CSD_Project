@@ -24,6 +24,12 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         '[default_schema]': public
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://tdhhdbipbnlfdjlbxege.supabase.co/auth/v1
+
 supabase:
   jwt:
     secret: ${SUPABASE_JWT_SECRET}

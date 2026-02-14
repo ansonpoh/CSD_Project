@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
-
 @Service
 public class LearnerService {
     private final LearnerRepository repository;
@@ -21,6 +20,10 @@ public class LearnerService {
 
     public Optional<Learner> getLearnerById(UUID learner_id) {
         return repository.findById(learner_id);
+    }
+
+    public Optional<Learner> getBySupabaseUserId(UUID supabaseUserId) {
+        return repository.findBySupabaseUserId(supabaseUserId);
     }
 
     public Learner saveLearner(Learner learner) {

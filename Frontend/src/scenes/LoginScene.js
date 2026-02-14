@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { apiService } from '../services/api.js';
 import { gameState } from '../services/gameState.js';
+import { supabase } from '../config/supabaseClient.js';
 
 export class LoginScene extends Phaser.Scene {
   constructor() {
     super({ key: 'LoginScene' });
     this.loginForm = null;
+    this.authMode = 'login';
   }
 
   create() {
@@ -20,14 +22,11 @@ export class LoginScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Create HTML login form
-    this.createLoginForm();
+    this.createAuthFormContainer();
+    this.renderAuthForm();
   }
 
-  createLoginForm() {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
-
-    // Create form container
+  createAuthFormContainer() {
     this.loginForm = document.createElement('div');
     this.loginForm.style.position = 'absolute';
     this.loginForm.style.left = '50%';
@@ -38,54 +37,141 @@ export class LoginScene extends Phaser.Scene {
     this.loginForm.style.borderRadius = '10px';
     this.loginForm.style.border = '2px solid #4a90e2';
     this.loginForm.style.width = '400px';
+    document.body.appendChild(this.loginForm);
+  }
 
+  renderAuthForm() {
+    const isLogin = this.authMode == 'login';
     this.loginForm.innerHTML = `
-      <h2 style="color: white; text-align: center; margin-bottom: 20px;">Login / Register</h2>
-      
+      <h2 style="color: white; text-align: center; margin-bottom: 20px;">
+        ${isLogin ? 'Login' : 'Register'}
+      </h2>
+
+      ${isLogin ? '' : `
       <div style="margin-bottom: 15px;">
         <label style="color: white; display: block; margin-bottom: 5px;">Username</label>
         <input type="text" id="username" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
       </div>
-      
-      <div style="margin-bottom: 15px;">
-        <label style="color: white; display: block; margin-bottom: 5px;">Email</label>
-        <input type="email" id="email" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
-      </div>
-      
+
       <div style="margin-bottom: 15px;">
         <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
         <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
       </div>
-      
-      <button id="loginBtn" style="width: 100%; padding: 12px; background: #4a90e2; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px;">
-        Start Adventure
+      `}
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: white; display: block; margin-bottom: 5px;">Email</label>
+        <input type="email" id="email" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: white; display: block; margin-bottom: 5px;">Password</label>
+        <input type="password" id="password" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+      </div>
+
+      <button id="submitBtn" style="width: 100%; padding: 12px; background: #4a90e2; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px;">
+        ${isLogin ? 'Login' : 'Register'}
       </button>
-      
-      <div id="message" style="color: #ff6b6b; text-align: center; margin-top: 10px;"></div>
+
+      <button id="toggleModeBtn" style="width: 100%; padding: 10px; background: transparent; color: #9fc7ff; border: 1px solid #4a90e2; border-radius: 5px; cursor: pointer;">
+        ${isLogin ? 'No account? Register' : 'Have an account? Login'}
+      </button>
+
+      <div id="message" style="color: #ff6b6b; text-align: center; margin-top: 10px; min-height: 20px;"></div>
     `;
 
-    document.body.appendChild(this.loginForm);
+    document.getElementById('submitBtn')?.addEventListener('click', () => this.handleSubmit());
+    document.getElementById('toggleModeBtn')?.addEventListener('click', () => this.toggleMode());
 
-    // Handle login
-    const loginBtn = document.getElementById('loginBtn');
-    loginBtn.addEventListener('click', () => this.handleLogin());
+    const passwordInput = document.getElementById('password');
+    passwordInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.handleSubmit();
+    });
+  }
+
+  toggleMode() {
+    this.authMode = this.authMode === 'login' ? 'register' : 'login';
+    this.renderAuthForm();
+  }
+
+  async handleSubmit() {
+    if (this.authMode === 'login') {
+      await this.handleLogin();
+    } else {
+      await this.handleRegister();
+    }
   }
 
   async handleLogin() {
-    const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
-    const fullname = document.getElementById('fullname').value;
+    const email = document.getElementById('email')?.value?.trim();
+    const password = document.getElementById('password')?.value?.trim() || 'password'; // add password field in UI
     const messageDiv = document.getElementById('message');
 
-    if (!username || !email || !fullname) {
+    if (!email || !password) {
       if (messageDiv) messageDiv.textContent = 'Please fill in all fields';
       return;
     }
 
     try {
-      // Create new learner
-      const learner = {
-        supabase_user_id: crypto.randomUUID(),
+      const { data, error} = await supabase.auth.signInWithPassword({email,password});
+      if(error) throw error;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('token exists?', !!session?.access_token);
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      console.log(JSON.parse(atob(token.split('.')[0])));
+
+      if (!data.session?.access_token) {
+        this.setMessage('Check your email to confirm account, then login.');
+        this.authMode = 'login';
+        this.renderAuthForm();
+        return;
+      }
+
+      const userId = data.user?.id || data.session?.user?.id;
+      if (!userId) throw new Error('No Supabase user id returned');
+
+      const learner = await apiService.getCurrentLearner();
+      if (!learner) {
+        this.setMessage('No learner profile found. Please register first.');
+        return;
+      }
+      gameState.setLearner(learner);
+      this.startGame();
+    } catch (error) {
+      this.setMessage(error.message || 'Login failed');
+    }
+  }
+
+  async handleRegister() {
+    const username = document.getElementById('username')?.value?.trim();
+    const fullname = document.getElementById('fullname')?.value?.trim();
+    const email = document.getElementById('email')?.value?.trim();
+    const password = document.getElementById('password')?.value?.trim();
+
+    if (!username || !fullname || !email || !password) {
+      this.setMessage('Please fill in all fields');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name: fullname } }
+      });
+      if (error) throw error;
+
+      const userId = data.user?.id || data.session?.user?.id;
+      if (!userId) {
+        this.setMessage('Check your email to confirm account, then login.');
+        this.authMode = 'login';
+        this.renderAuthForm();
+        return;
+      }
+
+      const learnerPayload = {
+        supabaseUserId: userId,
         username,
         email,
         full_name: fullname,
@@ -95,20 +181,25 @@ export class LoginScene extends Phaser.Scene {
         is_active: true
       };
 
-      const createdLearner = await apiService.addLearner(learner);
+      const createdLearner = await apiService.addLearner(learnerPayload);
       gameState.setLearner(createdLearner);
 
-      // Clean up and transition
       this.cleanup();
-      this.scene.start('WorldMapScene');
-      this.scene.launch('UIScene');
-      
+      this.startGame();
     } catch (error) {
-      console.error('Login error:', error);
-      if (messageDiv) {
-        messageDiv.textContent = 'Failed to login. Please try again.';
-      }
+      this.setMessage(error.message || 'Registration failed');
     }
+  }
+
+  setMessage(message) {
+    const messageDiv = document.getElementById('message');
+    if (messageDiv) messageDiv.textContent = message;
+  }
+
+  startGame() {
+    this.cleanup();
+    this.scene.start('WorldMapScene');
+    this.scene.launch('UIScene');
   }
 
   cleanup() {

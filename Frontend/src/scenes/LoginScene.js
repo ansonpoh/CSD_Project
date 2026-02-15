@@ -116,10 +116,11 @@ export class LoginScene extends Phaser.Scene {
       const { data, error} = await supabase.auth.signInWithPassword({email,password});
       if(error) throw error;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('token exists?', !!session?.access_token);
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      console.log(JSON.parse(atob(token.split('.')[0])));
+      // Logging to check for tokens.
+      // const { data: { session } } = await supabase.auth.getSession();
+      // console.log('token exists?', !!session?.access_token);
+      // const token = (await supabase.auth.getSession()).data.session?.access_token;
+      // console.log(JSON.parse(atob(token.split('.')[0])));
 
       if (!data.session?.access_token) {
         this.setMessage('Check your email to confirm account, then login.');

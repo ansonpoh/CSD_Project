@@ -30,7 +30,7 @@ public class LearnerInventory {
     @UuidGenerator
     private UUID learner_inventory_id;
     @ManyToOne
-    @JoinColumn(name = "learner_id")
+    @JoinColumn(name = "learner_id", nullable = false)
     private Learner learner;
     @OneToOne
     @JoinColumn(name = "item_id")

@@ -45,7 +45,6 @@ public class LearnerInventoryService {
     }
 
     public List<InventoryItemResponse> addOrIncrement(UUID supabaseUserId, InventoryRequest request) {
-        System.out.println(request);
         Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
         Item item = itemRepository.findById(request.getItemId()).orElseThrow(() -> new RuntimeException("Item not found."));
         int qty = request.getQuantity() == null ? 1 : Math.max(1, request.getQuantity());
@@ -62,6 +61,26 @@ public class LearnerInventoryService {
         inventory.setQuantity(currentQuantity + qty);
         inventory.setUpdated_at(LocalDateTime.now());
         repository.save(inventory);
+        return getMyInventory(supabaseUserId);
+    }
+
+    public List<InventoryItemResponse> removeOrDecrement(UUID supabaseUserId, UUID itemId, int quantity) {
+        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+
+        LearnerInventory inventory = repository.findByLearnerLearnerIdAndItemItemId(learner.getLearnerId(), itemId).orElseThrow(() -> new RuntimeException("Item not found in learner inventory"));
+
+        int qtyToRemove = Math.max(1, quantity);
+        int currentQty = inventory.getQuantity() == null ? 0 : inventory.getQuantity();
+        int remaining = currentQty - qtyToRemove;
+
+        if (remaining <= 0) {
+            repository.delete(inventory);
+        } else {
+            inventory.setQuantity(remaining);
+            inventory.setUpdated_at(LocalDateTime.now());
+            repository.save(inventory);
+        }
+
         return getMyInventory(supabaseUserId);
     }
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
+import { apiService } from '../services/api.js';
 
 export class CombatScene extends Phaser.Scene {
   constructor() {
@@ -221,9 +222,15 @@ export class CombatScene extends Phaser.Scene {
     this.logText.setText(this.battleLog.join('\n'));
   }
 
-  victory() {
+  async victory() {
     const xpGained = Math.floor(Math.random() * 50) + 25;
     gameState.updateXP(xpGained);
+
+    const learner = gameState.getLearner();
+    if(learner?.learner_id) {
+      const savedLearner = await apiService.updateLearner(learner.learner_id, {...learner, updated_at: new Date().toISOString()});
+      gameState.setLearner(savedLearner);
+    }
     
     this.addLog(`Victory! Gained ${xpGained} XP!`);
     

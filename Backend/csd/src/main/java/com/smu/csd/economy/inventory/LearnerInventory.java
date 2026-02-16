@@ -1,10 +1,11 @@
-package com.smu.csd.economy;
+package com.smu.csd.economy.inventory;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
+import com.smu.csd.economy.Item;
 import com.smu.csd.roles.learner.Learner;
 
 import jakarta.persistence.Column;

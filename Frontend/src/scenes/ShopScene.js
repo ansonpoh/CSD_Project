@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
+import { apiService } from '../services/api.js';
 
 export class ShopScene extends Phaser.Scene {
   constructor() {
@@ -30,14 +31,13 @@ export class ShopScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // DEVELOPMENT MODE - Use mock items instead of API
-    this.items = this.getMockItems();
-    this.displayItems();
+    // this.items = this.getMockItems();
+    // this.displayItems();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
-    /*
+    
     // Load items
     await this.loadItems();
-    */
 
     // Close button
     const closeBtn = this.add.rectangle(width - 60, 30, 100, 40, 0x666666)
@@ -111,15 +111,9 @@ export class ShopScene extends Phaser.Scene {
     try {
       let items = await apiService.getAllItems();
       this.items = items.filter(item => item.is_active);
-
-      if (this.items.length === 0) {
-        await this.createDemoItems();
-      } else {
-        this.displayItems();
-      }
+      this.displayItems()
     } catch (error) {
       console.error('Failed to load items:', error);
-      await this.createDemoItems();
     }
   }
 
@@ -315,12 +309,23 @@ export class ShopScene extends Phaser.Scene {
     return colors[type] || 0x6b7280;
   }
 
-  purchaseItem(item) {
-    if (this.gold >= item.price) {
-      this.gold -= item.price;
-      gameState.addItem(item);
-      
-      // Show purchase confirmation
+  async purchaseItem(item) {
+    if (this.gold < item.price) return;
+
+    const learner = gameState.getLearner();
+    const itemId = item.itemId;
+
+    this.gold -= item.price;
+
+    try {
+      if (learner?.learnerId && itemId) {
+        const updatedInventory = await apiService.addInventoryItem(itemId, 1, false);
+        gameState.setInventory(updatedInventory);
+      } else {
+        // fallback for dev/mock mode
+        gameState.addItem(item, 1);
+      }
+
       const width = this.cameras.main.width;
       const confirmText = this.add.text(width / 2, 100, `Purchased ${item.name}!`, {
         fontSize: '20px',
@@ -328,13 +333,14 @@ export class ShopScene extends Phaser.Scene {
         backgroundColor: '#000000',
         padding: { x: 10, y: 5 }
       }).setOrigin(0.5);
-      
-      this.time.delayedCall(1500, () => {
-        confirmText.destroy();
-      });
-      
-      // Refresh the display
+
+      this.time.delayedCall(1500, () => confirmText.destroy());
       this.scene.restart();
+    } catch (error) {
+      this.gold += item.price; // rollback local gold on failure
+      console.error('Purchase failed:', error);
     }
   }
+
+
 }

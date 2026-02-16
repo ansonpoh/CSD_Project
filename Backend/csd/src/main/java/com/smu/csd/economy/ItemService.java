@@ -18,8 +18,8 @@ public class ItemService {
         return repository.findAll();
     }
 
-    public Optional<Item> getItemById(UUID item_id) {
-        return repository.findById(item_id);
+    public Item getItemById(UUID item_id) {
+        return repository.findById(item_id).orElseThrow(() -> new RuntimeException("Item not found."));
     }
 
     public Item saveItem(Item item) {

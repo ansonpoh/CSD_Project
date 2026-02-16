@@ -165,6 +165,28 @@ class ApiService {
     await this.api.delete(`/learner/${id}`);
   }
 
+  // Inventory endpoints
+  async getMyInventory() {
+    const { data } = await this.api.get('/inventory/me');
+    return data;
+  }
+
+  async addInventoryItem(itemId, quantity = 1, isEquipped = false) {
+    const { data } = await this.api.post('/inventory/me/items', {
+      itemId,
+      quantity,
+      isEquipped
+    });
+    return data; 
+  }
+
+  async removeInventoryItem(itemId, quantity = 1) {
+    const { data } = await this.api.delete(`/inventory/me/items/${itemId}`, {
+      params: { quantity }
+    });
+    return data; 
+  }
+
   // Administrator endpoints
   async getAllAdministrators() {
     const { data } = await this.api.get('/administrators');

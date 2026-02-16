@@ -22,7 +22,7 @@ public class LearnerService {
         return repository.findById(learner_id);
     }
 
-    public Optional<Learner> getBySupabaseUserId(UUID supabaseUserId) {
+    public Learner getBySupabaseUserId(UUID supabaseUserId) {
         return repository.findBySupabaseUserId(supabaseUserId);
     }
 

@@ -163,8 +163,9 @@ export class UIScene extends Phaser.Scene {
     } else {
       inventory.forEach((item, index) => {
         const y = height / 2 - 150 + (index * 60);
+        const qty = item.quantity ?? 1;
         
-        const itemText = this.add.text(width / 2 - 250, y, `${item.name} - ${item.description}`, {
+        const itemText = this.add.text(width / 2 - 250, y, `${item.name} x${qty} - ${item.description}`, {
           fontSize: '18px',
           color: '#ffffff'
         });

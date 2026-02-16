@@ -138,6 +138,16 @@ export class LoginScene extends Phaser.Scene {
         return;
       }
       gameState.setLearner(learner);
+      
+      // Loads Inventory
+      try {
+        const inventory = await apiService.getMyInventory();
+        gameState.setInventory(inventory || []);
+      } catch (e) {
+        console.error('Failed to load inventory:', e);
+        gameState.setInventory([]);
+      }
+
       this.startGame();
     } catch (error) {
       this.setMessage(error.message || 'Login failed');
@@ -184,6 +194,7 @@ export class LoginScene extends Phaser.Scene {
 
       const createdLearner = await apiService.addLearner(learnerPayload);
       gameState.setLearner(createdLearner);
+      gameState.setInventory([]);
 
       this.cleanup();
       this.startGame();

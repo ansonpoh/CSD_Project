@@ -44,7 +44,7 @@ public class LearnerController {
     }
 
     @GetMapping("/me")
-    public Optional<Learner> getCurrentLearner(Authentication authentication) {
+    public Learner getCurrentLearner(Authentication authentication) {
         Jwt jwt = (Jwt) authentication.getPrincipal();
         UUID supabaseUserId = UUID.fromString(jwt.getSubject());
         return service.getBySupabaseUserId(supabaseUserId);

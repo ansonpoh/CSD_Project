@@ -69,17 +69,48 @@ class GameStateManager {
   }
 
   // Inventory management
-  addItem(item) {
-    this.inventory.push(item);
+  setInventory(inventory = []) {
+    this.inventory = Array.isArray(inventory) ? inventory : [];
     this.notify();
   }
 
-  removeItem(itemId) {
-    const index = this.inventory.findIndex(item => item.item_id === itemId);
+  addItem(item, quantity = 1) {
+    if (!item) return;
+    const itemId = item.item_id || item.id;
+    if (!itemId) return;
+
+    const index = this.inventory.findIndex((x) => (x.item_id || x.id) === itemId);
     if (index > -1) {
-      this.inventory.splice(index, 1);
+      const currentQty = this.inventory[index].quantity ?? 1;
+      this.inventory[index] = {
+        ...this.inventory[index],
+        quantity: currentQty + quantity
+      };
+    } else {
+      this.inventory.push({
+        ...item,
+        item_id: item.item_id || item.id,
+        quantity: item.quantity ?? quantity
+      });
+    }
+    this.notify();
+  }
+
+  removeItem(item_id, quantity = 1) {
+    const index = this.inventory.findIndex((item) => (item.item_id || item.id) === item_id);
+    if (index > -1) {
+      const currentQty = this.inventory[index].quantity ?? 1;
+      const nextQty = currentQty - quantity;
+      if (nextQty <= 0) this.inventory.splice(index, 1);
+      else this.inventory[index] = { ...this.inventory[index], quantity: nextQty };
       this.notify();
     }
+
+    // const index = this.inventory.findIndex(item => item.item_id === itemId);
+    // if (index > -1) {
+    //   this.inventory.splice(index, 1);
+    //   this.notify();
+    // }
   }
 
   getInventory() {
@@ -87,7 +118,8 @@ class GameStateManager {
   }
 
   hasItem(itemId) {
-    return this.inventory.some(item => item.item_id === itemId);
+    return this.inventory.some((item) => (item.item_id || item.id) === itemId && (item.quantity ?? 1) > 0);
+    // return this.inventory.some(item => item.item_id === itemId);
   }
 
   // Persistence

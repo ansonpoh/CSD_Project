@@ -22,7 +22,8 @@ import lombok.NoArgsConstructor;
 public class Item {
     @Id
     @UuidGenerator
-    private UUID item_id;
+    @Column(name = "item_id")
+    private UUID itemId;
     @Column
     private String item_type;
     @Column

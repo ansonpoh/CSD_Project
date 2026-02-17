@@ -7,8 +7,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
-import com.smu.csd.economy.Item;
-import com.smu.csd.economy.ItemRepository;
+import com.smu.csd.economy.item.Item;
+import com.smu.csd.economy.item.ItemRepository;
 import com.smu.csd.roles.learner.LearnerRepository;
 import com.smu.csd.roles.learner.Learner;
 

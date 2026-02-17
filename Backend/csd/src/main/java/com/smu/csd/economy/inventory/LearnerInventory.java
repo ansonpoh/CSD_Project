@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
-import com.smu.csd.economy.Item;
+import com.smu.csd.economy.item.Item;
 import com.smu.csd.roles.learner.Learner;
 
 import jakarta.persistence.Column;
@@ -13,7 +13,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,7 +32,7 @@ public class LearnerInventory {
     @ManyToOne
     @JoinColumn(name = "learner_id", nullable = false)
     private Learner learner;
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "item_id")
     private Item item;
     @Column

@@ -1,4 +1,4 @@
-package com.smu.csd.economy;
+package com.smu.csd.economy.item;
 
 import java.util.UUID;
 

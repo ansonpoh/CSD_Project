@@ -69,6 +69,12 @@ class ApiService {
     await this.api.delete(`/economy/${id}`);
   }
 
+  // Purchase endpoints
+  async createPurchase(lines) {
+    const { data } = await this.api.post('/purchases/me', { lines });
+    return data;
+  }
+
   // Map endpoints
   async getAllMaps() {
     const { data } = await this.api.get('/maps/all');

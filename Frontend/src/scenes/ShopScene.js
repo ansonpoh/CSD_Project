@@ -320,6 +320,7 @@ export class ShopScene extends Phaser.Scene {
     try {
       if (learner?.learnerId && itemId) {
         const updatedInventory = await apiService.addInventoryItem(itemId, 1, false);
+        apiService.createPurchase([{ itemId: item.itemId, quantity: 1 }])
         gameState.setInventory(updatedInventory);
       } else {
         // fallback for dev/mock mode

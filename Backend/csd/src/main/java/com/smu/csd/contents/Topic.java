@@ -19,7 +19,7 @@ public class Topic {
     @Id
     @UuidGenerator
     @Column(name = "topic_id")
-    private UUID contributorId;
+    private UUID topicId;
 
     @Column(name = "topic_name")
     private String topicName;

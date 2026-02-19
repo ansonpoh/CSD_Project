@@ -18,14 +18,14 @@ export class ShopScene extends Phaser.Scene {
     this.add.rectangle(0, 0, width, height, 0x000000, 0.8).setOrigin(0);
 
     // Title
-    this.add.text(width / 2, 50, 'ITEM SHOP', {
+    this.add.text(width / 2, 100, 'ITEM SHOP', {
       fontSize: '36px',
       color: '#f59e0b',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     // Gold display
-    this.add.text(width / 2, 100, `Gold: ${this.gold}`, {
+    this.add.text(width / 2, 150, `Gold: ${this.gold}`, {
       fontSize: '24px',
       color: '#f59e0b'
     }).setOrigin(0.5);
@@ -40,10 +40,10 @@ export class ShopScene extends Phaser.Scene {
     await this.loadItems();
 
     // Close button
-    const closeBtn = this.add.rectangle(width - 60, 30, 100, 40, 0x666666)
+    const closeBtn = this.add.rectangle(width - 60, 90, 100, 40, 0x666666)
       .setInteractive({ useHandCursor: true });
     
-    this.add.text(width - 60, 30, 'CLOSE', {
+    this.add.text(width - 60, 90, 'CLOSE', {
       fontSize: '18px',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -162,7 +162,7 @@ export class ShopScene extends Phaser.Scene {
 
   displayItems() {
     const width = this.cameras.main.width;
-    const startY = 180;
+    const startY = 250;
     const spacing = 100;
     const itemsPerRow = 2;
 

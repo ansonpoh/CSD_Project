@@ -3,6 +3,8 @@ package com.smu.csd.roles.administrator;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.UuidGenerator;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -23,8 +25,9 @@ import lombok.NoArgsConstructor;
 public class Administrator {
 
     @Id
+    @UuidGenerator
     @Column(name = "administrator_id", length = 10)
-    private String aid;
+    private UUID aid;
 
     @Column(name = "supabase_user_id")
     private UUID supabaseUserId;

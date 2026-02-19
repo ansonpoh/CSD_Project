@@ -47,6 +47,9 @@ export class GameMapScene extends Phaser.Scene {
     // Add UI buttons
     this.createUI();
 
+    this.createSoldierAnimations()
+    this.player.play('soldier_idle');
+
   }
 
   getMockNPCs() {
@@ -127,13 +130,13 @@ export class GameMapScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    const hasKnightTexture = this.textures.exists('knight_idle');
+    const hasTexture = this.textures.exists('soldier');
     // Create player sprite (simple circle for now)
-    this.player = this.physics.add.sprite(width / 2, height / 2,hasKnightTexture ? 'knight_idle' : '');
+    this.player = this.physics.add.sprite(width / 2, height / 2, hasTexture ? 'soldier' : '', 0);
     
     // Draw player as a circle
-    if(hasKnightTexture) {
-      this.player.setScale(0.2);
+    if(hasTexture) {
+      this.player.setScale(4);
     } else {
       const graphics = this.add.graphics();
       graphics.fillStyle(0x4a90e2, 1);
@@ -146,6 +149,32 @@ export class GameMapScene extends Phaser.Scene {
 
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
+  }
+
+  createSoldierAnimations() {
+    const sheetKey = "soldier";
+    const maxCols = 9;
+
+    const rowFrames = (row, count, startCol = 0) => Array.from({length: count}, (_, i) => row * maxCols + startCol + i);
+    const makeAnim = (key, row, count, frameRate = 10, repeat = -1, startCol = 0) => {
+      if (this.anims.exists(key)) return;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(sheetKey, {
+          frames: rowFrames(row, count, startCol)
+        }),
+        frameRate,
+        repeat
+      });
+    };
+
+    makeAnim('soldier_idle', 0, 6, 4, -1);
+    makeAnim('soldier_move', 1, 8, 12, -1);
+    makeAnim('soldier_attack_1', 2, 6, 10, 0);
+    makeAnim('soldier_attack_2', 3, 6, 10, 0);
+    makeAnim('soldier_attack_3', 4, 9, 12, 0);
+    makeAnim('soldier_hurt', 5, 4, 8, 0);
+    makeAnim('soldier_dead', 6, 4, 8, 0);
   }
 
   async loadEntities() {
@@ -280,21 +309,32 @@ export class GameMapScene extends Phaser.Scene {
     if (!this.player || !this.cursors) return;
 
     const speed = 200;
+    let vx = 0;
+    let vy = 0;
     
     this.player.setVelocity(0);
 
     if (this.cursors.left.isDown) {
-      this.player.setVelocityX(-speed);
+      vx -= speed
       this.player.setFlipX(true);
     } else if (this.cursors.right.isDown) {
-      this.player.setVelocityX(speed);
+      vx = speed;
       this.player.setFlipX(false);
     }
 
     if (this.cursors.up.isDown) {
-      this.player.setVelocityY(-speed);
+      vy -= speed;
     } else if (this.cursors.down.isDown) {
-      this.player.setVelocityY(speed);
+      vy = speed;
+    }
+
+    this.player.setVelocity(vx, vy);
+    const isMoving = vx !== 0 || vy !== 0;
+    const nextAnim = isMoving ? 'soldier_move' : 'soldier_idle';
+
+    // Prevents restarting of animation at every frame.
+    if(this.player.anims.currentAnim?.key !== nextAnim) {
+      this.player.play(nextAnim, true);
     }
 
     // Update NPC name positions

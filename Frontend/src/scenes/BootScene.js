@@ -45,9 +45,12 @@ export class BootScene extends Phaser.Scene {
     // Load placeholder assets
     this.load.image('logo', 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%234a90e2"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="48">GAME</text></svg>');
 
-    // Sprite knight_idle
-    const { data } = supabase.storage.from('game-assets').getPublicUrl('knight_idle.png');
-    this.load.image('knight_idle', data.publicUrl);
+    // Spritesheet soldier_idle 
+    const { data } = supabase.storage.from('game-assets').getPublicUrl('soldier.png');
+    this.load.spritesheet('soldier', data.publicUrl, {
+      frameWidth: 100,
+      frameHeight: 100
+});
   }
 
   create() {

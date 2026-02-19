@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { SoldierController } from '../characters/soldier/SoldierController.js';
+import { apiService } from "../services/api.js";
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });

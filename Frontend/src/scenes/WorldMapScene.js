@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
+import { apiService } from '../services/api.js';
 
 export class WorldMapScene extends Phaser.Scene {
   constructor() {
@@ -19,11 +20,11 @@ export class WorldMapScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // DEVELOPMENT MODE - Use mock maps instead of API
-    this.maps = this.getMockMaps();
-    this.displayMaps();
+    // this.maps = this.getMockMaps();
+    // this.displayMaps();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
-    /*
+    
     // Load maps from backend
     try {
       this.maps = await apiService.getAllMaps();
@@ -36,9 +37,9 @@ export class WorldMapScene extends Phaser.Scene {
       }).setOrigin(0.5);
       
       // Create a demo map if none exist
-      await this.createDemoMap();
+      // await this.createDemoMap();
     }
-    */
+    
   }
 
   getMockMaps() {

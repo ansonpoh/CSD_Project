@@ -102,6 +102,11 @@ class ApiService {
     return data;
   }
 
+  async getMonstersByMap(id) {
+    const {data} = await this.api.get(`/monsters/map/${id}`);
+    return data;
+  }
+
   async addMonster(monster) {
     const { data } = await this.api.post('/monsters/add', monster);
     return data;

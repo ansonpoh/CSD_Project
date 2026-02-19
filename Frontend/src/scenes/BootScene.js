@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { supabase } from "../config/supabaseClient";
 import { soldier } from '../characters/soldier/Soldier';
+import { monsterRegistry } from '../characters/monsters/MonsterRegistry';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -50,6 +51,13 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(soldier.sheetKey, soldier.file, {
       frameWidth: soldier.frameWidth,
       frameHeight: soldier.frameHeight
+    });
+
+    Object.values(monsterRegistry).forEach((m) => {
+      this.load.spritesheet(m.key, m.file, {
+        frameWidth: m.frameWidth, 
+        frameHeight: m.frameHeight
+      }); 
     });
   }
 

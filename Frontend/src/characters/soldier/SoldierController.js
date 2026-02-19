@@ -17,7 +17,7 @@ export class SoldierController {
 
     this.createAnims();
     this.sprite.play(`idle`);
-    this.sprite.setScale(3);
+    this.sprite.setScale(cfg.scale);
   }
 
   createAnims() {

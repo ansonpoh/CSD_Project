@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { SoldierController } from '../characters/soldier/SoldierController.js';
 import { apiService } from "../services/api.js";
+import { monsterRegistry } from '../characters/monsters/MonsterRegistry.js';
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });
@@ -35,9 +36,9 @@ export class GameMapScene extends Phaser.Scene {
 
     // DEVELOPMENT MODE - Use mock data instead of API
     this.npcs = this.getMockNPCs();
-    this.monsters = this.getMockMonsters();
+    // this.monsters = this.getMockMonsters();
     this.createNPCs();
-    this.createMonsters();
+    // this.createMonsters();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
     /*
@@ -54,6 +55,17 @@ export class GameMapScene extends Phaser.Scene {
 
     // Add UI buttons
     this.createUI();
+    try {
+      const currentMap = gameState.getCurrentMap();
+      const mapId = currentMap?.mapId || currentMap?.id;
+      if (mapId) this.monsters = await apiService.getMonstersByMap(mapId);
+      else this.monsters = [];
+      this.createMonsterAnimations();
+      this.createMonsters();
+    } catch (e) {
+      console.error('Failed to load monsters for map:', e);
+      this.monsters = [];
+    }
   }
 
   getMockNPCs() {
@@ -219,36 +231,55 @@ export class GameMapScene extends Phaser.Scene {
 
   createMonsters() {
     // Create monster sprites at random positions
-    this.monsters.slice(0, 3).forEach((monster, index) => {
-      const x = 300 + (index * 200);
-      const y = 400 + (Math.random() * 150);
-      
-      // Create monster sprite (red circle)
-      const graphics = this.add.graphics();
-      graphics.fillStyle(0xef4444, 1);
-      graphics.fillCircle(0, 0, 18);
-      graphics.generateTexture('monster_' + index, 36, 36);
-      graphics.destroy();
-      
-      const monsterSprite = this.physics.add.sprite(x, y, 'monster_' + index);
-      monsterSprite.setData('monster', monster);
-      monsterSprite.setInteractive();
-      monsterSprite.setDepth(5);
-      
-      // Add name label
-      const nameText = this.add.text(x, y - 30, monster.name, {
+
+    this.monsters.forEach((monster, index) => {
+      const x = 300 + index * 180;
+      const y = 380 + Math.random() * 150;
+
+      const monsterName = monster.name.toLowerCase();
+      const cfg = monsterRegistry[monsterName] || monsterRegistry.orc;
+      if (!this.textures.exists(monsterName)) {
+        console.warn(`Missing texture for ${monster.asset}, fallback to orc`);
+      }
+
+      const m_sprite = this.physics.add.sprite(x, y, monsterName, 0);
+      m_sprite.setScale(cfg.scale);
+      m_sprite.setDepth(5);
+      m_sprite.setInteractive();
+      m_sprite.setData('monster', monster);
+
+      const nameText = this.add.text(x, y - 30, monsterName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 2 }
       }).setOrigin(0.5);
-      monsterSprite.setData('nameText', nameText);
-      
-      monsterSprite.on('pointerdown', () => {
-        this.encounterMonster(monster);
+      m_sprite.setData('nameText', nameText);
+
+      m_sprite.play(`${monsterName}_idle`, true)
+      m_sprite.on('pointerdown', () => this.encounterMonster(monster));
+      this.monsterSprites.push(m_sprite);
+    });
+  }
+
+  createMonsterAnimations() {
+    Object.entries(monsterRegistry).forEach(([monsterType, def]) => {
+      Object.entries(def.anims || {}).forEach(([animName, a]) => {
+        const key = `${monsterType}_${animName}`; // e.g. orc_idle
+        if (this.anims.exists(key)) return;
+
+        const frames = Array.from(
+          { length: a.count },
+          (_, i) => a.row * def.maxCols + i
+        );
+
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(def.key, { frames }),
+          frameRate: a.frameRate,
+          repeat: a.repeat
+        });
       });
-      
-      this.monsterSprites.push(monsterSprite);
     });
   }
 

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { soldier as cfg } from './Soldiertmp.js';
+import { soldier as cfg } from './Soldier.js';
 
 export class SoldierController {
   constructor(scene, x, y) {

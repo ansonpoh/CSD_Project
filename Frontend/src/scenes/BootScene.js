@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { supabase } from "../config/supabaseClient";
-import { soldier } from '../characters/soldier/Soldiertmp';
+import { soldier } from '../characters/soldier/Soldier';
 
 export class BootScene extends Phaser.Scene {
   constructor() {

@@ -1,7 +1,6 @@
 package com.smu.csd.economy.item;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;

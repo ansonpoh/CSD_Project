@@ -3,7 +3,7 @@ package com.smu.csd;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.transaction.support.TransactionTemplate;
+// import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;

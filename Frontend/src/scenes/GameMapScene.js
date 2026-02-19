@@ -46,6 +46,7 @@ export class GameMapScene extends Phaser.Scene {
 
     // Add UI buttons
     this.createUI();
+
   }
 
   getMockNPCs() {
@@ -126,17 +127,23 @@ export class GameMapScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
+    const hasKnightTexture = this.textures.exists('knight_idle');
     // Create player sprite (simple circle for now)
-    this.player = this.physics.add.sprite(width / 2, height / 2, '');
+    this.player = this.physics.add.sprite(width / 2, height / 2,hasKnightTexture ? 'knight_idle' : '');
     
     // Draw player as a circle
-    const graphics = this.add.graphics();
-    graphics.fillStyle(0x4a90e2, 1);
-    graphics.fillCircle(0, 0, 20);
-    graphics.generateTexture('player', 40, 40);
-    graphics.destroy();
-    
-    this.player.setTexture('player');
+    if(hasKnightTexture) {
+      this.player.setScale(0.2);
+    } else {
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0x4a90e2, 1);
+      graphics.fillCircle(0, 0, 20);
+      graphics.generateTexture('player', 40, 40);
+      graphics.destroy();
+      
+      this.player.setTexture('player');
+    }
+
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
   }
@@ -278,8 +285,10 @@ export class GameMapScene extends Phaser.Scene {
 
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-speed);
+      this.player.setFlipX(true);
     } else if (this.cursors.right.isDown) {
       this.player.setVelocityX(speed);
+      this.player.setFlipX(false);
     }
 
     if (this.cursors.up.isDown) {

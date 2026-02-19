@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface LearnerRepository extends JpaRepository<Learner, UUID> {
     Optional<Learner> findBySupabaseUserId(UUID supabaseUserId);
+
+    boolean existsBySupabaseUserId(UUID supabaseUserId);
 }

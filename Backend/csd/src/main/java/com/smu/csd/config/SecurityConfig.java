@@ -53,7 +53,10 @@ public class SecurityConfig {
                 // Admin endpoints - requires ROLE_ADMIN
                 .requestMatchers("/api/administrators/**").hasRole("ADMIN")
 
-                // All other requests require authentication
+                // Contributor endpoints - requires ROLE_CONTRIBUTOR or ROLE_ADMIN
+                .requestMatchers("/api/contributors/**").hasAnyRole("CONTRIBUTOR", "ADMIN")
+
+                // All other requests require authentication (no unauthenticated access)
                 .anyRequest().authenticated()
             )
             // .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

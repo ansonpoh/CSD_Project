@@ -1,4 +1,4 @@
-package com.smu.csd.roles.administrator;
+package com.smu.csd.roles.contributor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -17,17 +17,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor  // JPA needs this to create an empty object before filling fields from DB
-@AllArgsConstructor // Lombok's @Builder needs this internally to construct the final object
-@Builder            // lets you do Contributor.builder().email("x").fullName("y").build()
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
-@Table(name = "administrator", schema = "roles")
-public class Administrator {
+@Table(name = "contributor", schema = "roles")
+public class Contributor {
 
     @Id
     @UuidGenerator
-    @Column(name = "administrator_id")
-    private UUID administratorId;
+    @Column(name = "contributor_id")
+    private UUID contributorId;
 
     @Column(name = "supabase_user_id")
     private UUID supabaseUserId;
@@ -37,6 +37,9 @@ public class Administrator {
 
     @Column(name = "full_name")
     private String fullName;
+
+    @Column(columnDefinition = "TEXT")
+    private String bio;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -43,7 +43,7 @@ public class AdministratorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Administrator> getById(@PathVariable String id) throws ResourceNotFoundException {
+    public ResponseEntity<Administrator> getById(@PathVariable UUID id) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getById(id));
     }
 
@@ -59,20 +59,20 @@ public class AdministratorController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Administrator> updateAdministrator(
-            @PathVariable String id,
+            @PathVariable UUID id,
             @RequestBody UpdateAdminRequest request) throws ResourceNotFoundException {
         Administrator admin = service.updateAdministrator(id, request.fullName(), request.isActive());
         return ResponseEntity.ok(admin);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAdministrator(@PathVariable String id) throws ResourceNotFoundException {
+    public ResponseEntity<Void> deleteAdministrator(@PathVariable UUID id) throws ResourceNotFoundException {
         service.deleteAdministrator(id);
         return ResponseEntity.noContent().build();  // 204 No Content
     }
 
     @PutMapping("/{id}/deactivate")
-    public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable String id) throws ResourceNotFoundException {
+    public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable UUID id) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.deactivateAdministrator(id));
     }
 

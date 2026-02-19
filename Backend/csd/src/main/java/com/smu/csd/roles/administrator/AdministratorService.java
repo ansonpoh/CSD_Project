@@ -13,24 +13,9 @@ import com.smu.csd.exception.ResourceNotFoundException;
 public class AdministratorService {
     private final AdministratorRepository repository;
 
-    private static final String ID_PREFIX = "ADM";
-
     // Spring sees AdministratorService needs AdministratorRepository so it will create repo and pass to this constructor
     public AdministratorService(AdministratorRepository repository) {
         this.repository = repository;
-    }
-
-    // Generate next ID: ADM001, ADM002, ADM003, etc.
-    private String generateNextId() {
-        return repository.findTopByOrderByAidDesc()
-                .map(admin -> {
-                    // Extract numeric part from "ADM001" -> 1
-                    String currentId = admin.getAid();
-                    int number = Integer.parseInt(currentId.substring(ID_PREFIX.length()));
-                    // Increment and format back to "ADM002"
-                    return String.format("%s%03d", ID_PREFIX, number + 1);
-                })
-                .orElse(ID_PREFIX + "001"); // First admin gets ADM001
     }
 
     // @Transactional ensures if something fails, the database rolls back so no partial data is saved
@@ -46,13 +31,9 @@ public class AdministratorService {
             throw new ResourceAlreadyExistsException("Administrator profile already exists for this user");
         }
 
-        // Generate the next ID automatically
-        String newId = generateNextId();
-
         // Build the Administrator object using Lombok's @Builder
         // Dont need to create constructors, getters and setters in Administrator
         Administrator admin = Administrator.builder()
-                .aid(newId)
                 .supabaseUserId(supabaseUserId)
                 .email(email)
                 .fullName(fullName)
@@ -66,7 +47,7 @@ public class AdministratorService {
         return repository.findAll();
     }
 
-    public Administrator getById(String id) throws ResourceNotFoundException {
+    public Administrator getById(UUID id) throws ResourceNotFoundException {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Administrator", "id", id));
     }
@@ -82,7 +63,7 @@ public class AdministratorService {
     }
 
     @Transactional
-    public Administrator updateAdministrator(String id, String fullName, Boolean isActive) throws ResourceNotFoundException {
+    public Administrator updateAdministrator(UUID id, String fullName, Boolean isActive) throws ResourceNotFoundException {
         // First, fetch the existing administrator
         Administrator admin = getById(id);
 
@@ -100,7 +81,7 @@ public class AdministratorService {
 
     // also deletes from auth.users due to ON DELETE CASCADE in SQL
     @Transactional
-    public void deleteAdministrator(String id) throws ResourceNotFoundException {
+    public void deleteAdministrator(UUID id) throws ResourceNotFoundException {
         if (!repository.existsById(id)) {
             throw new ResourceNotFoundException("Administrator", "id", id);
         }
@@ -109,7 +90,7 @@ public class AdministratorService {
 
     // Deactivate instead of deleting. Keeps the record but marks as inactive.
     @Transactional
-    public Administrator deactivateAdministrator(String id) throws ResourceNotFoundException {
+    public Administrator deactivateAdministrator(UUID id) throws ResourceNotFoundException {
         Administrator admin = getById(id);
         admin.setIsActive(false);
         return repository.save(admin);

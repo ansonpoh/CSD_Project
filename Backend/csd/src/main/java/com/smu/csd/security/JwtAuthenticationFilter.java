@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.smu.csd.roles.administrator.AdministratorRepository;
+import com.smu.csd.roles.contributor.ContributorRepository;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -28,9 +29,10 @@ import java.util.UUID;
  * 1. User logs in via Supabase → gets JWT with supabaseUserId
  * 2. User sends request with Bearer token
  * 3. Filter extracts supabaseUserId from token
- * 4. Filter checks Administrator table:
- *    - Found → ROLE_ADMIN
- *    - Not found → ROLE_USER (default)
+ * 4. Filter checks role tables in order:
+ *    - Found in administrator → ROLE_ADMIN
+ *    - Found in contributor   → ROLE_CONTRIBUTOR
+ *    - Found in learner       → ROLE_LEARNER
  * 5. Spring Security context is set with the correct role
  */
 
@@ -39,6 +41,7 @@ import java.util.UUID;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final AdministratorRepository administratorRepository;
+    private final ContributorRepository contributorRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -91,16 +94,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * Determine user role by checking which table they exist in.
-     * Add more checks here as you add more role tables (e.g., CustomerRepository).
+     * Add more checks here as you add more role tables.
      */
     private String determineRole(UUID supabaseUserId) {
         if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
             return "ADMIN";
         }
-        // Add more role checks here:
-        // if (LearnerRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (contributorRepository.existsBySupabaseUserId(supabaseUserId)) {
+            return "CONTRIBUTOR";
+        }
+        // if (learnerRepository.existsBySupabaseUserId(supabaseUserId)) {
         //     return "LEARNER";
         // }
-        return "USER";  // Default role for authenticated users not in any role table
+        return "LEARNER";  // Default role — all registered users are learners
     }
 }

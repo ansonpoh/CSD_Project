@@ -2,10 +2,14 @@ package com.smu.csd.roles.learner;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.smu.csd.exception.ResourceAlreadyExistsException;
+import com.smu.csd.exception.ResourceNotFoundException;
+
 @Service
 public class LearnerService {
     private final LearnerRepository repository;
@@ -14,35 +18,71 @@ public class LearnerService {
         this.repository = repository;
     }
 
+    @Transactional
+    public Learner createLearner(UUID supabaseUserId, String username, String email, String fullName)
+            throws ResourceAlreadyExistsException {
+        if (repository.existsByEmail(email)) {
+            throw new ResourceAlreadyExistsException("Learner", "email", email);
+        }
+
+        if (repository.existsBySupabaseUserId(supabaseUserId)) {
+            throw new ResourceAlreadyExistsException("Learner profile already exists for this user");
+        }
+
+        Learner learner = Learner.builder()
+                .supabaseUserId(supabaseUserId)
+                .username(username)
+                .email(email)
+                .full_name(fullName)
+                .build();
+
+        return repository.save(learner);
+    }
+
     public List<Learner> getAllLearners() {
         return repository.findAll();
     }
 
-    public Optional<Learner> getLearnerById(UUID learner_id) {
-        return repository.findById(learner_id);
+    public Learner getById(UUID id) throws ResourceNotFoundException {
+        return repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Learner", "id", id));
     }
 
-    public Optional<Learner> getBySupabaseUserId(UUID supabaseUserId) {
-        return repository.findBySupabaseUserId(supabaseUserId);
+    public Learner getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
+        return repository.findBySupabaseUserId(supabaseUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId));
     }
 
-    public Learner saveLearner(Learner learner) {
+    @Transactional
+    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Boolean isActive)
+            throws ResourceNotFoundException {
+        Learner learner = getById(id);
+
+        if (username != null) {
+            learner.setUsername(username);
+        }
+        if (fullName != null) {
+            learner.setFull_name(fullName);
+        }
+        if (totalXp != null) {
+            learner.setTotal_xp(totalXp);
+        }
+        if (level != null) {
+            learner.setLevel(level);
+        }
+        if (isActive != null) {
+            learner.setIs_active(isActive);
+        }
+        learner.setUpdated_at(LocalDateTime.now());
+
         return repository.save(learner);
     }
 
-    public Learner updateLearner(UUID learner_id, Learner learner) {
-        return repository.findById(learner_id).map(current -> {
-            current.setUsername(learner.getUsername());
-            current.setEmail(learner.getEmail());
-            current.setFull_name(learner.getFull_name());
-            current.setTotal_xp(learner.getTotal_xp());
-            current.setLevel(learner.getLevel());
-            current.setUpdated_at(LocalDateTime.now());
-            return repository.save(current);
-        }).orElseThrow(() -> new RuntimeException("Learner not found."));
-    }
-
-    public void deleteLearner(UUID learner_id) {
-        repository.deleteById(learner_id);
+    @Transactional
+    public void deleteLearner(UUID id) throws ResourceNotFoundException {
+        if (!repository.existsById(id)) {
+            throw new ResourceNotFoundException("Learner", "id", id);
+        }
+        repository.deleteById(id);
     }
 }

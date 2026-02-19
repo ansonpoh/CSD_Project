@@ -29,7 +29,10 @@ public class MonsterService {
     }
 
     public List<Monster> getMonstersByMapId(UUID map_id) {
-        return monsterMapRepository.findAllByMapMapId(map_id).stream().map(MonsterMap::getMonster).collect(Collectors.toList());
+        return monsterMapRepository.findAllByMapMapId(map_id)
+            .stream()
+            .map(MonsterMap::getMonster)
+            .collect(Collectors.toList());
     }
 
     //Post Requests

@@ -132,6 +132,11 @@ class ApiService {
     return data;
   }
 
+  async getNPCsByMap(id) {
+    const { data } = await this.api.get(`/npcs/map/${id}`)
+    return data;
+  }
+
   async addNPC(npc) {
     const { data } = await this.api.post('/npcs/add', npc);
     return data;

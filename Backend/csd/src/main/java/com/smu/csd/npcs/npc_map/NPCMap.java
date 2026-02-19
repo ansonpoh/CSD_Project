@@ -1,10 +1,11 @@
-package com.smu.csd.npcs;
+package com.smu.csd.npcs.npc_map;
 
 import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
 import com.smu.csd.maps.Map;
+import com.smu.csd.npcs.NPC;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { supabase } from "../config/supabaseClient";
 import { soldier } from '../characters/soldier/Soldier';
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry';
+import { NPCRegistry } from '../characters/npcs/NPCRegistry';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -57,6 +58,13 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(m.key, m.file, {
         frameWidth: m.frameWidth, 
         frameHeight: m.frameHeight
+      }); 
+    });
+
+    Object.values(NPCRegistry).forEach((npc) => {
+      this.load.spritesheet(npc.key, npc.file, {
+        frameWidth: npc.frameWidth, 
+        frameHeight: npc.frameHeight
       }); 
     });
   }

@@ -3,6 +3,7 @@ import { gameState } from '../services/gameState.js';
 import { SoldierController } from '../characters/soldier/SoldierController.js';
 import { apiService } from "../services/api.js";
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry.js';
+import { NPCRegistry } from '../characters/npcs/NPCRegistry.js';
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });
@@ -35,9 +36,9 @@ export class GameMapScene extends Phaser.Scene {
     // this.isAttacking = false;
 
     // DEVELOPMENT MODE - Use mock data instead of API
-    this.npcs = this.getMockNPCs();
+    // this.npcs = this.getMockNPCs();
     // this.monsters = this.getMockMonsters();
-    this.createNPCs();
+    // this.createNPCs();
     // this.createMonsters();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
@@ -58,10 +59,20 @@ export class GameMapScene extends Phaser.Scene {
     try {
       const currentMap = gameState.getCurrentMap();
       const mapId = currentMap?.mapId || currentMap?.id;
-      if (mapId) this.monsters = await apiService.getMonstersByMap(mapId);
-      else this.monsters = [];
+      if (mapId) {
+        this.monsters = await apiService.getMonstersByMap(mapId);
+        this.npcs = await apiService.getNPCsByMap(mapId);
+      } else {
+        this.monsters = [];
+        this.npcs = [];
+      } 
+
       this.createMonsterAnimations();
+      this.createNPCAnimations();
+
       this.createMonsters();
+      this.createNPCs();
+
     } catch (e) {
       console.error('Failed to load monsters for map:', e);
       this.monsters = [];
@@ -196,36 +207,65 @@ export class GameMapScene extends Phaser.Scene {
 
   createNPCs() {
     // Create NPC sprites at random positions
-    this.npcs.slice(0, 3).forEach((npc, index) => {
-      const x = 200 + (index * 250);
-      const y = 200 + (Math.random() * 200);
+    // this.npcs.slice(0, 3).forEach((npc, index) => {
+    //   const x = 200 + (index * 250);
+    //   const y = 200 + (Math.random() * 200);
       
-      // Create NPC sprite (green circle)
-      const graphics = this.add.graphics();
-      graphics.fillStyle(0x4ade80, 1);
-      graphics.fillCircle(0, 0, 18);
-      graphics.generateTexture('npc_' + index, 36, 36);
-      graphics.destroy();
+    //   // Create NPC sprite (green circle)
+    //   const graphics = this.add.graphics();
+    //   graphics.fillStyle(0x4ade80, 1);
+    //   graphics.fillCircle(0, 0, 18);
+    //   graphics.generateTexture('npc_' + index, 36, 36);
+    //   graphics.destroy();
       
-      const npcSprite = this.physics.add.sprite(x, y, 'npc_' + index);
-      npcSprite.setData('npc', npc);
-      npcSprite.setInteractive();
-      npcSprite.setDepth(5);
+    //   const npcSprite = this.physics.add.sprite(x, y, 'npc_' + index);
+    //   npcSprite.setData('npc', npc);
+    //   npcSprite.setInteractive();
+    //   npcSprite.setDepth(5);
       
-      // Add name label
-      const nameText = this.add.text(x, y - 30, npc.name, {
+    //   // Add name label
+    //   const nameText = this.add.text(x, y - 30, npc.name, {
+    //     fontSize: '14px',
+    //     color: '#ffffff',
+    //     backgroundColor: '#000000',
+    //     padding: { x: 5, y: 2 }
+    //   }).setOrigin(0.5);
+    //   npcSprite.setData('nameText', nameText);
+      
+    //   npcSprite.on('pointerdown', () => {
+    //     this.interactWithNPC(npc);
+    //   });
+      
+    //   this.npcSprites.push(npcSprite);
+    // });
+
+    this.npcs.forEach((npc, index) => {
+      const x = 200 + index * 180;
+      const y = 480 + Math.random() * 150;
+
+      const npcName = npc.name.toLowerCase();
+      const cfg = NPCRegistry[npcName] || NPCRegistry.orc;
+      if (!this.textures.exists(npcName)) {
+        console.warn(`Missing texture for ${npc.asset}`);
+      }
+
+      const npc_sprite = this.physics.add.sprite(x, y, npcName, 0);
+      npc_sprite.setScale(cfg.scale);
+      npc_sprite.setDepth(5);
+      npc_sprite.setInteractive();
+      npc_sprite.setData('npc', npc);
+
+      const nameText = this.add.text(x, y - 30, npcName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 2 }
       }).setOrigin(0.5);
-      npcSprite.setData('nameText', nameText);
-      
-      npcSprite.on('pointerdown', () => {
-        this.interactWithNPC(npc);
-      });
-      
-      this.npcSprites.push(npcSprite);
+      npc_sprite.setData('nameText', nameText);
+
+      npc_sprite.play(`${npcName}_idle`, true)
+      npc_sprite.on('pointerdown', () => this.interactWithNPC(npc));
+      this.npcSprites.push(npc_sprite);
     });
   }
 
@@ -266,6 +306,27 @@ export class GameMapScene extends Phaser.Scene {
     Object.entries(monsterRegistry).forEach(([monsterType, def]) => {
       Object.entries(def.anims || {}).forEach(([animName, a]) => {
         const key = `${monsterType}_${animName}`; // e.g. orc_idle
+        if (this.anims.exists(key)) return;
+
+        const frames = Array.from(
+          { length: a.count },
+          (_, i) => a.row * def.maxCols + i
+        );
+
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(def.key, { frames }),
+          frameRate: a.frameRate,
+          repeat: a.repeat
+        });
+      });
+    });
+  }
+
+  createNPCAnimations() {
+    Object.entries(NPCRegistry).forEach(([npcType, def]) => {
+      Object.entries(def.anims || {}).forEach(([animName, a]) => {
+        const key = `${npcType}_${animName}`; 
         if (this.anims.exists(key)) return;
 
         const frames = Array.from(

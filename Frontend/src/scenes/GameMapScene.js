@@ -45,7 +45,7 @@ export class GameMapScene extends Phaser.Scene {
     */
 
     // Setup camera
-    this.cameras.main.startFollow(this.player);
+    this.cameras.main.startFollow(this.playerCtrl.sprite);
     this.cameras.main.setBounds(0, 0, width, height);
 
     // Setup controls
@@ -255,11 +255,11 @@ export class GameMapScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     
     // Shop button
-    const shopBtn = this.add.rectangle(width - 100, 30, 100, 40, 0x4a90e2)
+    const shopBtn = this.add.rectangle(width - 60, 90, 100, 40, 0x4a90e2)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     
-    this.add.text(width - 100, 30, 'SHOP', {
+    this.add.text(width - 60, 90, 'SHOP', {
       fontSize: '18px',
       color: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0);
@@ -270,11 +270,11 @@ export class GameMapScene extends Phaser.Scene {
     });
 
     // Back button
-    const backBtn = this.add.rectangle(60, 30, 100, 40, 0x666666)
+    const backBtn = this.add.rectangle(60, 90, 100, 40, 0x666666)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     
-    this.add.text(60, 30, 'BACK', {
+    this.add.text(60, 90, 'BACK', {
       fontSize: '18px',
       color: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0);

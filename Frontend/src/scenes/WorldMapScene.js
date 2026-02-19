@@ -12,7 +12,7 @@ export class WorldMapScene extends Phaser.Scene {
     const height = this.cameras.main.height;
 
     // Title
-    this.add.text(width / 2, 50, 'SELECT YOUR ADVENTURE', {
+    this.add.text(width / 2, 90, 'SELECT YOUR ADVENTURE', {
       fontSize: '36px',
       color: '#4a90e2',
       fontStyle: 'bold'
@@ -87,7 +87,7 @@ export class WorldMapScene extends Phaser.Scene {
 
   displayMaps() {
     const width = this.cameras.main.width;
-    const startY = 150;
+    const startY = 200;
     const spacing = 120;
 
     if (this.maps.length === 0) {

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
-
+import { SoldierController } from '../characters/soldier/SoldierController.js';
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });
@@ -23,7 +23,14 @@ export class GameMapScene extends Phaser.Scene {
     this.createGrid();
 
     // Create player
-    this.createPlayer();
+    this.playerCtrl = new SoldierController(this, width, height);
+    // this.createPlayer();
+    // this.attackKeys = this.input.keyboard.addKeys({
+    //   atk1: Phaser.Input.Keyboard.KeyCodes.Z,
+    //   atk2: Phaser.Input.Keyboard.KeyCodes.X,
+    //   atk3: Phaser.Input.Keyboard.KeyCodes.C,
+    // });
+    // this.isAttacking = false;
 
     // DEVELOPMENT MODE - Use mock data instead of API
     this.npcs = this.getMockNPCs();
@@ -46,10 +53,6 @@ export class GameMapScene extends Phaser.Scene {
 
     // Add UI buttons
     this.createUI();
-
-    this.createSoldierAnimations()
-    this.player.play('soldier_idle');
-
   }
 
   getMockNPCs() {
@@ -143,38 +146,25 @@ export class GameMapScene extends Phaser.Scene {
       graphics.fillCircle(0, 0, 20);
       graphics.generateTexture('player', 40, 40);
       graphics.destroy();
-      
       this.player.setTexture('player');
     }
 
-    this.player.setCollideWorldBounds(true);
-    this.player.setDepth(10);
-  }
-
-  createSoldierAnimations() {
-    const sheetKey = "soldier";
-    const maxCols = 9;
-
-    const rowFrames = (row, count, startCol = 0) => Array.from({length: count}, (_, i) => row * maxCols + startCol + i);
-    const makeAnim = (key, row, count, frameRate = 10, repeat = -1, startCol = 0) => {
+    Object.entries(soldier.anims).forEach(([name, cfg]) => {
+      const key = name;
       if (this.anims.exists(key)) return;
+
+      const frames = Array.from({ length: cfg.count }, (_, i) => cfg.row * soldier.maxCols + i);
       this.anims.create({
         key,
-        frames: this.anims.generateFrameNumbers(sheetKey, {
-          frames: rowFrames(row, count, startCol)
-        }),
-        frameRate,
-        repeat
+        frames: this.anims.generateFrameNumbers(soldier.sheetKey, { frames }),
+        frameRate: cfg.frameRate,
+        repeat: cfg.repeat
       });
-    };
+    });
 
-    makeAnim('soldier_idle', 0, 6, 4, -1);
-    makeAnim('soldier_move', 1, 8, 12, -1);
-    makeAnim('soldier_attack_1', 2, 6, 10, 0);
-    makeAnim('soldier_attack_2', 3, 6, 10, 0);
-    makeAnim('soldier_attack_3', 4, 9, 12, 0);
-    makeAnim('soldier_hurt', 5, 4, 8, 0);
-    makeAnim('soldier_dead', 6, 4, 8, 0);
+    this.player.setCollideWorldBounds(true);
+    this.player.setDepth(10);
+    this.player.play('idle');
   }
 
   async loadEntities() {
@@ -306,36 +296,39 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   update() {
-    if (!this.player || !this.cursors) return;
+    this.playerCtrl.update();
+    // if (!this.player || !this.cursors) return;
+    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk1)) this.attack('attack_1');
+    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk2)) this.attack('attack_2');
+    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk3)) this.attack('attack_3');
+    // if (this.isAttacking) return;
 
-    const speed = 200;
-    let vx = 0;
-    let vy = 0;
-    
-    this.player.setVelocity(0);
+    // const speed = 200;
+    // let vx = 0;
+    // let vy = 0;
+    // this.player.setVelocity(0);
 
-    if (this.cursors.left.isDown) {
-      vx -= speed
-      this.player.setFlipX(true);
-    } else if (this.cursors.right.isDown) {
-      vx = speed;
-      this.player.setFlipX(false);
-    }
+    // if (this.cursors.left.isDown) {
+    //   vx -= speed
+    //   this.player.setFlipX(true);
+    // } else if (this.cursors.right.isDown) {
+    //   vx = speed;
+    //   this.player.setFlipX(false);
+    // }
+    // if (this.cursors.up.isDown) {
+    //   vy -= speed;
+    // } else if (this.cursors.down.isDown) {
+    //   vy = speed;
+    // }
 
-    if (this.cursors.up.isDown) {
-      vy -= speed;
-    } else if (this.cursors.down.isDown) {
-      vy = speed;
-    }
+    // this.player.setVelocity(vx, vy);
+    // const isMoving = vx !== 0 || vy !== 0;
+    // const nextAnim = isMoving ? 'move' : 'idle';
 
-    this.player.setVelocity(vx, vy);
-    const isMoving = vx !== 0 || vy !== 0;
-    const nextAnim = isMoving ? 'soldier_move' : 'soldier_idle';
-
-    // Prevents restarting of animation at every frame.
-    if(this.player.anims.currentAnim?.key !== nextAnim) {
-      this.player.play(nextAnim, true);
-    }
+    // // Prevents restarting of animation at every frame.
+    // if(this.player.anims.currentAnim?.key !== nextAnim) {
+    //   this.player.play(nextAnim, true);
+    // }
 
     // Update NPC name positions
     this.npcSprites.forEach(sprite => {
@@ -353,4 +346,5 @@ export class GameMapScene extends Phaser.Scene {
       }
     });
   }
+
 }

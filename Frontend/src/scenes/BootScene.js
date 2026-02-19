@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { supabase } from "../config/supabaseClient";
+import { soldier } from '../characters/soldier/Soldiertmp';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -46,11 +47,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image('logo', 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%234a90e2"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="48">GAME</text></svg>');
 
     // Spritesheet soldier_idle 
-    const { data } = supabase.storage.from('game-assets').getPublicUrl('soldier.png');
-    this.load.spritesheet('soldier', data.publicUrl, {
-      frameWidth: 100,
-      frameHeight: 100
-});
+    this.load.spritesheet(soldier.sheetKey, soldier.file, {
+      frameWidth: soldier.frameWidth,
+      frameHeight: soldier.frameHeight
+    });
   }
 
   create() {

@@ -16,8 +16,9 @@ const config = {
   resolution:window.devicePixelRatio,
   backgroundColor: '#1a1a2e',
   scale: {
-    mode: Phaser.Scale.ENVELOP,
-    // autoCenter: Phaser.Scale.CENTER_BOTH
+    mode: Phaser.Scale.FIT,
+    // mode: Phaser.Scale.ENVELOP,
+    autoCenter: Phaser.Scale.CENTER_BOTH
   },
   physics: {
     default: 'arcade',

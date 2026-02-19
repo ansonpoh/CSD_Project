@@ -28,7 +28,7 @@ public class AIModerationResult {
     @Column(name = "result_id")
     private UUID resultId;
 
-    @ManyToOne // many contents can belong to one topic
+    @ManyToOne // many results can belong to one content
     @JoinColumn(name = "content_id", nullable = false)
     private Content content;
 

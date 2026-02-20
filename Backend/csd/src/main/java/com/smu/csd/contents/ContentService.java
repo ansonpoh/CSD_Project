@@ -26,12 +26,8 @@ public class ContentService {
         this.aiService = aiService;
     }
 
-    // -------------------------------------------------------------------------
-    // Contributor Actions
-    // -------------------------------------------------------------------------
-
     /**
-     * Contributor submits content directly - no draft step.
+     * Contributor submits content directly
      * Creates content as PENDING_REVIEW and immediately triggers AI screening,
      * which will auto-approve, auto-reject, or flag for human moderator review.
      */
@@ -56,21 +52,17 @@ public class ContentService {
         return getById(content.getContentId());
     }
 
-    // -------------------------------------------------------------------------
-    // Read
-    // -------------------------------------------------------------------------
-
     public Content getById(UUID contentId) throws ResourceNotFoundException {
         return contentRepository.findById(contentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Content", "contentId", contentId));
     }
 
-    /** Contributor uses this to see all their own submissions */
+    // Contributor uses this to see all their own submissions
     public List<Content> getByContributorId(UUID contributorId) {
         return contentRepository.findByContributorId(contributorId);
     }
 
-    /** Moderator uses this to load the review queue, e.g. getByStatus(PENDING_REVIEW) */
+    // Moderator uses this to load the review queue, e.g. getByStatus(PENDING_REVIEW)
     public List<Content> getByStatus(Content.Status status) {
         return contentRepository.findByStatus(status);
     }
@@ -84,11 +76,7 @@ public class ContentService {
         return contentRepository.findByTitleContainingIgnoreCase(keyword);
     }
 
-    // -------------------------------------------------------------------------
-    // Moderator Actions (only for content AI flagged as NEEDS_REVIEW)
-    // -------------------------------------------------------------------------
-
-    /** Moderator manually approves content after reviewing AI's NEEDS_REVIEW flag */
+    // Moderator manually approves content after reviewing AI's NEEDS_REVIEW flag
     @Transactional
     public Content approveContent(UUID contentId) throws ResourceNotFoundException {
         Content content = getById(contentId);
@@ -101,7 +89,7 @@ public class ContentService {
         return contentRepository.save(content);
     }
 
-    /** Moderator manually rejects content after reviewing AI's NEEDS_REVIEW flag */
+    // Moderator manually rejects content after reviewing AI's NEEDS_REVIEW flag
     @Transactional
     public Content rejectContent(UUID contentId) throws ResourceNotFoundException {
         Content content = getById(contentId);

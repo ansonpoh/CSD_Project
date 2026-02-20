@@ -15,7 +15,7 @@ export class CombatScene extends Phaser.Scene {
     this.logText = null;
     this.monsterSprite = null;
     this.monsterAttackAnims = [];
-    this.attackAnimIndex = 0;
+    this.attackAnimIndex = 0; 
   }
 
   init(data) {
@@ -24,12 +24,12 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHP = 100;
     this.battleLog = [];
 
-    const base = this.monster?.name?.toLowerCase?.() || 'orc';
-    const def = monsterRegistry[base] || monsterRegistry.orc;
+    this.base = this.monster?.name?.toLowerCase?.() || 'orc';
+    this.def = monsterRegistry[this.base] || monsterRegistry.orc;
 
-    this.monsterAttackAnims = Object.keys(def.anims || {})
+    this.monsterAttackAnims = Object.keys(this.def.anims || {})
       .filter((k) => k.startsWith('attack'))
-      .map((k) => `${base}_${k}`)
+      .map((k) => `${this.base}_${k}`)
       .filter((fullKey) => this.anims.exists(fullKey));
 
     this.attackAnimIndex = 0;
@@ -76,11 +76,11 @@ export class CombatScene extends Phaser.Scene {
   createMonsterIcon(x, y) {
     // Create a stylized monster icon using graphics
 
-    const def = monsterRegistry[this.base] || monsterRegistry.orc;
+    // const def = monsterRegistry[this.base] || monsterRegistry.orc;
 
-    if (this.textures.exists(def.key)) {
-      this.monsterSprite = this.add.sprite(x, y, def.key, 0)
-        .setScale(Math.max(def.scale, 2.2)) // smaller for combat UI
+    if (this.textures.exists(this.def.key)) {
+      this.monsterSprite = this.add.sprite(x, y, this.def.key, 0)
+        .setScale(Math.max(this.def.scale, 2.2)) // smaller for combat UI
         .setDepth(10);
 
       if (this.anims.exists(`${this.base}_idle`)) {
@@ -247,6 +247,8 @@ export class CombatScene extends Phaser.Scene {
     if (this.monsterSprite && this.anims.exists(`${this.base}_dead`)) {
       this.monsterSprite.play(`${this.base}_dead`, true);
     }
+    console.log(this.base);
+    console.log(this.anims.exists(`${this.base}_dead`))
 
     const xpGained = Math.floor(Math.random() * 50) + 25;
     gameState.updateXP(xpGained);

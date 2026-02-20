@@ -4,6 +4,7 @@ import { SoldierController } from '../characters/soldier/SoldierController.js';
 import { apiService } from "../services/api.js";
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry.js';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry.js';
+
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });
@@ -77,67 +78,6 @@ export class GameMapScene extends Phaser.Scene {
       console.error('Failed to load monsters for map:', e);
       this.monsters = [];
     }
-  }
-
-  getMockNPCs() {
-    return [
-      {
-        id: 1,
-        name: 'Elder Wizard',
-        npc_type: 'quest_giver',
-        description: 'A wise old wizard with many secrets',
-        is_active: true
-      },
-      {
-        id: 2,
-        name: 'Village Merchant',
-        npc_type: 'vendor',
-        description: 'A friendly merchant selling wares',
-        is_active: true
-      },
-      {
-        id: 3,
-        name: 'Guard Captain',
-        npc_type: 'guard',
-        description: 'A stern captain of the guard',
-        is_active: true
-      }
-    ];
-  }
-
-  getMockMonsters() {
-    return [
-      {
-        id: 1,
-        name: 'Forest Goblin',
-        monster_type: 'enemy',
-        description: 'A mischievous goblin',
-        hp: 50,
-        attack: 10,
-        defense: 5,
-        is_active: true
-      },
-      {
-        id: 2,
-        name: 'Wild Wolf',
-        monster_type: 'beast',
-        description: 'A fierce wild wolf',
-        hp: 40,
-        attack: 15,
-        defense: 3,
-        is_active: true
-      },
-      {
-        id: 3,
-        name: 'Skeleton Warrior',
-        monster_type: 'undead',
-        description: 'An animated skeleton',
-        hp: 60,
-        attack: 12,
-        defense: 8,
-        is_active: true
-      }
-    ];
   }
 
   createGrid() {

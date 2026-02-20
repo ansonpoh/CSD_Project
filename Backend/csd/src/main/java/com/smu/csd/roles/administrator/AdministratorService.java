@@ -28,17 +28,17 @@ public class AdministratorService {
     //     }
 
         // Check if this Supabase user already has an admin profile
-        if (repository.existsBySupabaseUserId(supabaseUserId)) {
-            throw new ResourceAlreadyExistsException("Administrator profile already exists for this user");
-        }
+        // if (repository.existsBySupabaseUserId(supabaseUserId)) {
+        //     throw new ResourceAlreadyExistsException("Administrator profile already exists for this user");
+        // }
 
-        // Build the Administrator object using Lombok's @Builder
-        // Dont need to create constructors, getters and setters in Administrator
-        Administrator admin = Administrator.builder()
-                .supabaseUserId(supabaseUserId)
-                .email(email)
-                .fullName(fullName)
-                .build();
+        // // Build the Administrator object using Lombok's @Builder
+        // // Dont need to create constructors, getters and setters in Administrator
+        // Administrator admin = Administrator.builder()
+        //         .supabaseUserId(supabaseUserId)
+        //         .email(email)
+        //         .fullName(fullName)
+        //         .build();
 
     //     // Save to database and return the saved entity
     //     return repository.save(admin);

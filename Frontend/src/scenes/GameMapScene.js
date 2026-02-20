@@ -14,6 +14,10 @@ export class GameMapScene extends Phaser.Scene {
     this.monsters = [];
     this.npcSprites = [];
     this.monsterSprites = [];
+    this.interactKey = null;
+    this.interactPrompt = null;
+    this.closestNpcSprite = null;
+    this.npcInteractDistance = 120;
   }
 
   async create() {
@@ -35,12 +39,6 @@ export class GameMapScene extends Phaser.Scene {
     //   atk3: Phaser.Input.Keyboard.KeyCodes.C,
     // });
     // this.isAttacking = false;
-
-    // DEVELOPMENT MODE - Use mock data instead of API
-    // this.npcs = this.getMockNPCs();
-    // this.monsters = this.getMockMonsters();
-    // this.createNPCs();
-    // this.createMonsters();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
     /*
@@ -78,6 +76,20 @@ export class GameMapScene extends Phaser.Scene {
       console.error('Failed to load monsters for map:', e);
       this.monsters = [];
     }
+
+    // Interactions
+    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.interactPrompt = this.add.text(
+      this.cameras.main.width / 2,
+      this.cameras.main.height - 40,
+      '',
+      {
+        fontSize: '18px',
+        color: '#ffffff',
+        backgroundColor: '#000000',
+        padding: {x:10, y:6},
+      }
+    ).setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false);
   }
 
   createGrid() {
@@ -161,7 +173,6 @@ export class GameMapScene extends Phaser.Scene {
       const npc_sprite = this.physics.add.sprite(x, y, npcName, 0);
       npc_sprite.setScale(cfg.scale);
       npc_sprite.setDepth(5);
-      npc_sprite.setInteractive();
       npc_sprite.setData('npc', npc);
 
       const nameText = this.add.text(x, y, npcName, {
@@ -174,7 +185,6 @@ export class GameMapScene extends Phaser.Scene {
       // npc_sprite.setData('nameText', nameText);
 
       npc_sprite.play(`${npcName}_idle`, true)
-      npc_sprite.on('pointerdown', () => this.interactWithNPC(npc));
       this.npcSprites.push(npc_sprite);
     });
   }
@@ -301,6 +311,7 @@ export class GameMapScene extends Phaser.Scene {
 
   update() {
     this.playerCtrl.update();
+    this.updateNpcInteraction();
     // if (!this.player || !this.cursors) return;
     // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk1)) this.attack('attack_1');
     // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk2)) this.attack('attack_2');
@@ -354,6 +365,39 @@ export class GameMapScene extends Phaser.Scene {
   placeNameLabel(sprite, nameText, offsetY) {
     const topY = sprite.y - (sprite.displayHeight * sprite.originY);
     nameText.setPosition(sprite.x, topY + offsetY);
+  }
+
+  updateNpcInteraction() {
+    const player = this.playerCtrl?.sprite;
+    if (!player || !this.interactPrompt) return;
+
+    let closest = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const npcSprite of this.npcSprites) {
+      const dist = Phaser.Math.Distance.Between(player.x, player.y, npcSprite.x, npcSprite.y);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = npcSprite;
+      }
+    }
+
+    const inRange = closest && closestDist <= this.npcInteractDistance;
+
+    if (inRange) {
+      const npc = closest.getData('npc');
+      this.closestNpcSprite = closest;
+      this.interactPrompt.setText(`Press E to talk to ${npc.name}`);
+      this.interactPrompt.setVisible(true);
+
+      if (Phaser.Input.Keyboard.JustDown(this.interactKey) && !this.scene.isActive('DialogueScene')) {
+        this.interactWithNPC(npc);
+        this.interactPrompt.setVisible(false);
+      }
+    } else {
+      this.closestNpcSprite = null;
+      this.interactPrompt.setVisible(false);
+    }
   }
 
 

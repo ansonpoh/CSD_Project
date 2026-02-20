@@ -5,7 +5,7 @@ export const knight = {
   frameWidth: 100,
   frameHeight: 100,
   maxCols: 11,
-  scale: 3.2,
+  scale: 3,
   labelOffsetY: 110,
   portraitOffsetY: -10,
 

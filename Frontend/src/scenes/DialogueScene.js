@@ -8,6 +8,9 @@ export class DialogueScene extends Phaser.Scene {
     this.dialogueIndex = 0;
     this.dialogues = [];
     this.dialogueText = null;
+  this.isTyping = false;
+  this.typingTimer = null;
+  this.fullCurrentText = '';
   }
 
   init(data) {
@@ -114,27 +117,32 @@ export class DialogueScene extends Phaser.Scene {
   }
 
   showDialogue() {
-    if (this.dialogueIndex < this.dialogues.length) {
-      const text = this.dialogues[this.dialogueIndex];
-      this.dialogueText.setText('');
-      
-      // Typewriter effect
-      this.typeText(text);
-    }
+    if (this.dialogueIndex >= this.dialogues.length) return;
+
+    this.fullCurrentText = this.dialogues[this.dialogueIndex];
+    this.dialogueText.setText('');
+    this.typeText(this.fullCurrentText);
   }
 
   typeText(text) {
-    let charIndex = 0;
-    const typingSpeed = 30;
+    if (this.typingTimer) {
+      this.typingTimer.remove();
+      this.typingTimer = null;
+    }
 
-    const timer = this.time.addEvent({
-      delay: typingSpeed,
+    let charIndex = 0;
+    this.isTyping = true;
+
+    this.typingTimer = this.time.addEvent({
+      delay: 30,
       callback: () => {
         if (charIndex < text.length) {
           this.dialogueText.text += text[charIndex];
           charIndex++;
         } else {
-          timer.remove();
+          this.isTyping = false;
+          this.typingTimer.remove();
+          this.typingTimer = null;
         }
       },
       loop: true
@@ -142,12 +150,21 @@ export class DialogueScene extends Phaser.Scene {
   }
 
   nextDialogue() {
+    if (this.isTyping) {
+      if (this.typingTimer) {
+        this.typingTimer.remove();
+        this.typingTimer = null;
+      }
+      this.dialogueText.setText(this.fullCurrentText);
+      this.isTyping = false;
+      return;
+    }
+
     this.dialogueIndex++;
-    
+
     if (this.dialogueIndex < this.dialogues.length) {
       this.showDialogue();
     } else {
-      // End dialogue
       this.closeDialogue();
     }
   }

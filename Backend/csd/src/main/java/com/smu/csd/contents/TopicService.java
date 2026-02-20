@@ -71,4 +71,10 @@ public class TopicService {
         }
         repository.deleteById(topicId);
     }
+
+    @Transactional
+    public void deleteTopicByName(String topicName) throws ResourceNotFoundException {
+        Topic topic = getByTopicName(topicName);
+        repository.deleteById(topic.getTopicId());
+    }
 }

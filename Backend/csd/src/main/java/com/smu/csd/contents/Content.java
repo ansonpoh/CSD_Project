@@ -19,7 +19,7 @@ import lombok.*;
 public class Content {
 
     public enum Status {
-        DRAFT, PENDING_REVIEW, APPROVED, REJECTED
+        PENDING_REVIEW, APPROVED, REJECTED
     }
 
     @Id
@@ -43,7 +43,7 @@ public class Content {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private Status status = Status.DRAFT;
+    private Status status = Status.PENDING_REVIEW;
 
     @CreationTimestamp
     @Column(name = "submitted_at", updatable = false)

@@ -75,6 +75,7 @@ export class ShopScene extends Phaser.Scene {
     const startY = 250;
     const spacing = 100;
     const itemsPerRow = 2;
+    const columnSpacing = 350;
 
     this.itemContainers.forEach((container) => container.destroy(true));
     this.itemContainers = [];
@@ -83,7 +84,10 @@ export class ShopScene extends Phaser.Scene {
       const row = Math.floor(index / itemsPerRow);
       const col = index % itemsPerRow;
       
-      const x = (width / 3) + (col * 350);
+      const itemsInThisRow = Math.min(itemsPerRow, this.items.length - (row * itemsPerRow));
+      const rowStartX = (width / 2) - (((itemsInThisRow - 1) * columnSpacing) / 2);
+
+      const x = rowStartX + (col * columnSpacing);
       const y = startY + (row * spacing);
 
       // Item container

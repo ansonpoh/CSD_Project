@@ -29,7 +29,7 @@ public class Contributor {
     @Column(name = "contributor_id")
     private UUID contributorId;
 
-    @Column(name = "supabase_user_id")
+    @Column(name = "supabase_user_id", nullable = false)
     private UUID supabaseUserId;
 
     @Column(nullable = false, unique = true)

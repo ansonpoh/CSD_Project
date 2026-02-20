@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { NPCRegistry } from '../characters/npcs/NPCRegistry';
 
 export class DialogueScene extends Phaser.Scene {
   constructor() {
@@ -32,13 +33,15 @@ export class DialogueScene extends Phaser.Scene {
 
     // NPC portrait area
     const portraitX = 100;
-    const portraitY = height - 200;
+    const portraitY = height - 150;
     
     this.add.rectangle(portraitX, portraitY, 120, 120, 0x16213e, 1)
       .setStrokeStyle(3, 0x4a90e2);
     
     // NPC icon - replaced emoji with graphics
-    this.createNPCIcon(portraitX, portraitY-50);
+    this.npcKey = this.npc?.name?.toLowerCase?.() || '';
+    this.npcDef = NPCRegistry[this.npcKey]
+    this.createNPCIcon(portraitX, portraitY - this.npcDef.portraitOffsetY);
 
     // NPC name
     this.add.text(portraitX, portraitY + 80, this.npc.name, {
@@ -105,7 +108,7 @@ export class DialogueScene extends Phaser.Scene {
       this.add.sprite(x, y, npcKey, 0)
         .setDisplaySize(96, 96)
         .setDepth(10)
-        .setScale(3);
+        .setScale(this.npcDef.scale);
       return;
     }
   }

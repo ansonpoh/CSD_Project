@@ -1,4 +1,5 @@
 import { samurai } from "./samurai/Samurai";
+import { knight } from "./knight/Knight";
 
 export const NPCRegistry = {
     samurai: {
@@ -10,5 +11,17 @@ export const NPCRegistry = {
         scale: samurai.scale,
         anims: samurai.anims,
         labelOffsetY: samurai.labelOffsetY,
+        portraitOffsetY: samurai.portraitOffsetY
+    },
+    knight: {
+        key: knight.sheetKey,
+        file: knight.file,
+        frameWidth: knight.frameWidth,
+        frameHeight: knight.frameHeight,
+        maxCols: knight.maxCols,
+        scale: knight.scale,
+        anims: knight.anims,
+        labelOffsetY: knight.labelOffsetY,
+        portraitOffsetY: knight.portraitOffsetY
     }
 }

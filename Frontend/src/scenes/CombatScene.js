@@ -246,9 +246,7 @@ export class CombatScene extends Phaser.Scene {
 
     if (this.monsterSprite && this.anims.exists(`${this.base}_dead`)) {
       this.monsterSprite.play(`${this.base}_dead`, true);
-    }
-    console.log(this.base);
-    console.log(this.anims.exists(`${this.base}_dead`))
+    } 
 
     const xpGained = Math.floor(Math.random() * 50) + 25;
     gameState.updateXP(xpGained);

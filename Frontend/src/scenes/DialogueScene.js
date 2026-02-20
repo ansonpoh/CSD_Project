@@ -38,7 +38,7 @@ export class DialogueScene extends Phaser.Scene {
       .setStrokeStyle(3, 0x4a90e2);
     
     // NPC icon - replaced emoji with graphics
-    this.createNPCIcon(portraitX, portraitY);
+    this.createNPCIcon(portraitX, portraitY-50);
 
     // NPC name
     this.add.text(portraitX, portraitY + 80, this.npc.name, {
@@ -98,44 +98,16 @@ export class DialogueScene extends Phaser.Scene {
 
   createNPCIcon(x, y) {
     // Create a wizard/NPC icon using graphics
-    const graphics = this.add.graphics();
-    
-    // Wizard hat
-    graphics.fillStyle(0x6366f1, 1);
-    graphics.fillTriangle(
-      x - 25, y - 10,
-      x, y - 40,
-      x + 25, y - 10
-    );
-    
-    // Hat brim
-    graphics.fillStyle(0x4f46e5, 1);
-    graphics.fillRect(x - 30, y - 10, 60, 8);
-    
-    // Face
-    graphics.fillStyle(0xfbbf24, 1);
-    graphics.fillCircle(x, y + 5, 20);
-    
-    // Eyes
-    graphics.fillStyle(0x000000, 1);
-    graphics.fillCircle(x - 8, y, 3);
-    graphics.fillCircle(x + 8, y, 3);
-    
-    // Beard
-    graphics.fillStyle(0xd1d5db, 1);
-    graphics.fillTriangle(
-      x - 15, y + 15,
-      x, y + 30,
-      x + 15, y + 15
-    );
-    
-    // Staff
-    graphics.lineStyle(4, 0x92400e);
-    graphics.lineBetween(x + 25, y + 10, x + 25, y + 35);
-    
-    // Staff crystal
-    graphics.fillStyle(0x8b5cf6, 1);
-    graphics.fillCircle(x + 25, y + 5, 6);
+
+    const npcKey = this.npc?.name?.toLowerCase?.() || '';
+
+    if (npcKey && this.textures.exists(npcKey)) {
+      this.add.sprite(x, y, npcKey, 0)
+        .setDisplaySize(96, 96)
+        .setDepth(10)
+        .setScale(3);
+      return;
+    }
   }
 
   showDialogue() {

@@ -207,37 +207,6 @@ export class GameMapScene extends Phaser.Scene {
 
   createNPCs() {
     // Create NPC sprites at random positions
-    // this.npcs.slice(0, 3).forEach((npc, index) => {
-    //   const x = 200 + (index * 250);
-    //   const y = 200 + (Math.random() * 200);
-      
-    //   // Create NPC sprite (green circle)
-    //   const graphics = this.add.graphics();
-    //   graphics.fillStyle(0x4ade80, 1);
-    //   graphics.fillCircle(0, 0, 18);
-    //   graphics.generateTexture('npc_' + index, 36, 36);
-    //   graphics.destroy();
-      
-    //   const npcSprite = this.physics.add.sprite(x, y, 'npc_' + index);
-    //   npcSprite.setData('npc', npc);
-    //   npcSprite.setInteractive();
-    //   npcSprite.setDepth(5);
-      
-    //   // Add name label
-    //   const nameText = this.add.text(x, y - 30, npc.name, {
-    //     fontSize: '14px',
-    //     color: '#ffffff',
-    //     backgroundColor: '#000000',
-    //     padding: { x: 5, y: 2 }
-    //   }).setOrigin(0.5);
-    //   npcSprite.setData('nameText', nameText);
-      
-    //   npcSprite.on('pointerdown', () => {
-    //     this.interactWithNPC(npc);
-    //   });
-      
-    //   this.npcSprites.push(npcSprite);
-    // });
 
     this.npcs.forEach((npc, index) => {
       const x = 200 + index * 180;
@@ -255,7 +224,7 @@ export class GameMapScene extends Phaser.Scene {
       npc_sprite.setInteractive();
       npc_sprite.setData('npc', npc);
 
-      const nameText = this.add.text(x, y - 30, npcName, {
+      const nameText = this.add.text(x, y, npcName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',
@@ -288,7 +257,7 @@ export class GameMapScene extends Phaser.Scene {
       m_sprite.setInteractive();
       m_sprite.setData('monster', monster);
 
-      const nameText = this.add.text(x, y - 30, monsterName, {
+      const nameText = this.add.text(x, y, monsterName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',

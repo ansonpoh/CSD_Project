@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
+import { monsterRegistry } from "../characters/monsters/MonsterRegistry.js";
 
 export class CombatScene extends Phaser.Scene {
   constructor() {
@@ -12,6 +13,9 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHPBar = null;
     this.battleLog = [];
     this.logText = null;
+    this.monsterSprite = null;
+    this.monsterAttackAnims = [];
+    this.attackAnimIndex = 0;
   }
 
   init(data) {
@@ -19,6 +23,16 @@ export class CombatScene extends Phaser.Scene {
     this.playerHP = 100;
     this.monsterHP = 100;
     this.battleLog = [];
+
+    const base = this.monster?.name?.toLowerCase?.() || 'orc';
+    const def = monsterRegistry[base] || monsterRegistry.orc;
+
+    this.monsterAttackAnims = Object.keys(def.anims || {})
+      .filter((k) => k.startsWith('attack'))
+      .map((k) => `${base}_${k}`)
+      .filter((fullKey) => this.anims.exists(fullKey));
+
+    this.attackAnimIndex = 0;
   }
 
   create() {
@@ -61,42 +75,21 @@ export class CombatScene extends Phaser.Scene {
 
   createMonsterIcon(x, y) {
     // Create a stylized monster icon using graphics
-    const graphics = this.add.graphics();
-    
-    // Monster body
-    graphics.fillStyle(0x8b5cf6, 1);
-    graphics.fillCircle(x, y, 40);
-    
-    // Eyes
-    graphics.fillStyle(0xff0000, 1);
-    graphics.fillCircle(x - 15, y - 10, 8);
-    graphics.fillCircle(x + 15, y - 10, 8);
-    
-    // Teeth/mouth
-    graphics.fillStyle(0xffffff, 1);
-    graphics.fillTriangle(
-      x - 10, y + 15,
-      x - 5, y + 25,
-      x, y + 15
-    );
-    graphics.fillTriangle(
-      x + 10, y + 15,
-      x + 5, y + 25,
-      x, y + 15
-    );
-    
-    // Horns
-    graphics.fillStyle(0x6b21a8, 1);
-    graphics.fillTriangle(
-      x - 35, y - 30,
-      x - 25, y - 50,
-      x - 15, y - 30
-    );
-    graphics.fillTriangle(
-      x + 35, y - 30,
-      x + 25, y - 50,
-      x + 15, y - 30
-    );
+
+    const def = monsterRegistry[this.base] || monsterRegistry.orc;
+
+    if (this.textures.exists(def.key)) {
+      this.monsterSprite = this.add.sprite(x, y, def.key, 0)
+        .setScale(Math.max(def.scale, 2.2)) // smaller for combat UI
+        .setDepth(10);
+
+      if (this.anims.exists(`${this.base}_idle`)) {
+        this.monsterSprite.play(`${this.base}_idle`, true);
+      } else if (this.anims.exists(`orc_idle`)) {
+        this.monsterSprite.play(`orc_idle`, true);
+      }
+      return;
+  }
   }
 
   createHealthBars() {
@@ -165,6 +158,17 @@ export class CombatScene extends Phaser.Scene {
 
   performAttack() {
     const damage = Math.floor(Math.random() * 20) + 10;
+
+    if (this.monsterSprite && this.anims.exists(`${this.monster.name.toLowerCase()}_hurt`)) {
+      const key = `${this.monster.name.toLowerCase()}_hurt`;
+      this.monsterSprite.play(key, true);
+      this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        if (this.monsterHP > 0 && this.anims.exists(`${this.monster.name.toLowerCase()}_idle`)) {
+          this.monsterSprite.play(`${this.monster.name.toLowerCase()}_idle`, true);
+        }
+      });
+    }
+
     this.monsterHP = Math.max(0, this.monsterHP - damage);
     this.updateHealthBars();
     this.addLog(`You dealt ${damage} damage!`);
@@ -183,6 +187,16 @@ export class CombatScene extends Phaser.Scene {
   }
 
   monsterTurn(damageMultiplier = 1) {
+
+    const atk = this.getRandomAttackAnim();
+
+    if (this.monsterSprite && atk) {
+      this.monsterSprite.play(atk, true);
+      this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        if (this.anims.exists(`${this.base}_idle`)) this.monsterSprite.play(`${this.base}_idle`, true);
+      });
+    }
+
     const damage = Math.floor((Math.random() * 15 + 5) * damageMultiplier);
     this.playerHP = Math.max(0, this.playerHP - damage);
     this.updateHealthBars();
@@ -191,6 +205,12 @@ export class CombatScene extends Phaser.Scene {
     if (this.playerHP <= 0) {
       this.defeat();
     }
+  }
+
+  getRandomAttackAnim() {
+    if (!this.monsterAttackAnims.length) return null;
+    const i = Phaser.Math.Between(0, this.monsterAttackAnims.length - 1);
+    return this.monsterAttackAnims[i];
   }
 
   runAway() {
@@ -223,6 +243,11 @@ export class CombatScene extends Phaser.Scene {
   }
 
   async victory() {
+
+    if (this.monsterSprite && this.anims.exists(`${this.base}_dead`)) {
+      this.monsterSprite.play(`${this.base}_dead`, true);
+    }
+
     const xpGained = Math.floor(Math.random() * 50) + 25;
     gameState.updateXP(xpGained);
 

@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
-
+import { SoldierController } from '../characters/soldier/SoldierController.js';
+import { apiService } from "../services/api.js";
+import { monsterRegistry } from '../characters/monsters/MonsterRegistry.js';
+import { NPCRegistry } from '../characters/npcs/NPCRegistry.js';
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });
@@ -23,13 +26,20 @@ export class GameMapScene extends Phaser.Scene {
     this.createGrid();
 
     // Create player
-    this.createPlayer();
+    this.playerCtrl = new SoldierController(this, width, height);
+    // this.createPlayer();
+    // this.attackKeys = this.input.keyboard.addKeys({
+    //   atk1: Phaser.Input.Keyboard.KeyCodes.Z,
+    //   atk2: Phaser.Input.Keyboard.KeyCodes.X,
+    //   atk3: Phaser.Input.Keyboard.KeyCodes.C,
+    // });
+    // this.isAttacking = false;
 
     // DEVELOPMENT MODE - Use mock data instead of API
-    this.npcs = this.getMockNPCs();
-    this.monsters = this.getMockMonsters();
-    this.createNPCs();
-    this.createMonsters();
+    // this.npcs = this.getMockNPCs();
+    // this.monsters = this.getMockMonsters();
+    // this.createNPCs();
+    // this.createMonsters();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
     /*
@@ -38,7 +48,7 @@ export class GameMapScene extends Phaser.Scene {
     */
 
     // Setup camera
-    this.cameras.main.startFollow(this.player);
+    this.cameras.main.startFollow(this.playerCtrl.sprite);
     this.cameras.main.setBounds(0, 0, width, height);
 
     // Setup controls
@@ -46,6 +56,27 @@ export class GameMapScene extends Phaser.Scene {
 
     // Add UI buttons
     this.createUI();
+    try {
+      const currentMap = gameState.getCurrentMap();
+      const mapId = currentMap?.mapId || currentMap?.id;
+      if (mapId) {
+        this.monsters = await apiService.getMonstersByMap(mapId);
+        this.npcs = await apiService.getNPCsByMap(mapId);
+      } else {
+        this.monsters = [];
+        this.npcs = [];
+      } 
+
+      this.createMonsterAnimations();
+      this.createNPCAnimations();
+
+      this.createMonsters();
+      this.createNPCs();
+
+    } catch (e) {
+      console.error('Failed to load monsters for map:', e);
+      this.monsters = [];
+    }
   }
 
   getMockNPCs() {
@@ -126,19 +157,38 @@ export class GameMapScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
+    const hasTexture = this.textures.exists('soldier');
     // Create player sprite (simple circle for now)
-    this.player = this.physics.add.sprite(width / 2, height / 2, '');
+    this.player = this.physics.add.sprite(width / 2, height / 2, hasTexture ? 'soldier' : '', 0);
     
     // Draw player as a circle
-    const graphics = this.add.graphics();
-    graphics.fillStyle(0x4a90e2, 1);
-    graphics.fillCircle(0, 0, 20);
-    graphics.generateTexture('player', 40, 40);
-    graphics.destroy();
-    
-    this.player.setTexture('player');
+    if(hasTexture) {
+      this.player.setScale(4);
+    } else {
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0x4a90e2, 1);
+      graphics.fillCircle(0, 0, 20);
+      graphics.generateTexture('player', 40, 40);
+      graphics.destroy();
+      this.player.setTexture('player');
+    }
+
+    Object.entries(soldier.anims).forEach(([name, cfg]) => {
+      const key = name;
+      if (this.anims.exists(key)) return;
+
+      const frames = Array.from({ length: cfg.count }, (_, i) => cfg.row * soldier.maxCols + i);
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(soldier.sheetKey, { frames }),
+        frameRate: cfg.frameRate,
+        repeat: cfg.repeat
+      });
+    });
+
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
+    this.player.play('idle');
   }
 
   async loadEntities() {
@@ -157,71 +207,111 @@ export class GameMapScene extends Phaser.Scene {
 
   createNPCs() {
     // Create NPC sprites at random positions
-    this.npcs.slice(0, 3).forEach((npc, index) => {
-      const x = 200 + (index * 250);
-      const y = 200 + (Math.random() * 200);
-      
-      // Create NPC sprite (green circle)
-      const graphics = this.add.graphics();
-      graphics.fillStyle(0x4ade80, 1);
-      graphics.fillCircle(0, 0, 18);
-      graphics.generateTexture('npc_' + index, 36, 36);
-      graphics.destroy();
-      
-      const npcSprite = this.physics.add.sprite(x, y, 'npc_' + index);
-      npcSprite.setData('npc', npc);
-      npcSprite.setInteractive();
-      npcSprite.setDepth(5);
-      
-      // Add name label
-      const nameText = this.add.text(x, y - 30, npc.name, {
+
+    this.npcs.forEach((npc, index) => {
+      const x = 200 + index * 180;
+      const y = 480 + Math.random() * 150;
+
+      const npcName = npc.name.toLowerCase();
+      const cfg = NPCRegistry[npcName] || NPCRegistry.orc;
+      if (!this.textures.exists(npcName)) {
+        console.warn(`Missing texture for ${npc.asset}`);
+      }
+
+      const npc_sprite = this.physics.add.sprite(x, y, npcName, 0);
+      npc_sprite.setScale(cfg.scale);
+      npc_sprite.setDepth(5);
+      npc_sprite.setInteractive();
+      npc_sprite.setData('npc', npc);
+
+      const nameText = this.add.text(x, y, npcName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 2 }
-      }).setOrigin(0.5);
-      npcSprite.setData('nameText', nameText);
-      
-      npcSprite.on('pointerdown', () => {
-        this.interactWithNPC(npc);
-      });
-      
-      this.npcSprites.push(npcSprite);
+      }).setOrigin(0.5,1);
+      this.placeNameLabel(npc_sprite, nameText, cfg.labelOffsetY);
+      // npc_sprite.setData('nameText', nameText);
+
+      npc_sprite.play(`${npcName}_idle`, true)
+      npc_sprite.on('pointerdown', () => this.interactWithNPC(npc));
+      this.npcSprites.push(npc_sprite);
     });
   }
 
   createMonsters() {
     // Create monster sprites at random positions
-    this.monsters.slice(0, 3).forEach((monster, index) => {
-      const x = 300 + (index * 200);
-      const y = 400 + (Math.random() * 150);
-      
-      // Create monster sprite (red circle)
-      const graphics = this.add.graphics();
-      graphics.fillStyle(0xef4444, 1);
-      graphics.fillCircle(0, 0, 18);
-      graphics.generateTexture('monster_' + index, 36, 36);
-      graphics.destroy();
-      
-      const monsterSprite = this.physics.add.sprite(x, y, 'monster_' + index);
-      monsterSprite.setData('monster', monster);
-      monsterSprite.setInteractive();
-      monsterSprite.setDepth(5);
-      
-      // Add name label
-      const nameText = this.add.text(x, y - 30, monster.name, {
+
+    this.monsters.forEach((monster, index) => {
+      const x = 300 + index * 180;
+      const y = 380 + Math.random() * 150;
+
+      const monsterName = monster.name.toLowerCase();
+      const cfg = monsterRegistry[monsterName] || monsterRegistry.orc;
+      if (!this.textures.exists(monsterName)) {
+        console.warn(`Missing texture for ${monster.asset}, fallback to orc`);
+      }
+
+      const m_sprite = this.physics.add.sprite(x, y, monsterName, 0);
+      m_sprite.setScale(cfg.scale);
+      m_sprite.setDepth(5);
+      m_sprite.setInteractive();
+      m_sprite.setData('monster', monster);
+
+      const nameText = this.add.text(x, y, monsterName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 2 }
-      }).setOrigin(0.5);
-      monsterSprite.setData('nameText', nameText);
-      
-      monsterSprite.on('pointerdown', () => {
-        this.encounterMonster(monster);
+      }).setOrigin(0.5,1);
+      this.placeNameLabel(m_sprite, nameText, cfg.labelOffsetY);
+      // m_sprite.setData('nameText', nameText);
+
+      m_sprite.play(`${monsterName}_idle`, true)
+      m_sprite.on('pointerdown', () => this.encounterMonster(monster));
+      this.monsterSprites.push(m_sprite);
+    });
+  }
+
+  createMonsterAnimations() {
+    Object.entries(monsterRegistry).forEach(([monsterType, def]) => {
+      Object.entries(def.anims || {}).forEach(([animName, a]) => {
+        const key = `${monsterType}_${animName}`; // e.g. orc_idle
+        if (this.anims.exists(key)) return;
+
+        const frames = Array.from(
+          { length: a.count },
+          (_, i) => a.row * def.maxCols + i
+        );
+
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(def.key, { frames }),
+          frameRate: a.frameRate,
+          repeat: a.repeat
+        });
       });
-      
-      this.monsterSprites.push(monsterSprite);
+    });
+  }
+
+  createNPCAnimations() {
+    Object.entries(NPCRegistry).forEach(([npcType, def]) => {
+      Object.entries(def.anims || {}).forEach(([animName, a]) => {
+        const key = `${npcType}_${animName}`; 
+        if (this.anims.exists(key)) return;
+
+        const frames = Array.from(
+          { length: a.count },
+          (_, i) => a.row * def.maxCols + i
+        );
+
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(def.key, { frames }),
+          frameRate: a.frameRate,
+          repeat: a.repeat
+        });
+      });
     });
   }
 
@@ -229,11 +319,11 @@ export class GameMapScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     
     // Shop button
-    const shopBtn = this.add.rectangle(width - 100, 30, 100, 40, 0x4a90e2)
+    const shopBtn = this.add.rectangle(width - 60, 90, 100, 40, 0x4a90e2)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     
-    this.add.text(width - 100, 30, 'SHOP', {
+    this.add.text(width - 60, 90, 'SHOP', {
       fontSize: '18px',
       color: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0);
@@ -244,11 +334,11 @@ export class GameMapScene extends Phaser.Scene {
     });
 
     // Back button
-    const backBtn = this.add.rectangle(60, 30, 100, 40, 0x666666)
+    const backBtn = this.add.rectangle(60, 90, 100, 40, 0x666666)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     
-    this.add.text(60, 30, 'BACK', {
+    this.add.text(60, 90, 'BACK', {
       fontSize: '18px',
       color: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0);
@@ -270,23 +360,39 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   update() {
-    if (!this.player || !this.cursors) return;
+    this.playerCtrl.update();
+    // if (!this.player || !this.cursors) return;
+    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk1)) this.attack('attack_1');
+    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk2)) this.attack('attack_2');
+    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk3)) this.attack('attack_3');
+    // if (this.isAttacking) return;
 
-    const speed = 200;
-    
-    this.player.setVelocity(0);
+    // const speed = 200;
+    // let vx = 0;
+    // let vy = 0;
+    // this.player.setVelocity(0);
 
-    if (this.cursors.left.isDown) {
-      this.player.setVelocityX(-speed);
-    } else if (this.cursors.right.isDown) {
-      this.player.setVelocityX(speed);
-    }
+    // if (this.cursors.left.isDown) {
+    //   vx -= speed
+    //   this.player.setFlipX(true);
+    // } else if (this.cursors.right.isDown) {
+    //   vx = speed;
+    //   this.player.setFlipX(false);
+    // }
+    // if (this.cursors.up.isDown) {
+    //   vy -= speed;
+    // } else if (this.cursors.down.isDown) {
+    //   vy = speed;
+    // }
 
-    if (this.cursors.up.isDown) {
-      this.player.setVelocityY(-speed);
-    } else if (this.cursors.down.isDown) {
-      this.player.setVelocityY(speed);
-    }
+    // this.player.setVelocity(vx, vy);
+    // const isMoving = vx !== 0 || vy !== 0;
+    // const nextAnim = isMoving ? 'move' : 'idle';
+
+    // // Prevents restarting of animation at every frame.
+    // if(this.player.anims.currentAnim?.key !== nextAnim) {
+    //   this.player.play(nextAnim, true);
+    // }
 
     // Update NPC name positions
     this.npcSprites.forEach(sprite => {
@@ -304,4 +410,11 @@ export class GameMapScene extends Phaser.Scene {
       }
     });
   }
+
+  placeNameLabel(sprite, nameText, offsetY) {
+    const topY = sprite.y - (sprite.displayHeight * sprite.originY);
+    nameText.setPosition(sprite.x, topY + offsetY);
+  }
+
+
 }

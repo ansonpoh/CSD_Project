@@ -13,10 +13,11 @@ import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 
@@ -32,7 +33,7 @@ public class NPCController {
     }
 
     @GetMapping("/{npc_id}")
-    public Optional<NPC> getNPCById(@PathVariable UUID npc_id) {
+    public NPC getNPCById(@PathVariable UUID npc_id) {
         return service.getNPCById(npc_id);
     }
 
@@ -40,6 +41,12 @@ public class NPCController {
     public List<NPC> getAllNPCs() {
         return service.getAllNPCs();
     }
+
+    @GetMapping("/map/{map_id}")
+    public List<NPC> getNPCsByMap(@PathVariable UUID map_id) {
+        return service.getNPCsByMapId(map_id);
+    }
+    
 
     @PostMapping("/add")
     public NPC addNpc(@Valid @RequestBody NPC npc) {

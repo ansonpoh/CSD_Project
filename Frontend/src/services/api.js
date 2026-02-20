@@ -69,6 +69,12 @@ class ApiService {
     await this.api.delete(`/economy/${id}`);
   }
 
+  // Purchase endpoints
+  async createPurchase(lines) {
+    const { data } = await this.api.post('/purchases/me', { lines });
+    return data;
+  }
+
   // Map endpoints
   async getAllMaps() {
     const { data } = await this.api.get('/maps/all');
@@ -96,6 +102,11 @@ class ApiService {
     return data;
   }
 
+  async getMonstersByMap(id) {
+    const {data} = await this.api.get(`/monsters/map/${id}`);
+    return data;
+  }
+
   async addMonster(monster) {
     const { data } = await this.api.post('/monsters/add', monster);
     return data;
@@ -118,6 +129,11 @@ class ApiService {
 
   async getNPC(id) {
     const { data } = await this.api.get(`/npcs/${id}`);
+    return data;
+  }
+
+  async getNPCsByMap(id) {
+    const { data } = await this.api.get(`/npcs/map/${id}`)
     return data;
   }
 
@@ -163,6 +179,28 @@ class ApiService {
 
   async deleteLearner(id) {
     await this.api.delete(`/learner/${id}`);
+  }
+
+  // Inventory endpoints
+  async getMyInventory() {
+    const { data } = await this.api.get('/inventory/me');
+    return data;
+  }
+
+  async addInventoryItem(itemId, quantity = 1, isEquipped = false) {
+    const { data } = await this.api.post('/inventory/me/items', {
+      itemId,
+      quantity,
+      isEquipped
+    });
+    return data; 
+  }
+
+  async removeInventoryItem(itemId, quantity = 1) {
+    const { data } = await this.api.delete(`/inventory/me/items/${itemId}`, {
+      params: { quantity }
+    });
+    return data; 
   }
 
   // Administrator endpoints

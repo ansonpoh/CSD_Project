@@ -1,10 +1,11 @@
-package com.smu.csd.npcs;
+package com.smu.csd.monsters.monster_map;
 
 import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
 import com.smu.csd.maps.Map;
+import com.smu.csd.monsters.Monster;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -21,15 +22,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(schema = "npcs", name = "npc_map")
-public class NPCMap {
+@Table(schema = "monsters", name = "monster_map")
+public class MonsterMap {
     @Id
     @UuidGenerator
-    private UUID npc_map_id;
+    private UUID monster_map_id;
     @ManyToOne
-    @JoinColumn(name = "npc_id")
-    private NPC npc;
+    @JoinColumn(name = "monster_id")
+    private Monster monster;
     @ManyToOne
     @JoinColumn(name = "map_id")
-    private Map map;
+    private Map map;    
 }

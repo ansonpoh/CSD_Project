@@ -22,9 +22,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(schema = "roles", name = "learner")
 public class Learner {
-    @Id
+    @Id 
     @UuidGenerator
-    private UUID learner_id;
+    @Column(name = "learner_id")
+    private UUID learnerId;
     @Column(name = "supabase_user_id")
     private UUID supabaseUserId;
     @Column (nullable = false)

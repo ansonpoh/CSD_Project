@@ -1,16 +1,21 @@
 package com.smu.csd.npcs;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import com.smu.csd.npcs.npc_map.NPCMap;
+import com.smu.csd.npcs.npc_map.NPCMapRepository;
 import org.springframework.stereotype.Service;
 
 @Service
 public class NPCService {
+
+    private final NPCMapRepository NPCMapRepository;
     private final NPCRepository repository;
 
-    public NPCService(NPCRepository repository) {
+    public NPCService(NPCRepository repository, NPCMapRepository NPCMapRepository) {
+        this.NPCMapRepository = NPCMapRepository;
         this.repository = repository;
     }
 
@@ -19,8 +24,15 @@ public class NPCService {
         return repository.findAll();
     }
 
-    public Optional<NPC> getNPCById(UUID npc_id) {
-        return repository.findById(npc_id);
+    public NPC getNPCById(UUID npc_id) {
+        return repository.findById(npc_id).orElseThrow(() -> new RuntimeException("NPC not found."));
+    }
+
+    public List<NPC> getNPCsByMapId(UUID map_id) {
+        return NPCMapRepository.findAllByMapMapId(map_id)
+            .stream()
+            .map(NPCMap::getNpc)
+            .collect(Collectors.toList());
     }
 
     //Post Requests

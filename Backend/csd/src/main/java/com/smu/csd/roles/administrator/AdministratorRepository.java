@@ -13,7 +13,7 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
     // But we may need to query by OTHER columns (supabaseUserId, email),
     // so we declare these methods. Spring auto-generates the SQL.
 
-    Optional<Administrator> findBySupabaseUserId(UUID supabaseUserId);
+    Administrator findBySupabaseUserId(UUID supabaseUserId);
 
     boolean existsBySupabaseUserId(UUID supabaseUserId);
 

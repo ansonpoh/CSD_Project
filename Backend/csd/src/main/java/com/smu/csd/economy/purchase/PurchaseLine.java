@@ -1,11 +1,11 @@
-package com.smu.csd.economy;
+package com.smu.csd.economy.purchase;
 
-import java.time.LocalDateTime;
+
 import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
-import com.smu.csd.roles.learner.Learner;
+import com.smu.csd.economy.item.Item;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,16 +23,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(schema = "economy", name = "purchases")
-public class Purchase {
+@Table(schema = "economy", name = "purchase_line")
+public class PurchaseLine {
     @Id
     @UuidGenerator
-    private UUID purchase_id;
+    private UUID purchase_line_id;
     @ManyToOne
-    @JoinColumn(name = "learner_id")
-    private Learner learner;
+    @JoinColumn(name = "purchase_id", nullable = false)
+    private Purchase purchase;
+    @ManyToOne
+    @JoinColumn(name ="item_id", nullable = false)
+    private Item item;
     @Column
-    private LocalDateTime purchased_at;
+    private Integer quantity;
     @Column
-    private Float total_cost;
+    private Float unit_price;
 }

@@ -1,4 +1,4 @@
-package com.smu.csd.economy;
+package com.smu.csd.economy.purchase;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -12,7 +12,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,27 +19,20 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Entity
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(schema = "economy", name = "learner_inventory")
-public class LearnerInventory {
+@Entity
+@Table(schema = "economy", name = "purchases")
+public class Purchase {
     @Id
     @UuidGenerator
-    private UUID learner_inventory_id;
+    private UUID purchase_id;
     @ManyToOne
-    @JoinColumn(name = "learner_id", nullable = false)
+    @JoinColumn(name = "learner_id")
     private Learner learner;
-    @OneToOne
-    @JoinColumn(name = "item_id")
-    private Item item;
     @Column
-    private Integer quantity;
-    @Column 
-    private Boolean is_equipped;
+    private LocalDateTime purchased_at;
     @Column
-    private LocalDateTime acquired_at;
-    @Column
-    private LocalDateTime updated_at;
+    private Float total_cost;
 }

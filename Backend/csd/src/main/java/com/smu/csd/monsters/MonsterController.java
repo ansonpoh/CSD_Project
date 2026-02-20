@@ -13,10 +13,11 @@ import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 
@@ -31,7 +32,7 @@ public class MonsterController {
     }
 
     @GetMapping("/{monster_id}")
-    public Optional<Monster> getMonsterById(@PathVariable UUID monster_id) {
+    public Monster getMonsterById(@PathVariable UUID monster_id) {
         return service.getMonsterById(monster_id);
     }
 
@@ -39,6 +40,12 @@ public class MonsterController {
     public List<Monster> getAllMonsters() {
         return service.getAllMonsters();
     }
+
+    @GetMapping("/map/{map_id}")
+    public List<Monster> getMonstersByMap(@PathVariable UUID map_id) {
+        return service.getMonstersByMapId(map_id);
+    }
+    
     
 
     @PostMapping("/add")

@@ -24,7 +24,8 @@ import lombok.NoArgsConstructor;
 public class Map {
     @Id
     @UuidGenerator
-    private UUID map_id;
+    @Column(name = "map_id")
+    private UUID mapId;
     @Column
     private String name;
     @Column

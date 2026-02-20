@@ -1,4 +1,4 @@
-package com.smu.csd.economy;
+package com.smu.csd.economy.item;
 
 import java.util.UUID;
 
@@ -22,7 +22,8 @@ import lombok.NoArgsConstructor;
 public class Item {
     @Id
     @UuidGenerator
-    private UUID item_id;
+    @Column(name = "item_id")
+    private UUID itemId;
     @Column
     private String item_type;
     @Column

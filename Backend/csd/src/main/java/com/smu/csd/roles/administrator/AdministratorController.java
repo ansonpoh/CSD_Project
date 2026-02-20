@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.roles.learner.Learner;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/administrators")
@@ -27,14 +30,18 @@ public class AdministratorController {
         this.service = service;
     }
 
-    @PostMapping
-    public ResponseEntity<Administrator> createAdministrator(@RequestBody CreateAdminRequest request) throws ResourceAlreadyExistsException {
-        Administrator admin = service.createAdministrator(
-                request.supabaseUserId(),
-                request.email(),
-                request.fullName()
-        );
-        return ResponseEntity.status(HttpStatus.CREATED).body(admin);
+    // @PostMapping
+    // public ResponseEntity<Administrator> createAdministrator(@RequestBody CreateAdminRequest request) throws ResourceAlreadyExistsException {
+    //     Administrator admin = service.createAdministrator(
+    //             request.supabaseUserId(),
+    //             request.email(),
+    //             request.fullName()
+    //     );
+    //     return ResponseEntity.status(HttpStatus.CREATED).body(admin);
+    // }
+    @PostMapping("add")
+    public Administrator addAdministrator(@Valid @RequestBody Administrator administrator) {
+        return service.saveAdministrator(administrator);
     }
 
     @GetMapping

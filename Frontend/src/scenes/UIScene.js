@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
+import { apiService } from '../services/api.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -153,6 +154,20 @@ export class UIScene extends Phaser.Scene {
 
     // Display items
     const itemTexts = [];
+    const useButtons = [];
+    const useTexts = [];
+
+    const cleanupInventoryUI = () => {
+      overlay.destroy();
+      panel.destroy();
+      title.destroy();
+      closeBtn.destroy();
+      closeBtnText.destroy();
+      itemTexts.forEach(t => t.destroy());
+      useButtons.forEach(b => b.destroy());
+      useTexts.forEach(t => t.destroy());
+    };
+
     if (inventory.length === 0) {
       const emptyText = this.add.text(width / 2, height / 2, 'Your inventory is empty', {
         fontSize: '20px',
@@ -163,13 +178,41 @@ export class UIScene extends Phaser.Scene {
     } else {
       inventory.forEach((item, index) => {
         const y = height / 2 - 150 + (index * 60);
+        const qty = item.quantity ?? 1;
         
-        const itemText = this.add.text(width / 2 - 250, y, `${item.name} - ${item.description}`, {
+        const itemText = this.add.text(width / 2 - 250, y, `${item.name} x${qty} - ${item.description}`, {
           fontSize: '18px',
           color: '#ffffff'
         });
         itemText.setDepth(1002);
         itemTexts.push(itemText);
+
+        const useBtn = this.add.rectangle(width / 2 + 220, y + 10, 70, 30, 0x22c55e)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(1002);
+        useButtons.push(useBtn);
+
+        const useText = this.add.text(width / 2 + 220, y + 10, 'USE', {
+          fontSize: '14px',
+          color: '#ffffff',
+          fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1003);
+        useTexts.push(useText);
+
+        useBtn.on('pointerdown', async () => {
+          try {
+            const itemId = item.itemId || item.item_id;
+            if (!itemId) return;
+
+            const updatedInventory = await apiService.removeInventoryItem(itemId, 1);
+            gameState.setInventory(updatedInventory);
+
+            cleanupInventoryUI();
+            this.showInventory(); // reopen refreshed list
+          } catch (e) {
+            console.error('Failed to use item:', e);
+          }
+        });
       });
     }
 
@@ -186,12 +229,7 @@ export class UIScene extends Phaser.Scene {
     closeBtnText.setDepth(1003);
 
     closeBtn.on('pointerdown', () => {
-      overlay.destroy();
-      panel.destroy();
-      title.destroy();
-      closeBtn.destroy();
-      closeBtnText.destroy();
-      itemTexts.forEach(text => text.destroy());
+      cleanupInventoryUI();
     });
   }
 }

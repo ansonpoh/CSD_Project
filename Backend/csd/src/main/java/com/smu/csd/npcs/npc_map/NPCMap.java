@@ -1,11 +1,12 @@
-package com.smu.csd.economy;
-
+package com.smu.csd.npcs.npc_map;
 
 import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
-import jakarta.persistence.Column;
+import com.smu.csd.maps.Map;
+import com.smu.csd.npcs.NPC;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -21,19 +22,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(schema = "economy", name = "purchase_line")
-public class PurchaseLine {
+@Table(schema = "npcs", name = "npc_map")
+public class NPCMap {
     @Id
     @UuidGenerator
-    private UUID purchase_line_id;
+    private UUID npc_map_id;
     @ManyToOne
-    @JoinColumn(name = "purchase_id", nullable = false)
-    private Purchase purchase;
+    @JoinColumn(name = "npc_id")
+    private NPC npc;
     @ManyToOne
-    @JoinColumn(name ="item_id", nullable = false)
-    private Item item;
-    @Column
-    private Integer quantity;
-    @Column
-    private Float unit_price;
+    @JoinColumn(name = "map_id")
+    private Map map;
 }

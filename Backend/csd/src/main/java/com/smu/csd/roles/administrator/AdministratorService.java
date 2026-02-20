@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.roles.learner.Learner;
 
 @Service
 public class AdministratorService {
@@ -18,13 +19,13 @@ public class AdministratorService {
         this.repository = repository;
     }
 
-    // @Transactional ensures if something fails, the database rolls back so no partial data is saved
-    @Transactional
-    public Administrator createAdministrator(UUID supabaseUserId, String email, String fullName) throws ResourceAlreadyExistsException {
-        // Check if email already exists (prevent duplicates)
-        if (repository.existsByEmail(email)) {
-            throw new ResourceAlreadyExistsException("Administrator", "email", email);
-        }
+    // // @Transactional ensures if something fails, the database rolls back so no partial data is saved
+    // @Transactional
+    // public Administrator createAdministrator(UUID supabaseUserId, String email, String fullName) throws ResourceAlreadyExistsException {
+    //     // Check if email already exists (prevent duplicates)
+    //     if (repository.existsByEmail(email)) {
+    //         throw new ResourceAlreadyExistsException("Administrator", "email", email);
+    //     }
 
         // Check if this Supabase user already has an admin profile
         if (repository.existsBySupabaseUserId(supabaseUserId)) {
@@ -39,10 +40,13 @@ public class AdministratorService {
                 .fullName(fullName)
                 .build();
 
-        // Save to database and return the saved entity
-        return repository.save(admin);
+    //     // Save to database and return the saved entity
+    //     return repository.save(admin);
+    // }
+    public Administrator saveAdministrator(Administrator administrator) {
+        return repository.save(administrator);
     }
-
+    
     public List<Administrator> getAllAdministrators() {
         return repository.findAll();
     }
@@ -54,8 +58,7 @@ public class AdministratorService {
 
     // Used after login to fetch the admin's profile.
     public Administrator getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Administrator", "supabaseUserId", supabaseUserId));
+        return repository.findBySupabaseUserId(supabaseUserId);
     }
 
     public boolean isAdministrator(UUID supabaseUserId) {

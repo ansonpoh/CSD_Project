@@ -6,6 +6,7 @@ export const samurai = {
     frameHeight: 96,
     maxCols: 1,
     scale: 2,
+    labelOffsetY: 90,
 
     anims: {
         idle: { row: 0, count: 10, frameRate: 5, repeat: -1 }

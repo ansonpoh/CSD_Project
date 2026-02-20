@@ -6,6 +6,7 @@ export const orc = {
   frameHeight: 100,
   maxCols: 8,
   scale: 3,
+  labelOffsetY: 120,
 
   anims: {
     idle: { row: 0, count: 6, frameRate: 4, repeat: -1 },

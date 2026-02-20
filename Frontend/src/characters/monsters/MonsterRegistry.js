@@ -8,6 +8,7 @@ export const monsterRegistry = {
     frameHeight: orc.frameHeight,
     maxCols: orc.maxCols,
     scale: orc.scale,
-    anims: orc.anims
+    anims: orc.anims,
+    labelOffsetY: orc.labelOffsetY,
   }
 };

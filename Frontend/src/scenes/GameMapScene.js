@@ -229,8 +229,9 @@ export class GameMapScene extends Phaser.Scene {
         color: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 2 }
-      }).setOrigin(0.5);
-      npc_sprite.setData('nameText', nameText);
+      }).setOrigin(0.5,1);
+      this.placeNameLabel(npc_sprite, nameText, cfg.labelOffsetY);
+      // npc_sprite.setData('nameText', nameText);
 
       npc_sprite.play(`${npcName}_idle`, true)
       npc_sprite.on('pointerdown', () => this.interactWithNPC(npc));
@@ -262,8 +263,9 @@ export class GameMapScene extends Phaser.Scene {
         color: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 2 }
-      }).setOrigin(0.5);
-      m_sprite.setData('nameText', nameText);
+      }).setOrigin(0.5,1);
+      this.placeNameLabel(m_sprite, nameText, cfg.labelOffsetY);
+      // m_sprite.setData('nameText', nameText);
 
       m_sprite.play(`${monsterName}_idle`, true)
       m_sprite.on('pointerdown', () => this.encounterMonster(monster));
@@ -408,5 +410,11 @@ export class GameMapScene extends Phaser.Scene {
       }
     });
   }
+
+  placeNameLabel(sprite, nameText, offsetY) {
+    const topY = sprite.y - (sprite.displayHeight * sprite.originY);
+    nameText.setPosition(sprite.x, topY + offsetY);
+  }
+
 
 }

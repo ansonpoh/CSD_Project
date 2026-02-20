@@ -8,6 +8,7 @@ export const NPCRegistry = {
         frameHeight: samurai.frameHeight,
         maxCols: samurai.maxCols,
         scale: samurai.scale,
-        anims: samurai.anims
+        anims: samurai.anims,
+        labelOffsetY: samurai.labelOffsetY,
     }
 }

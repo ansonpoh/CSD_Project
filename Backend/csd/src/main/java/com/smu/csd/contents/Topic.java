@@ -21,10 +21,10 @@ public class Topic {
     @Column(name = "topic_id")
     private UUID topicId;
 
-    @Column(name = "topic_name")
+    @Column(name = "topic_name", nullable = false, unique = true)
     private String topicName;
 
-    @Column(name = "description")
+    @Column(name = "description", nullable = false)
     private String description;
 
     @Column(name = "created_at", updatable = false)

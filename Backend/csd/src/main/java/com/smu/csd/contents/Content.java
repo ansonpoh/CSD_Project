@@ -27,6 +27,9 @@ public class Content {
     @Column(name = "content_id")
     private UUID contentId;
 
+    @Column(name = "contributor_id", nullable = false)
+    private UUID contributorId;
+
     @ManyToOne // many contents can belong to one topic
     @JoinColumn(name = "topic_id", nullable = false)
     private Topic topic;

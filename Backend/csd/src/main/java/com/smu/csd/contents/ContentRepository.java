@@ -13,5 +13,4 @@ public interface ContentRepository extends JpaRepository<Content, UUID>{
     List<Content> findByStatus(Content.Status status);
 
     List<Content> findByContributorId(UUID contributorId);
-
 }

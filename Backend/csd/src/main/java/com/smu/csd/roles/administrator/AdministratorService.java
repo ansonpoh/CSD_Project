@@ -77,8 +77,7 @@ public class AdministratorService {
         if (isActive != null) {
             admin.setIsActive(isActive);
         }
-
-        // Save updates - @PreUpdate in Entity will set updatedAt automatically
+        
         return repository.save(admin);
     }
 

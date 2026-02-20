@@ -8,6 +8,8 @@ export class ShopScene extends Phaser.Scene {
     this.items = [];
     this.gold = 1000;
     this.iconGraphics = {};
+    this.goldText = null;
+    this.itemContainers = [];
   }
 
   async create() {
@@ -25,7 +27,11 @@ export class ShopScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Gold display
-    this.add.text(width / 2, 150, `Gold: ${this.gold}`, {
+    // this.add.text(width / 2, 150, `Gold: ${this.gold}`, {
+    //   fontSize: '24px',
+    //   color: '#f59e0b'
+    // }).setOrigin(0.5);
+    this.goldText = this.add.text(width / 2, 150, `Gold: ${this.gold}`, {
       fontSize: '24px',
       color: '#f59e0b'
     }).setOrigin(0.5);
@@ -54,59 +60,6 @@ export class ShopScene extends Phaser.Scene {
     });
   }
 
-  getMockItems() {
-    return [
-      {
-        id: 1,
-        item_type: 'potion',
-        name: 'Health Potion',
-        description: 'Restores 50 HP',
-        price: 50,
-        is_active: true
-      },
-      {
-        id: 2,
-        item_type: 'potion',
-        name: 'Mana Potion',
-        description: 'Restores 30 MP',
-        price: 40,
-        is_active: true
-      },
-      {
-        id: 3,
-        item_type: 'weapon',
-        name: 'Iron Sword',
-        description: 'A basic sword (+10 ATK)',
-        price: 200,
-        is_active: true
-      },
-      {
-        id: 4,
-        item_type: 'armor',
-        name: 'Leather Armor',
-        description: 'Basic protection (+5 DEF)',
-        price: 150,
-        is_active: true
-      },
-      {
-        id: 5,
-        item_type: 'weapon',
-        name: 'Steel Axe',
-        description: 'Heavy weapon (+15 ATK)',
-        price: 300,
-        is_active: true
-      },
-      {
-        id: 6,
-        item_type: 'accessory',
-        name: 'Lucky Charm',
-        description: 'Increases luck (+5 LCK)',
-        price: 100,
-        is_active: true
-      }
-    ];
-  }
-
   async loadItems() {
     try {
       let items = await apiService.getAllItems();
@@ -117,54 +70,14 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 
-  async createDemoItems() {
-    const demoItems = [
-      {
-        item_type: 'potion',
-        name: 'Health Potion',
-        description: 'Restores 50 HP',
-        price: 50,
-        is_active: true
-      },
-      {
-        item_type: 'potion',
-        name: 'Mana Potion',
-        description: 'Restores 30 MP',
-        price: 40,
-        is_active: true
-      },
-      {
-        item_type: 'weapon',
-        name: 'Iron Sword',
-        description: 'A basic sword (+10 ATK)',
-        price: 200,
-        is_active: true
-      },
-      {
-        item_type: 'armor',
-        name: 'Leather Armor',
-        description: 'Basic protection (+5 DEF)',
-        price: 150,
-        is_active: true
-      }
-    ];
-
-    try {
-      for (const item of demoItems) {
-        const created = await apiService.addItem(item);
-        this.items.push(created);
-      }
-      this.displayItems();
-    } catch (error) {
-      console.error('Failed to create demo items:', error);
-    }
-  }
-
   displayItems() {
     const width = this.cameras.main.width;
     const startY = 250;
     const spacing = 100;
     const itemsPerRow = 2;
+
+    this.itemContainers.forEach((container) => container.destroy(true));
+    this.itemContainers = [];
 
     this.items.forEach((item, index) => {
       const row = Math.floor(index / itemsPerRow);
@@ -228,6 +141,7 @@ export class ShopScene extends Phaser.Scene {
       }).setOrigin(0.5);
       
       container.add([bg, nameText, descText, priceText, button, buttonText]);
+      this.itemContainers.push(container);
     });
   }
 
@@ -316,32 +230,37 @@ export class ShopScene extends Phaser.Scene {
     const itemId = item.itemId;
 
     this.gold -= item.price;
+    this.updateGoldDisplay();
+    this.displayItems();
 
+    const width = this.cameras.main.width;
+    const confirmText = this.add.text(width / 2, 100, `Purchased ${item.name}!`, {
+      fontSize: '20px',
+      color: '#22c55e',
+      backgroundColor: '#000000',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(0.5);
+
+    this.time.delayedCall(1500, () => confirmText.destroy());
     try {
       if (learner?.learnerId && itemId) {
         const updatedInventory = await apiService.addInventoryItem(itemId, 1, false);
-        apiService.createPurchase([{ itemId: item.itemId, quantity: 1 }])
         gameState.setInventory(updatedInventory);
+        apiService.createPurchase([{ itemId: item.itemId, quantity: 1 }])
       } else {
         // fallback for dev/mock mode
         gameState.addItem(item, 1);
       }
-
-      const width = this.cameras.main.width;
-      const confirmText = this.add.text(width / 2, 100, `Purchased ${item.name}!`, {
-        fontSize: '20px',
-        color: '#22c55e',
-        backgroundColor: '#000000',
-        padding: { x: 10, y: 5 }
-      }).setOrigin(0.5);
-
-      this.time.delayedCall(1500, () => confirmText.destroy());
-      this.scene.restart();
     } catch (error) {
       this.gold += item.price; // rollback local gold on failure
+      this.updateGoldDisplay();
       console.error('Purchase failed:', error);
     }
   }
 
-
+  updateGoldDisplay() {
+    if (this.goldText) {
+      this.goldText.setText(`Gold: ${this.gold}`);
+    }
+  }
 }

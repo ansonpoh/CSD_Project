@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
 import { monsterRegistry } from "../characters/monsters/MonsterRegistry.js";
+import { soldier } from "../characters/soldier/Soldier.js";
 
 export class CombatScene extends Phaser.Scene {
   constructor() {
@@ -13,7 +14,9 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHPBar = null;
     this.battleLog = [];
     this.logText = null;
+    this.playerSprite = null;
     this.monsterSprite = null;
+    this.playerAttackAnims = [];
     this.monsterAttackAnims = [];
     this.attackAnimIndex = 0; 
   }
@@ -24,12 +27,12 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHP = 100;
     this.battleLog = [];
 
-    this.base = this.monster?.name || 'orc';
-    this.def = monsterRegistry[this.base] || monsterRegistry.orc;
+    this.monster = this.monster?.name || 'orc';
+    this.monster_key = monsterRegistry[this.monster] || monsterRegistry.orc;
 
-    this.monsterAttackAnims = Object.keys(this.def.anims || {})
+    this.monsterAttackAnims = Object.keys(this.monster_key.anims || {})
       .filter((k) => k.startsWith('attack'))
-      .map((k) => `${this.base}_${k}`)
+      .map((k) => `${this.monster}_${k}`)
       .filter((fullKey) => this.anims.exists(fullKey));
 
     this.attackAnimIndex = 0;
@@ -43,14 +46,15 @@ export class CombatScene extends Phaser.Scene {
     this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
 
     // Title
-    this.add.text(width / 2, 40, `BATTLE: ${this.monster.name}`, {
+    this.add.text(width / 2, 40, `BATTLE: ${this.monster}`, {
       fontSize: '32px',
       color: '#ef4444',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     // Monster display - replaced emoji with icon
-    this.createMonsterIcon(width / 2, 150);
+    this.createMonsterIcon(width / 1.15 , 150);
+    this.createPlayerIcon(width / 7.2, 150);
 
     this.add.text(width / 2, 220, this.monster.description || 'A fearsome creature!', {
       fontSize: '18px',
@@ -70,45 +74,73 @@ export class CombatScene extends Phaser.Scene {
     // Action buttons
     this.createActionButtons();
 
-    this.addLog(`A wild ${this.monster.name} appeared!`);
+    this.addLog(`A wild ${this.monster} appeared!`);
   }
 
   createMonsterIcon(x, y) {
     // Create a stylized monster icon using graphics
-    if (this.textures.exists(this.def.key)) {
-      this.monsterSprite = this.add.sprite(x, y, this.def.key, 0)
-        .setScale(Math.max(this.def.scale, 2.2)) // smaller for combat UI
+    if (this.textures.exists(this.monster_key.key)) {
+      this.monsterSprite = this.add.sprite(x, y, this.monster_key.key, 0)
+        .setScale(Math.max(this.monster_key.scale, 2.2)) // smaller for combat UI
         .setDepth(10);
 
-      if (this.anims.exists(`${this.base}_idle`)) {
-        this.monsterSprite.play(`${this.base}_idle`, true);
+      if (this.anims.exists(`${this.monster}_idle`)) {
+        this.monsterSprite.play(`${this.monster}_idle`, true);
       } else if (this.anims.exists(`orc_idle`)) {
         this.monsterSprite.play(`orc_idle`, true);
       }
       return;
+    }
   }
+
+  createPlayerIcon(x, y) {
+    this.createPlayerAnimations();
+    this.playerAttackAnims = ['attack_1', 'attack_2', 'attack_3']
+      .filter((key) => this.anims.exists(key));
+
+    this.playerSprite = this.add.sprite(x, y, soldier.sheetKey, 0)
+      .setScale(Math.max(soldier.scale, 2.2))
+      .setDepth(10)
+      .setFlipX(false);
+
+    if (this.anims.exists('idle')) {
+      this.playerSprite.play('idle', true);
+    }
+  }
+
+  createPlayerAnimations() {
+    Object.entries(soldier.anims).forEach(([name, a]) => {
+      if (this.anims.exists(name)) return;
+      const frames = Array.from({ length: a.count }, (_, i) => a.row * soldier.maxCols + i);
+      this.anims.create({
+        key: name,
+        frames: this.anims.generateFrameNumbers(soldier.sheetKey, { frames }),
+        frameRate: a.frameRate,
+        repeat: a.repeat
+      });
+    });
   }
 
   createHealthBars() {
     const width = this.cameras.main.width;
     
     // Player HP
-    this.add.text(100, 300, 'Your HP:', {
+    this.add.text(100, 200, 'Your HP:', {
       fontSize: '18px',
       color: '#ffffff'
     });
     
-    const playerBg = this.add.rectangle(250, 310, 300, 20, 0x333333);
-    this.playerHPBar = this.add.rectangle(250, 310, 300, 20, 0x4ade80);
+    const playerBg = this.add.rectangle(250, 210, 300, 20, 0x333333);
+    this.playerHPBar = this.add.rectangle(250, 210, 300, 20, 0x4ade80);
     
     // Monster HP
-    this.add.text(width - 400, 300, 'Enemy HP:', {
+    this.add.text(width - 400, 200, 'Enemy HP:', {
       fontSize: '18px',
       color: '#ffffff'
     });
     
-    const monsterBg = this.add.rectangle(width - 250, 310, 300, 20, 0x333333);
-    this.monsterHPBar = this.add.rectangle(width - 250, 310, 300, 20, 0xef4444);
+    const monsterBg = this.add.rectangle(width - 250, 210, 300, 20, 0x333333);
+    this.monsterHPBar = this.add.rectangle(width - 250, 210, 300, 20, 0xef4444);
   }
 
   createActionButtons() {
@@ -156,12 +188,22 @@ export class CombatScene extends Phaser.Scene {
   performAttack() {
     const damage = Math.floor(Math.random() * 20) + 10;
 
-    if (this.monsterSprite && this.anims.exists(`${this.monster.name}_hurt`)) {
-      const key = `${this.monster.name}_hurt`;
+    if (this.playerSprite && this.playerAttackAnims.length) {
+      const atk = Phaser.Utils.Array.GetRandom(this.playerAttackAnims);
+      this.playerSprite.play(atk, true);
+      this.playerSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        if (this.monsterHP > 0 && this.anims.exists('idle')) {
+          this.playerSprite.play('idle', true);
+        }
+      });
+    }
+  
+    if (this.monsterSprite && this.anims.exists(`${this.monster}_hurt`)) {
+      const key = `${this.monster}_hurt`;
       this.monsterSprite.play(key, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.monsterHP > 0 && this.anims.exists(`${this.monster.name}_idle`)) {
-          this.monsterSprite.play(`${this.monster.name}_idle`, true);
+        if (this.monsterHP > 0 && this.anims.exists(`${this.monster}_idle`)) {
+          this.monsterSprite.play(`${this.monster}_idle`, true);
         }
       });
     }
@@ -190,14 +232,23 @@ export class CombatScene extends Phaser.Scene {
     if (this.monsterSprite && atk) {
       this.monsterSprite.play(atk, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.anims.exists(`${this.base}_idle`)) this.monsterSprite.play(`${this.base}_idle`, true);
+        if (this.anims.exists(`${this.monster}_idle`)) this.monsterSprite.play(`${this.monster}_idle`, true);
+      });
+    }
+
+    if (this.playerSprite && this.anims.exists('hurt')) {
+      this.playerSprite.play('hurt', true);
+      this.playerSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        if (this.playerHP > 0 && this.anims.exists('idle')) {
+          this.playerSprite.play('idle', true);
+        }
       });
     }
 
     const damage = Math.floor((Math.random() * 15 + 5) * damageMultiplier);
     this.playerHP = Math.max(0, this.playerHP - damage);
     this.updateHealthBars();
-    this.addLog(`${this.monster.name} dealt ${damage} damage!`);
+    this.addLog(`${this.monster} dealt ${damage} damage!`);
 
     if (this.playerHP <= 0) {
       this.defeat();
@@ -241,8 +292,8 @@ export class CombatScene extends Phaser.Scene {
 
   async victory() {
 
-    if (this.monsterSprite && this.anims.exists(`${this.base}_dead`)) {
-      this.monsterSprite.play(`${this.base}_dead`, true);
+    if (this.monsterSprite && this.anims.exists(`${this.monster}_dead`)) {
+      this.monsterSprite.play(`${this.monster}_dead`, true);
     } 
 
     const xpGained = Math.floor(Math.random() * 50) + 25;
@@ -274,6 +325,10 @@ export class CombatScene extends Phaser.Scene {
 
   defeat() {
     this.addLog('You were defeated...');
+
+    if (this.playerSprite && this.anims.exists('dead')) {
+      this.playerSprite.play('dead', true);
+    }
     
     const defeatText = this.add.text(
       this.cameras.main.width / 2,

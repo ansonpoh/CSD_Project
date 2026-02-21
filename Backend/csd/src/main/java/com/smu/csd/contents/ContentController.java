@@ -29,7 +29,7 @@ public class ContentController {
                 request.contributorId(),
                 request.topicId(),
                 request.title(),
-                request.body()
+                request.description()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(content);
     }
@@ -81,5 +81,5 @@ public class ContentController {
         return ResponseEntity.ok(service.rejectContent(id));
     }
 
-    public record SubmitContentRequest(UUID contributorId, UUID topicId, String title, String body) {}
+    public record SubmitContentRequest(UUID contributorId, UUID topicId, String title, String description) {}
 }

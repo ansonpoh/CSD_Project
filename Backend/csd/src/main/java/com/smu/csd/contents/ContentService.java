@@ -27,21 +27,23 @@ public class ContentService {
     }
 
     /**
-     * Contributor submits content directly
-     * Creates content as PENDING_REVIEW and immediately triggers AI screening,
-     * which will auto-approve, auto-reject, or flag for human moderator review.
+     * Contributor provides a short description → AI generates the full body → AI screens it.
+     * Content is saved as PENDING_REVIEW and status is updated by AIService after screening.
      */
     @Transactional
-    public Content submitContent(UUID contributorId, UUID topicId, String title, String body)
+    public Content submitContent(UUID contributorId, UUID topicId, String title, String description)
             throws ResourceNotFoundException {
         contributorService.getById(contributorId);
         Topic topic = topicService.getById(topicId);
+
+        // AI drafts the full lesson body from the contributor's short description
+        String generatedBody = aiService.generateBody(topic.getTopicName(), title, description);
 
         Content content = Content.builder()
                 .contributorId(contributorId)
                 .topic(topic)
                 .title(title)
-                .body(body)
+                .body(generatedBody)
                 .status(Content.Status.PENDING_REVIEW)
                 .build();
 

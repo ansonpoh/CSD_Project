@@ -73,9 +73,11 @@ export class ShopScene extends Phaser.Scene {
   displayItems() {
     const width = this.cameras.main.width;
     const startY = 250;
-    const spacing = 100;
+    const spacing = 120;
     const itemsPerRow = 2;
-    const columnSpacing = 350;
+    const columnSpacing = 390;
+    const cardWidth = 360;
+    const cardHeight = 96;
 
     this.itemContainers.forEach((container) => container.destroy(true));
     this.itemContainers = [];
@@ -83,71 +85,69 @@ export class ShopScene extends Phaser.Scene {
     this.items.forEach((item, index) => {
       const row = Math.floor(index / itemsPerRow);
       const col = index % itemsPerRow;
-      
+
       const itemsInThisRow = Math.min(itemsPerRow, this.items.length - (row * itemsPerRow));
       const rowStartX = (width / 2) - (((itemsInThisRow - 1) * columnSpacing) / 2);
 
       const x = rowStartX + (col * columnSpacing);
       const y = startY + (row * spacing);
 
-      // Item container
       const container = this.add.container(x, y);
-      
-      // Background
-      const bg = this.add.rectangle(0, 0, 320, 80, 0x16213e, 0.9);
+
+      const bg = this.add.rectangle(0, 0, cardWidth, cardHeight, 0x16213e, 0.9);
       bg.setStrokeStyle(2, this.getTypeColor(item.item_type));
-      
-      // Icon - using graphics instead of emoji
-      this.createItemIcon(container, -140, 0, item.item_type);
-      
-      // Item info
-      const nameText = this.add.text(-80, -15, item.name, {
+
+      this.createItemIcon(container, -(cardWidth / 2) + 26, 0, item.item_type);
+
+      const nameText = this.add.text(-120, -28, item.name, {
         fontSize: '18px',
         color: '#ffffff',
         fontStyle: 'bold'
       });
-      
-      const descText = this.add.text(-80, 5, item.description, {
-        fontSize: '14px',
-        color: '#aaaaaa'
+
+      const descText = this.add.text(-120, -5, item.description, {
+        fontSize: '13px',
+        color: '#aaaaaa',
+        wordWrap: { width: 165, useAdvancedWrap: true }
       });
-      
-      const priceText = this.add.text(-80, 25, `${item.price} gold`, {
+
+      const priceText = this.add.text(-120, 24, `${item.price} gold`, {
         fontSize: '16px',
         color: '#f59e0b'
       });
-      
-      // Buy button
+
       const canAfford = this.gold >= item.price;
-      const button = this.add.rectangle(100, 0, 80, 40, canAfford ? 0x22c55e : 0x666666, 1);
+      const buttonX = (cardWidth / 2) - 56;
+      const button = this.add.rectangle(buttonX, 0, 86, 40, canAfford ? 0x22c55e : 0x666666, 1);
       button.setStrokeStyle(2, canAfford ? 0x4ade80 : 0x888888);
-      
+
       if (canAfford) {
         button.setInteractive({ useHandCursor: true });
-        
+
         button.on('pointerover', () => {
           button.setFillStyle(0x4ade80);
         });
-        
+
         button.on('pointerout', () => {
           button.setFillStyle(0x22c55e);
         });
-        
+
         button.on('pointerdown', () => {
           this.purchaseItem(item);
         });
       }
-      
-      const buttonText = this.add.text(100, 0, 'BUY', {
+
+      const buttonText = this.add.text(buttonX, 0, 'BUY', {
         fontSize: '16px',
         color: '#ffffff',
         fontStyle: 'bold'
       }).setOrigin(0.5);
-      
+
       container.add([bg, nameText, descText, priceText, button, buttonText]);
       this.itemContainers.push(container);
     });
   }
+
 
   createItemIcon(container, x, y, type) {
     const graphics = this.add.graphics();
@@ -268,3 +268,4 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 }
+

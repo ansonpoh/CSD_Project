@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { soldier as cfg } from './Soldier.js';
+// import {slime as cfg} from "../monsters/slime/Slime.js";
+// import {lancer as cfg} from "../npcs/lancer/Lancer.js";
 
 export class SoldierController {
   constructor(scene, x, y) {

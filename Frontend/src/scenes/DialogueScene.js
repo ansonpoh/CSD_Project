@@ -42,7 +42,7 @@ export class DialogueScene extends Phaser.Scene {
       .setStrokeStyle(3, 0x4a90e2);
     
     // NPC icon - replaced emoji with graphics
-    this.npcKey = this.npc?.name?.toLowerCase?.() || '';
+    this.npcKey = this.npc?.name || '';
     this.npcDef = NPCRegistry[this.npcKey]
     this.createNPCIcon(portraitX, portraitY - this.npcDef.portraitOffsetY);
 
@@ -105,7 +105,7 @@ export class DialogueScene extends Phaser.Scene {
   createNPCIcon(x, y) {
     // Create a wizard/NPC icon using graphics
 
-    const npcKey = this.npc?.name?.toLowerCase?.() || '';
+    const npcKey = this.npc?.name || '';
 
     if (npcKey && this.textures.exists(npcKey)) {
       this.add.sprite(x, y, npcKey, 0)

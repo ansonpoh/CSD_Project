@@ -24,7 +24,7 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHP = 100;
     this.battleLog = [];
 
-    this.base = this.monster?.name?.toLowerCase?.() || 'orc';
+    this.base = this.monster?.name || 'orc';
     this.def = monsterRegistry[this.base] || monsterRegistry.orc;
 
     this.monsterAttackAnims = Object.keys(this.def.anims || {})
@@ -75,9 +75,6 @@ export class CombatScene extends Phaser.Scene {
 
   createMonsterIcon(x, y) {
     // Create a stylized monster icon using graphics
-
-    // const def = monsterRegistry[this.base] || monsterRegistry.orc;
-
     if (this.textures.exists(this.def.key)) {
       this.monsterSprite = this.add.sprite(x, y, this.def.key, 0)
         .setScale(Math.max(this.def.scale, 2.2)) // smaller for combat UI
@@ -159,12 +156,12 @@ export class CombatScene extends Phaser.Scene {
   performAttack() {
     const damage = Math.floor(Math.random() * 20) + 10;
 
-    if (this.monsterSprite && this.anims.exists(`${this.monster.name.toLowerCase()}_hurt`)) {
-      const key = `${this.monster.name.toLowerCase()}_hurt`;
+    if (this.monsterSprite && this.anims.exists(`${this.monster.name}_hurt`)) {
+      const key = `${this.monster.name}_hurt`;
       this.monsterSprite.play(key, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.monsterHP > 0 && this.anims.exists(`${this.monster.name.toLowerCase()}_idle`)) {
-          this.monsterSprite.play(`${this.monster.name.toLowerCase()}_idle`, true);
+        if (this.monsterHP > 0 && this.anims.exists(`${this.monster.name}_idle`)) {
+          this.monsterSprite.play(`${this.monster.name}_idle`, true);
         }
       });
     }

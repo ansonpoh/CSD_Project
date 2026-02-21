@@ -164,7 +164,7 @@ export class GameMapScene extends Phaser.Scene {
       const x = 200 + index * 180;
       const y = 480 + Math.random() * 150;
 
-      const npcName = npc.name.toLowerCase();
+      const npcName = npc.name
       const cfg = NPCRegistry[npcName] || NPCRegistry.orc;
       if (!this.textures.exists(npcName)) {
         console.warn(`Missing texture for ${npc.asset}`);
@@ -196,7 +196,7 @@ export class GameMapScene extends Phaser.Scene {
       const x = 300 + index * 180;
       const y = 380 + Math.random() * 150;
 
-      const monsterName = monster.name.toLowerCase();
+      const monsterName = monster.name
       const cfg = monsterRegistry[monsterName] || monsterRegistry.orc;
       if (!this.textures.exists(monsterName)) {
         console.warn(`Missing texture for ${monster.asset}, fallback to orc`);

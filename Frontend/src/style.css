@@ -5,8 +5,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: #0f0e17;
+  font-family: 'Courier New', Courier, monospace; /* Pixel-friendly font */
+  background: #1a2e4c;
   overflow: hidden;
 }
 

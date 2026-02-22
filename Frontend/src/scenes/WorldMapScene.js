@@ -48,22 +48,38 @@ export class WorldMapScene extends Phaser.Scene {
         id: 1,
         name: 'Forest Clearing',
         description: 'A peaceful forest filled with mysteries',
-        asset: 'forest_tileset',
-        world: null
+        mapKey: 'map1', 
+        tilesets: [ 
+          { name: 'stone_tiles_v2.1',            imageKey: 'stone_tiles_v2.1' },
+          { name: 'tiles-all-32x32',             imageKey: 'tiles-all-32x32' },
+          { name: 'assets_spritesheet_v2.1_free',imageKey: 'assets_spritesheet_v2.1_free' },
+          { name: 'terrain_tiles_v2.1',          imageKey: 'terrain_tiles_v2.1' },
+          { name: 'assets-all',                  imageKey: 'assets-all' },
+        ]
       },
       {
         id: 2,
         name: 'Dark Cave',
         description: 'A dangerous cave system with hidden treasures',
-        asset: 'cave_tileset',
-        world: null
+        mapKey: 'map2',
+        tilesets: [
+          { name: 'tiles-all-32x32',             imageKey: 'tiles-all-32x32' },
+          { name: 'assets_spritesheet_v2.1_free',imageKey: 'assets_spritesheet_v2.1_free' },
+          { name: 'assets-all',                  imageKey: 'assets-all' },
+          { name: 'bridges',                     imageKey: 'bridges' },
+        ]
       },
       {
         id: 3,
         name: 'Mountain Peak',
         description: 'The highest mountain in the realm',
-        asset: 'mountain_tileset',
-        world: null
+        mapKey: 'map3',
+        tilesets: [
+          { name: 'water_and_island_tiles_v2.1', imageKey: 'water_and_island_tiles_v2.1' },
+          { name: 'terrain_tiles_v2.1',          imageKey: 'terrain_tiles_v2.1' },
+          { name: 'assets_spritesheet_v2.1_free',imageKey: 'assets_spritesheet_v2.1_free' },
+          { name: 'fence_tiles',                 imageKey: 'fence_tiles' },
+        ]
       }
     ];
   }
@@ -151,6 +167,6 @@ export class WorldMapScene extends Phaser.Scene {
 
   enterMap(map) {
     gameState.setCurrentMap(map);
-    this.scene.start('GameMapScene');
+    this.scene.start('GameMapScene', {mapConfig: map});
   }
 }

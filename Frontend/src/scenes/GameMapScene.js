@@ -10,17 +10,26 @@ export class GameMapScene extends Phaser.Scene {
     this.monsters = [];
     this.npcSprites = [];
     this.monsterSprites = [];
+    this.map = null;
+  }
+  
+  // mapConfig is passed in from WorldMapScene via scene.start()
+  init(data) {
+    this.mapConfig = data.mapConfig;
   }
 
   async create() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Create simple background
-    this.add.rectangle(0, 0, width, height, 0x2d5016).setOrigin(0);
+    // // Create simple background
+    // this.add.rectangle(0, 0, width, height, 0x2d5016).setOrigin(0);
     
-    // Add grid pattern for visual interest
-    this.createGrid();
+    // // Add grid pattern for visual interest
+    // this.createGrid();
+
+    // Build the tilemap
+    this.createTilemap();
 
     // Create player
     this.createPlayer();
@@ -39,8 +48,12 @@ export class GameMapScene extends Phaser.Scene {
 
     // Setup camera
     this.cameras.main.startFollow(this.player);
-    this.cameras.main.setBounds(0, 0, width, height);
-
+    // this.cameras.main.setBounds(0, 0, width, height);
+    if (this.map) {
+      this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+      this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+    }
+    
     // Setup controls
     this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -120,6 +133,43 @@ export class GameMapScene extends Phaser.Scene {
     for (let y = 0; y < this.cameras.main.height; y += 64) {
       graphics.lineBetween(0, y, this.cameras.main.width, y);
     }
+  }
+
+  createTilemap() {
+    try {
+      this.map = this.make.tilemap({ key: this.mapConfig.mapKey });
+    } catch (e) {
+      console.error('Failed to load tilemap:', this.mapConfig.mapKey, e);
+      return;
+    }
+    if (!this.map?.tilesets?.length) return;
+    const jsonSets = this.cache.tilemap.get(this.mapConfig.mapKey)?.data?.tilesets || [];
+    const tilesets = [];
+    for (const ts of this.map.tilesets) {
+      const added = this.map.addTilesetImage(ts.name, ts.name);
+      if (added) {
+        const j = jsonSets.find((t) => t.name === ts.name);
+        if (j && (j.margin || j.spacing)) this.fixTilesetTexCoords(added, j);
+        tilesets.push(added);
+      }
+    }
+    this.map.layers.forEach((ld) => this.map.createLayer(ld.name, tilesets, 0, 0));
+  }
+
+  // Tiled formula for tex coords (uses texture size; Phaser uses different margin formula).
+  fixTilesetTexCoords(tileset, j) {
+    const tw = j.tilewidth ?? 32, th = j.tileheight ?? 32, m = j.margin ?? 0, s = j.spacing ?? 0;
+    const src = tileset.image?.source?.[0];
+    const w = src?.width ?? j.imagewidth ?? 0, h = src?.height ?? j.imageheight ?? 0;
+    if (!w || !h) return;
+    const cols = Math.floor((w - m + s) / (tw + s)), rows = Math.floor((h - m + s) / (th + s));
+    tileset.rows = rows;
+    tileset.columns = cols;
+    tileset.total = cols * rows;
+    tileset.texCoordinates.length = 0;
+    for (let row = 0; row < rows; row++)
+      for (let col = 0; col < cols; col++)
+        tileset.texCoordinates.push({ x: m + col * (tw + s), y: m + row * (th + s) });
   }
 
   createPlayer() {

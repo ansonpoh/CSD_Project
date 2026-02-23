@@ -10,6 +10,7 @@ export class UIScene extends Phaser.Scene {
     this.usernameText = null;
     this.leaderboardBtn = null;
     this.leaderboardBtnText = null;
+    this.lastKnownLevel = null;
   }
 
   create() {
@@ -63,6 +64,7 @@ export class UIScene extends Phaser.Scene {
       fontSize: '16px',
       color: '#4ade80'
     });
+    this.lastKnownLevel = learner.level;
 
     // XP
     this.xpText = this.add.text(width - 200, 25, `XP: ${learner.total_xp}`, {
@@ -96,10 +98,11 @@ export class UIScene extends Phaser.Scene {
       this.xpText.setText(`XP: ${learner.total_xp}`);
       
       // Show level up animation if needed
-      const lastLevel = this.levelText.getData('lastLevel') || 1;
-      if (learner.level > lastLevel) {
+      if (this.lastKnownLevel !== null && learner.level > this.lastKnownLevel) {
         this.showLevelUp(learner.level);
       }
+
+      this.lastKnownLevel = learner.level;
       
       this.levelText.setData('lastLevel', learner.level);
     }

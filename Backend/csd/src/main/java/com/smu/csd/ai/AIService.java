@@ -38,22 +38,18 @@ public class AIService {
     public String generateBody(String topicName, String title, String description) {
         String raw = chatClient.prompt()
                 .user("""
-                        You are writing educational dialogue for a Gen Alpha culture learning game.
+                        You are writing NPC narration for a Gen Alpha culture learning game.
                         Topic: %s
                         Title: %s
                         Description: %s
 
-                        Write a short in-game dialogue (6-10 exchanges) between two characters:
-                        - "NPC": a wise game character who teaches Gen Alpha concepts in a fun, relatable way
-                        - "Player": a curious learner asking natural follow-up questions
+                        Write 6-10 short NPC lines that teach this concept one idea at a time.
+                        The NPC is a wise, fun game character who explains Gen Alpha concepts in a relatable way.
+                        Each line should be a single sentence or short phrase the player reads before pressing Space to continue.
+                        Use real Gen Alpha examples and end with a memorable takeaway.
 
-                        The dialogue should naturally explain the concept, use real Gen Alpha examples, and end with the Player understanding the topic.
-
-                        Return ONLY a valid JSON array with no other text, in this exact format:
-                        [
-                          {"speaker": "NPC", "line": "..."},
-                          {"speaker": "Player", "line": "..."}
-                        ]
+                        Return ONLY a valid JSON array of strings with no other text, in this exact format:
+                        ["line 1", "line 2", "line 3"]
                         """.formatted(topicName, title, description))
                 .call()
                 .content();
@@ -107,12 +103,12 @@ public class AIService {
 
     private String buildPrompt(Content content) {
         return """
-                You are moderating educational dialogue content for a Gen Alpha culture learning game.
+                You are moderating NPC narration content for a Gen Alpha culture learning game.
                 Topic: %s
                 Title: %s
-                Dialogue (JSON): %s
+                Narration (JSON array of strings): %s
 
-                The content is a dialogue between two characters ("Sage" and "Player") designed to teach Gen Alpha concepts.
+                The content is a series of NPC lines designed to teach Gen Alpha concepts one sentence at a time.
                 Evaluate this submission and return ONLY a valid JSON object with no other text:
                 {
                   "quality_score": <integer 1-10>,

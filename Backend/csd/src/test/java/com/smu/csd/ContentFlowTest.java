@@ -1,7 +1,6 @@
 package com.smu.csd;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -131,13 +130,13 @@ class ContentFlowTest {
         System.out.println("============================================\n");
     }
 
-    // Parses the JSON body and prints each dialogue line neatly
+    // Parses the JSON body and prints each NPC line neatly
     private void printDialogue(String body) {
         try {
             ObjectMapper mapper = new ObjectMapper();
-            List<Map<String, String>> lines = mapper.readValue(body, new TypeReference<>() {});
-            for (Map<String, String> entry : lines) {
-                System.out.printf("  [%-6s] %s%n", entry.get("speaker"), entry.get("line"));
+            List<String> lines = mapper.readValue(body, new TypeReference<>() {});
+            for (int i = 0; i < lines.size(); i++) {
+                System.out.printf("  [%2d] %s%n", i + 1, lines.get(i));
             }
         } catch (Exception e) {
             System.out.println("  (Could not parse as JSON, raw body below)");

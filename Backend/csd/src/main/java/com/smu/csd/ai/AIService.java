@@ -4,8 +4,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentRepository;
 
@@ -15,7 +14,6 @@ public class AIService {
     private final ChatClient chatClient;
     private final AIModerationResultRepository moderationRepository;
     private final ContentRepository contentRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AIService(ChatClient.Builder chatClientBuilder,
                      AIModerationResultRepository moderationRepository,
@@ -32,14 +30,22 @@ public class AIService {
     public String generateBody(String topicName, String title, String description) {
         return chatClient.prompt()
                 .user("""
-                        You are helping a contributor write educational content for a Gen Alpha culture learning platform.
+                        You are writing educational dialogue for a Gen Alpha culture learning game.
                         Topic: %s
                         Title: %s
                         Description: %s
 
-                        Write a clear, engaging lesson body (2-4 paragraphs) explaining this concept.
-                        Use a friendly, approachable tone suitable for adults learning about Gen Alpha culture.
-                        Include real examples where relevant. Return only the lesson text, no headings or JSON.
+                        Write a short in-game dialogue (6-10 exchanges) between two characters:
+                        - "NPC": a wise game character who teaches Gen Alpha concepts in a fun, relatable way
+                        - "Player": a curious learner asking natural follow-up questions
+
+                        The dialogue should naturally explain the concept, use real Gen Alpha examples, and end with the Player understanding the topic.
+
+                        Return ONLY a valid JSON array with no other text, in this exact format:
+                        [
+                          {"speaker": "NPC", "line": "..."},
+                          {"speaker": "Player", "line": "..."}
+                        ]
                         """.formatted(topicName, title, description))
                 .call()
                 .content();
@@ -54,12 +60,17 @@ public class AIService {
      */
     @Transactional
     public void screenContent(Content content) {
-        String rawResponse = chatClient.prompt()
-                .user(buildPrompt(content))
-                .call()
-                .content();
-
-        ModerationResponse parsed = parseResponse(rawResponse);
+        ModerationResponse parsed;
+        try {
+            parsed = chatClient.prompt()
+                    .user(buildPrompt(content))
+                    .call()
+                    .entity(ModerationResponse.class);
+        } catch (Exception e) {
+            parsed = new ModerationResponse(5, true, true,
+                    AIModerationResult.Verdict.NEEDS_REVIEW,
+                    "AI response parsing failed - flagged for manual review: " + e.getMessage());
+        }
 
         moderationRepository.save(AIModerationResult.builder()
                 .content(content)
@@ -82,11 +93,12 @@ public class AIService {
 
     private String buildPrompt(Content content) {
         return """
-                You are moderating content for a Gen Alpha culture learning platform.
+                You are moderating educational dialogue content for a Gen Alpha culture learning game.
                 Topic: %s
                 Title: %s
-                Content: %s
+                Dialogue (JSON): %s
 
+                The content is a dialogue between two characters ("Sage" and "Player") designed to teach Gen Alpha concepts.
                 Evaluate this submission and return ONLY a valid JSON object with no other text:
                 {
                   "quality_score": <integer 1-10>,
@@ -107,30 +119,10 @@ public class AIService {
                 );
     }
 
-    // If AI response can't be parsed, default to NEEDS_REVIEW so a human can check it
-    private ModerationResponse parseResponse(String json) {
-        try {
-            json = json.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
-            JsonNode node = objectMapper.readTree(json);
-
-            return new ModerationResponse(
-                    node.get("quality_score").asInt(),
-                    node.get("is_relevant").asBoolean(),
-                    node.get("is_appropriate").asBoolean(),
-                    AIModerationResult.Verdict.valueOf(node.get("ai_verdict").asText()),
-                    node.get("reasoning").asText()
-            );
-        } catch (Exception e) {
-            return new ModerationResponse(5, true, true,
-                    AIModerationResult.Verdict.NEEDS_REVIEW,
-                    "AI response parsing failed - flagged for manual review: " + e.getMessage());
-        }
-    }
-
     private record ModerationResponse(
-            int qualityScore,
-            boolean isRelevant,
-            boolean isAppropriate,
-            AIModerationResult.Verdict aiVerdict,
-            String reasoning) {}
+            @JsonProperty("quality_score") int qualityScore,
+            @JsonProperty("is_relevant") boolean isRelevant,
+            @JsonProperty("is_appropriate") boolean isAppropriate,
+            @JsonProperty("ai_verdict") AIModerationResult.Verdict aiVerdict,
+            @JsonProperty("reasoning") String reasoning) {}
 }

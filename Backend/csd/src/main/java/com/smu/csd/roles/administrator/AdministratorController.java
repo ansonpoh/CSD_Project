@@ -44,7 +44,7 @@ public class AdministratorController {
         return service.saveAdministrator(administrator);
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<Administrator>> getAllAdministrators() {
         return ResponseEntity.ok(service.getAllAdministrators());
     }

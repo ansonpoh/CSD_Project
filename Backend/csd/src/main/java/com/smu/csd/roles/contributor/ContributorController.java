@@ -26,7 +26,8 @@ public class ContributorController {
         this.service = service;
     }
 
-    @PostMapping
+    // creates a new contributor when a client sends a POST request 
+    @PostMapping("/add")
     public ResponseEntity<Contributor> createContributor(@RequestBody CreateContributorRequest request)
             throws ResourceAlreadyExistsException {
         Contributor contributor = service.createContributor(
@@ -38,7 +39,7 @@ public class ContributorController {
         return ResponseEntity.status(HttpStatus.CREATED).body(contributor);
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<Contributor>> getAllContributors() {
         return ResponseEntity.ok(service.getAllContributors());
     }

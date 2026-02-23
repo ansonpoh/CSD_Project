@@ -36,7 +36,7 @@ public class AIService {
      * The contributor still reviews and submits - AI just drafts it for them.
      */
     public String generateBody(String topicName, String title, String description) {
-        return chatClient.prompt()
+        String raw = chatClient.prompt()
                 .user("""
                         You are writing educational dialogue for a Gen Alpha culture learning game.
                         Topic: %s
@@ -57,6 +57,12 @@ public class AIService {
                         """.formatted(topicName, title, description))
                 .call()
                 .content();
+        // AI sometimes wraps the JSON in markdown fences (```json ... ```) despite instructions.
+        // Strip them so the stored body is always clean, parseable JSON.
+        return raw.strip()
+                  .replaceAll("(?s)^```[a-z]*\\s*", "")
+                  .replaceAll("(?s)\\s*```$", "")
+                  .strip();
     }
 
     /**

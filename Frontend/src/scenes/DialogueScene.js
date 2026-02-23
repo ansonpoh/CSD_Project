@@ -7,24 +7,22 @@ export class DialogueScene extends Phaser.Scene {
     this.npc = null;
     this.dialogueIndex = 0;
     this.dialogues = [];
+    this.pageIndex = 0;
+    this.lessonPages = [];
+    this.lessonTitleText = null;
+    this.lessonBodyText = null;
+    this.pageIndicatorText = null;
     this.dialogueText = null;
-  this.isTyping = false;
-  this.typingTimer = null;
-  this.fullCurrentText = '';
+    this.isTyping = false;
+    this.typingTimer = null;
+    this.fullCurrentText = '';
   }
 
   init(data) {
     this.npc = data.npc;
     this.dialogueIndex = 0;
-    
-    // Sample dialogues
-    this.dialogues = [
-      `Hello, traveler! I am ${this.npc.name}.`,
-      "These lands have been troubled lately...",
-      "Monsters roam freely, and darkness spreads.",
-      "Perhaps you could help us? We need brave adventurers.",
-      "May fortune favor you on your journey!"
-    ];
+
+    this.lessonPages = data.lessonPages;
   }
 
   create() {
@@ -33,6 +31,61 @@ export class DialogueScene extends Phaser.Scene {
 
     // Semi-transparent overlay
     this.add.rectangle(0, 0, width, height, 0x000000, 0.7).setOrigin(0);
+
+    const narrationH = 200;
+    const narrationY = height - 150;
+    const narrationTop = narrationY - narrationH / 2;
+
+    const lessonH = Math.min(520, height * 0.5);
+    const lessonY = (narrationTop -50) - lessonH / 2;
+    const lessonW = Math.min(1100, width - 240);
+
+    // Center lesson panel
+    const lessonPanel = this.add.rectangle(
+      width / 2,
+      lessonY,
+      lessonW,
+      lessonH,
+      0x10182b,
+      0.98
+    );
+    lessonPanel.setStrokeStyle(3, 0x4a90e2);
+
+    // Lesson title
+    this.lessonTitleText = this.add.text(
+      width / 2 - lessonW / 2 + 28,
+      lessonY - lessonH / 2 + 22,
+      '',
+      {
+        fontSize: '30px',
+        color: '#9fd0ff',
+        fontStyle: 'bold'
+      }
+    );
+
+    // Lesson body
+    this.lessonBodyText = this.add.text(
+      width / 2 - lessonW / 2 + 28,
+      lessonY - lessonH / 2 + 80,
+      '',
+      {
+        fontSize: '22px',
+        color: '#ffffff',
+        wordWrap: { width: lessonW - 56 }
+      }
+    );
+
+    // Page Indicator
+    this.pageIndicatorText = this.add.text (
+      width / 1.34 ,
+      lessonY - lessonH / 2 + 470,
+      '',
+      {
+        fontSize: '30px',
+        color: '#9fd0ff',
+        fontStyle: 'bold'
+      }
+    )
 
     // NPC portrait area
     const portraitX = 100;
@@ -66,9 +119,9 @@ export class DialogueScene extends Phaser.Scene {
 
     // Dialogue text
     this.dialogueText = this.add.text(
-      280,
+      230,
       height - 230,
-      '',
+      this.lessonPages[this.pageIndex].narrationLines,
       {
         fontSize: '20px',
         color: '#ffffff',
@@ -78,9 +131,9 @@ export class DialogueScene extends Phaser.Scene {
 
     // Continue indicator
     const continueText = this.add.text(
-      width - 150,
+      width - 330,
       height - 70,
-      'Click to continue',
+      'Press space to continue',
       {
         fontSize: '16px',
         color: '#aaaaaa',
@@ -94,12 +147,12 @@ export class DialogueScene extends Phaser.Scene {
     });
 
     // Show first dialogue
-    this.showDialogue();
+    this.renderPage();
 
     // Add keyboard support
-    this.input.keyboard.on('keydown-SPACE', () => {
-      this.nextDialogue();
-    });
+    this.input.keyboard.on('keydown-RIGHT', () => this.nextPage());
+    this.input.keyboard.on('keydown-LEFT', () => this.prevPage());
+    this.input.keyboard.on('keydown-SPACE', () => this.closeDialogue());
   }
 
   createNPCIcon(x, y) {
@@ -114,14 +167,6 @@ export class DialogueScene extends Phaser.Scene {
         .setScale(this.npcDef.scale);
       return;
     }
-  }
-
-  showDialogue() {
-    if (this.dialogueIndex >= this.dialogues.length) return;
-
-    this.fullCurrentText = this.dialogues[this.dialogueIndex];
-    this.dialogueText.setText('');
-    this.typeText(this.fullCurrentText);
   }
 
   typeText(text) {
@@ -149,24 +194,37 @@ export class DialogueScene extends Phaser.Scene {
     });
   }
 
-  nextDialogue() {
+  renderPage() {
+    const p = this.lessonPages[this.pageIndex];
+    this.fullCurrentText = p.narration || '';
+    this.dialogueText.setText(p.narrationLines);
+    this.typeText(this.fullCurrentText);
+
+    this.lessonTitleText.setText(p.lessonTitle);
+    this.lessonBodyText.setText(p.lessonBody);
+    this.pageIndicatorText.setText(`${this.pageIndex + 1}/${this.lessonPages.length}`);
+  }
+
+  nextPage() {
+    if(!this.lessonPages.length) return;
+
     if (this.isTyping) {
-      if (this.typingTimer) {
-        this.typingTimer.remove();
-        this.typingTimer = null;
-      }
+      this.typingTimer?.remove();
+      this.typingTimer = null;
       this.dialogueText.setText(this.fullCurrentText);
       this.isTyping = false;
       return;
     }
 
-    this.dialogueIndex++;
+    this.pageIndex = (this.pageIndex + 1) % this.lessonPages.length;
+    this.renderPage();
+  }
 
-    if (this.dialogueIndex < this.dialogues.length) {
-      this.showDialogue();
-    } else {
-      this.closeDialogue();
-    }
+  prevPage() {
+    if (!this.lessonPages.length) return;
+
+    this.pageIndex = (this.pageIndex - 1 + this.lessonPages.length) % this.lessonPages.length;
+    this.renderPage();
   }
 
   closeDialogue() {

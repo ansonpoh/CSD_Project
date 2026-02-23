@@ -14,7 +14,8 @@ export const NPCRegistry = {
         scale: samurai.scale,
         anims: samurai.anims,
         labelOffsetY: samurai.labelOffsetY,
-        portraitOffsetY: samurai.portraitOffsetY
+        portraitOffsetY: samurai.portraitOffsetY,
+        lessonPages: samurai.lessonPages,
     },
     knight: {
         key: knight.sheetKey,
@@ -25,7 +26,8 @@ export const NPCRegistry = {
         scale: knight.scale,
         anims: knight.anims,
         labelOffsetY: knight.labelOffsetY,
-        portraitOffsetY: knight.portraitOffsetY
+        portraitOffsetY: knight.portraitOffsetY,
+        lessonPages: knight.lessonPages,
     },
     priest: {
         key: priest.sheetKey,
@@ -36,7 +38,8 @@ export const NPCRegistry = {
         scale: priest.scale,
         anims: priest.anims,
         labelOffsetY: priest.labelOffsetY,
-        portraitOffsetY: priest.portraitOffsetY
+        portraitOffsetY: priest.portraitOffsetY,
+        lessonPages: priest.lessonPages,
     },
     wizard: {
         key: wizard.sheetKey,
@@ -47,7 +50,8 @@ export const NPCRegistry = {
         scale: wizard.scale,
         anims: wizard.anims,
         labelOffsetY: wizard.labelOffsetY,
-        portraitOffsetY: wizard.portraitOffsetY
+        portraitOffsetY: wizard.portraitOffsetY,
+        lessonPages: wizard.lessonPages,
     },
     lancer: {
         key: lancer.sheetKey,
@@ -58,6 +62,7 @@ export const NPCRegistry = {
         scale: lancer.scale,
         anims: lancer.anims,
         labelOffsetY: lancer.labelOffsetY,
-        portraitOffsetY: lancer.portraitOffsetY
+        portraitOffsetY: lancer.portraitOffsetY,
+        lessonPages: lancer.lessonPages,
     },
 }

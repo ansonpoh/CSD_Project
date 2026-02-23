@@ -161,6 +161,7 @@ export class GameMapScene extends Phaser.Scene {
     // Create NPC sprites at random positions
 
     this.npcs.forEach((npc, index) => {
+      if(!npc || !npc.name) return;
       const x = 200 + index * 180;
       const y = 480 + Math.random() * 150;
 
@@ -299,8 +300,14 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   interactWithNPC(npc) {
-    console.log('Talking to NPC:', npc.name);
-    this.scene.launch('DialogueScene', { npc });
+
+    const npcDef = NPCRegistry[npc.name] || {};
+
+    const narrationLines = npcDef.narrationLines || [
+      `Hello, traveler! I am ${npc.name}.`
+    ];
+
+    this.scene.launch('DialogueScene', { npc, lines: narrationLines, lessonPages: npcDef.lessonPages});
     this.scene.pause();
   }
 
@@ -371,6 +378,10 @@ export class GameMapScene extends Phaser.Scene {
     const player = this.playerCtrl?.sprite;
     if (!player || !this.interactPrompt) return;
 
+    this.npcSprites = this.npcSprites.filter((sprite) => {
+      return sprite && sprite.active && sprite.body && sprite.getData('npc');
+    });
+
     let closest = null;
     let closestDist = Number.POSITIVE_INFINITY;
 
@@ -386,6 +397,12 @@ export class GameMapScene extends Phaser.Scene {
 
     if (inRange) {
       const npc = closest.getData('npc');
+      if (!npc || !npc.name) {
+        this.closestNpcSprite = null;
+        this.interactPrompt.setVisible(false);
+        return;
+      }
+      
       this.closestNpcSprite = closest;
       this.interactPrompt.setText(`Press E to talk to ${npc.name}`);
       this.interactPrompt.setVisible(true);
@@ -399,6 +416,5 @@ export class GameMapScene extends Phaser.Scene {
       this.interactPrompt.setVisible(false);
     }
   }
-
 
 }

@@ -205,7 +205,7 @@ class ApiService {
 
   // Administrator endpoints
   async getAllAdministrators() {
-    const { data } = await this.api.get('/administrators');
+    const { data } = await this.api.get('/administrators/all');
     return data;
   }
 
@@ -225,7 +225,7 @@ class ApiService {
   }
 
   async createAdministrator(request) {
-    const { data } = await this.api.post('/administrators', request);
+    const { data } = await this.api.post('/administrators/add', request);
     return data;
   }
 
@@ -240,6 +240,112 @@ class ApiService {
 
   async deactivateAdministrator(id) {
     const { data } = await this.api.put(`/administrators/${id}/deactivate`);
+    return data;
+  }
+
+  // Contributor endpoints
+  async createContributor(contributor) { // async - handles request wihtout freezing app
+    const { data } = await this.api.post('/contributors/add', contributor); // wait here will backend reponse
+    return data;
+  }
+
+  async getAllContributors() {
+    const { data } = await this.api.get('/contributors/all');
+    return data;
+  }
+
+  async getContributor(id) {
+    const { data } = await this.api.get(`/contributors/${id}`);
+    return data;
+  }
+
+  async getContributorBySupabaseId(supabaseUserId) {
+    const { data } = await this.api.get(`/contributors/supabase/${supabaseUserId}`);
+    return data;
+  }
+
+  async isContributor(supabaseUserId) {
+    const { data } = await this.api.get(`/contributors/check/${supabaseUserId}`);
+    return data;
+  }
+
+  async updateContributor(id, contributor) {
+    const { data } = await this.api.put(`/contributors/${id}`, contributor);
+    return data;
+  }
+
+  async deleteContributor(id) {
+    await this.api.delete(`/contributors/${id}`);
+  }
+
+  async deactivateContributor(id) {
+    const { data } = await this.api.put(`/contributors/${id}/deactivate`);
+    return data;
+  }
+
+  // Topic endpoints
+  async getAllTopics() {
+    const { data } = await this.api.get('/topic/all');
+    return data;
+  }
+
+  async getTopic(id) {
+    const { data } = await this.api.get(`/topic/${id}`);
+    return data;
+  }
+
+  async createTopic(topic) {
+    const { data } = await this.api.post('/topic/add', topic);
+    return data;
+  }
+
+  async updateTopic(id, topic) {
+    const { data } = await this.api.put(`/topic/${id}`, topic);
+    return data;
+  }
+
+  async deleteTopic(id) {
+    await this.api.delete(`/topic/${id}`);
+  }
+
+  // Content endpoints
+  async submitContent(content) {
+    const { data } = await this.api.post('/contents', content);
+    return data;
+  }
+
+  async getContentQueue() {
+    const { data } = await this.api.get('/contents/queue');
+    return data;
+  }
+
+  async getContent(id) {
+    const { data } = await this.api.get(`/contents/${id}`);
+    return data;
+  }
+
+  async getContentByContributor(contributorId) {
+    const { data } = await this.api.get(`/contents/contributor/${contributorId}`);
+    return data;
+  }
+
+  async getContentByTopic(topicId) {
+    const { data } = await this.api.get(`/contents/topic/${topicId}`);
+    return data;
+  }
+
+  async searchContent(keyword) {
+    const { data } = await this.api.get('/contents/search', { params: { keyword } });
+    return data;
+  }
+
+  async approveContent(id) {
+    const { data } = await this.api.put(`/contents/${id}/approve`);
+    return data;
+  }
+
+  async rejectContent(id) {
+    const { data } = await this.api.put(`/contents/${id}/reject`);
     return data;
   }
 }

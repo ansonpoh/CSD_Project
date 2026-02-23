@@ -36,7 +36,11 @@ export class UIScene extends Phaser.Scene {
       fontSize: '20px',
       color: '#ffffff',
       fontStyle: 'bold'
-    });
+    }).setInteractive({useHandCursor: true});
+
+    this.usernameText.on('pointerdown', () => {
+      this.showUserProfile();
+    })
 
     // Leaderboard
     const leaderboardBtnX = this.usernameText.x + this.usernameText.width + 70;
@@ -335,6 +339,61 @@ export class UIScene extends Phaser.Scene {
       loading.setText('Failed to load leaderboard');
       console.error('Leaderboard load failed:', err);
     }
+  }
+
+  showUserProfile() {
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+    const learner = gameState.getLearner() || {};
+
+    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.75)
+      .setOrigin(0)
+      .setDepth(1200)
+      .setInteractive();
+
+    const panel = this.add.rectangle(width / 2, height / 2, 520, 380, 0x0f172a, 1)
+      .setStrokeStyle(3, 0x3b82f6)
+      .setDepth(1201);
+
+    const title = this.add.text(width / 2, height / 2 - 145, 'USER PROFILE', {
+      fontSize: '30px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1202);
+
+    const fields = [
+      ['Username', learner.username ?? 'Unknown'],
+      ['Level', learner.level ?? 1],
+      ['XP', learner.total_xp ?? learner.totalXp ?? 0],
+      ['Learner ID', learner.learnerId ?? 'N/A']
+    ];
+
+    let y = height / 2 - 75;
+    const nodes = [overlay, panel, title];
+    fields.forEach(([label, value]) => {
+      const row = this.add.text(width / 2, y, `${label}: ${value}`, {
+        fontSize: '22px',
+        color: '#e2e8f0'
+      }).setOrigin(0.5).setDepth(1202);
+      nodes.push(row);
+      y += 48;
+    });
+
+    const closeBtn = this.add.rectangle(width / 2, height / 2 + 145, 120, 40, 0x475569)
+      .setDepth(1202)
+      .setInteractive({ useHandCursor: true });
+
+    const closeText = this.add.text(width / 2, height / 2 + 145, 'CLOSE', {
+      fontSize: '16px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1203);
+
+    nodes.push(closeBtn, closeText);
+
+    const cleanup = () => nodes.forEach((node) => node?.destroy());
+    closeBtn.on('pointerdown', cleanup);
+    overlay.on('pointerdown', cleanup);
   }
 
 }

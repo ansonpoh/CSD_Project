@@ -24,7 +24,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         '[default_schema]': public
 
-
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
@@ -37,6 +36,16 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: https://tdhhdbipbnlfdjlbxege.supabase.co/auth/v1
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS__SSL:false}
+      timeout: 2s
 
 supabase:
   jwt:

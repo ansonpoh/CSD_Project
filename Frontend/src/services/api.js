@@ -181,6 +181,18 @@ class ApiService {
     await this.api.delete(`/learner/${id}`);
   }
 
+  // Leaderboard endpoints
+  async getLeaderboard(limit = 20) {
+    const { data } = await this.api.get('/leaderboard', { params: { limit } });
+    return data;
+  }
+
+  async getMyLeaderboardRank() {
+    const { data } = await this.api.get('/leaderboard/me');
+    return data;
+  }
+
+
   // Inventory endpoints
   async getMyInventory() {
     const { data } = await this.api.get('/inventory/me');

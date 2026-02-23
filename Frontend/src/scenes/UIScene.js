@@ -8,6 +8,8 @@ export class UIScene extends Phaser.Scene {
     this.levelText = null;
     this.xpText = null;
     this.usernameText = null;
+    this.leaderboardBtn = null;
+    this.leaderboardBtnText = null;
   }
 
   create() {
@@ -35,6 +37,22 @@ export class UIScene extends Phaser.Scene {
       color: '#ffffff',
       fontStyle: 'bold'
     });
+
+    // Leaderboard
+    const leaderboardBtnX = this.usernameText.x + this.usernameText.width + 70;
+    this.leaderboardBtn = this.add.rectangle(leaderboardBtnX, 25, 110, 32, 0x2563eb)
+      .setInteractive({ useHandCursor: true });
+
+    this.leaderboardBtnText = this.add.text(leaderboardBtnX, 25, 'Leaderboard', {
+      fontSize: '14px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    this.leaderboardBtn.on('pointerdown', () => {
+      this.showLeaderboard();
+    });
+
 
     // Level
     this.levelText = this.add.text(20, 35, `Level: ${learner.level}`, {
@@ -232,4 +250,91 @@ export class UIScene extends Phaser.Scene {
       cleanupInventoryUI();
     });
   }
+
+  async showLeaderboard() {
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+
+    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.75)
+      .setOrigin(0)
+      .setInteractive()
+      .setDepth(1100);
+
+    const panel = this.add.rectangle(width / 2, height / 2, 620, 520, 0x0f172a, 1)
+      .setStrokeStyle(3, 0x3b82f6)
+      .setDepth(1101);
+
+    const title = this.add.text(width / 2, height / 2 - 220, 'LEADERBOARD', {
+      fontSize: '30px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1102);
+
+    const loading = this.add.text(width / 2, height / 2 - 170, 'Loading...', {
+      fontSize: '18px',
+      color: '#cbd5e1'
+    }).setOrigin(0.5).setDepth(1102);
+
+    const nodes = [overlay, panel, title, loading];
+    const cleanup = () => nodes.forEach(n => n?.destroy());
+
+    const closeBtn = this.add.rectangle(width / 2, height / 2 + 220, 120, 40, 0x475569)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(1102);
+
+    const closeText = this.add.text(width / 2, height / 2 + 220, 'CLOSE', {
+      fontSize: '16px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1103);
+
+    nodes.push(closeBtn, closeText);
+    closeBtn.on('pointerdown', cleanup);
+
+    try {
+      const [rows, me] = await Promise.all([
+        apiService.getLeaderboard(20),
+        apiService.getMyLeaderboardRank()
+      ]);
+
+      loading.destroy();
+
+      const header = this.add.text(width / 2, height / 2 - 180, '#   USERNAME                  XP', {
+        fontSize: '16px',
+        color: '#93c5fd',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setDepth(1102);
+      nodes.push(header);
+
+      let y = height / 2 - 145;
+      rows.forEach((entry) => {
+        const isMe = me?.learnerId === entry.learnerId;
+        const color = isMe ? '#fde68a' : '#e2e8f0';
+        const text = `#${entry.rank.toString().padEnd(3)} ${entry.username.padEnd(22)} ${entry.totalXp}`;
+        const rowText = this.add.text(width / 2, y, text, {
+          fontSize: '15px',
+          color
+        }).setOrigin(0.5).setDepth(1102);
+        nodes.push(rowText);
+        y += 26;
+      });
+
+      const myRankText = this.add.text(
+        width / 2,
+        height / 2 + 175,
+        `Your Rank: #${me.rank} (${me.totalXp} XP)`,
+        {
+          fontSize: '18px',
+          color: '#facc15',
+          fontStyle: 'bold'
+        }
+      ).setOrigin(0.5).setDepth(1102);
+      nodes.push(myRankText);
+
+    } catch (err) {
+      loading.setText('Failed to load leaderboard');
+      console.error('Leaderboard load failed:', err);
+    }
+  }
+
 }

@@ -19,6 +19,10 @@ export class CombatScene extends Phaser.Scene {
     this.playerAttackAnims = [];
     this.monsterAttackAnims = [];
     this.attackAnimIndex = 0; 
+    this.battleOver = false;
+    this.attackBtn = null;
+    this.defendBtn = null;
+    this.runBtn = null;
   }
 
   init(data) {
@@ -26,6 +30,7 @@ export class CombatScene extends Phaser.Scene {
     this.playerHP = 100;
     this.monsterHP = 100;
     this.battleLog = [];
+    this.battleOver = false;
 
     this.monster = this.monster?.name || 'orc';
     this.monster_key = monsterRegistry[this.monster] || monsterRegistry.orc;
@@ -148,8 +153,10 @@ export class CombatScene extends Phaser.Scene {
     const y = 400;
     const spacing = 150;
 
+
+
     // Attack button
-    const attackBtn = this.add.rectangle(width / 2 - spacing, y, 120, 50, 0xef4444)
+    this.attackBtn = this.add.rectangle(width / 2 - spacing, y, 120, 50, 0xef4444)
       .setInteractive({ useHandCursor: true });
     
     this.add.text(width / 2 - spacing, y, 'ATTACK', {
@@ -158,10 +165,10 @@ export class CombatScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
     
-    attackBtn.on('pointerdown', () => this.performAttack());
+    this.attackBtn.on('pointerdown', () => {if (!this.battleOver) this.performAttack()});
 
     // Defend button
-    const defendBtn = this.add.rectangle(width / 2, y, 120, 50, 0x3b82f6)
+    this.defendBtn = this.add.rectangle(width / 2, y, 120, 50, 0x3b82f6)
       .setInteractive({ useHandCursor: true });
     
     this.add.text(width / 2, y, 'DEFEND', {
@@ -170,10 +177,10 @@ export class CombatScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
     
-    defendBtn.on('pointerdown', () => this.performDefend());
+    this.defendBtn.on('pointerdown', () => {if (!this.battleOver) this.performDefend()});
 
     // Run button
-    const runBtn = this.add.rectangle(width / 2 + spacing, y, 120, 50, 0x666666)
+    this.runBtn = this.add.rectangle(width / 2 + spacing, y, 120, 50, 0x666666)
       .setInteractive({ useHandCursor: true });
     
     this.add.text(width / 2 + spacing, y, 'RUN', {
@@ -182,7 +189,7 @@ export class CombatScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
     
-    runBtn.on('pointerdown', () => this.runAway());
+    this.runBtn.on('pointerdown', () => {if (!this.battleOver) this.runAway()});
   }
 
   performAttack() {
@@ -292,6 +299,10 @@ export class CombatScene extends Phaser.Scene {
 
   async victory() {
 
+    if (this.battleOver) return;
+    this.battleOver = true;
+    this.setActionButtonsEnabled(false);
+
     if (this.monsterSprite && this.anims.exists(`${this.monster}_dead`)) {
       this.monsterSprite.play(`${this.monster}_dead`, true);
     } 
@@ -300,8 +311,8 @@ export class CombatScene extends Phaser.Scene {
     gameState.updateXP(xpGained);
 
     const learner = gameState.getLearner();
-    if(learner?.learner_id) {
-      const savedLearner = await apiService.updateLearner(learner.learner_id, {...learner, updated_at: new Date().toISOString()});
+    if(learner?.learnerId) {
+      const savedLearner = await apiService.updateLearner(learner.learnerId, {...learner, updated_at: new Date().toISOString()});
       gameState.setLearner(savedLearner);
     }
     
@@ -326,6 +337,10 @@ export class CombatScene extends Phaser.Scene {
   defeat() {
     this.addLog('You were defeated...');
 
+    if (this.battleOver) return;
+    this.battleOver = true;
+    this.setActionButtonsEnabled(false);
+
     if (this.playerSprite && this.anims.exists('dead')) {
       this.playerSprite.play('dead', true);
     }
@@ -346,4 +361,15 @@ export class CombatScene extends Phaser.Scene {
       this.scene.start('GameMapScene');
     });
   }
+
+  setActionButtonsEnabled(enabled) {
+    const buttons = [this.attackBtn, this.defendBtn, this.runBtn];
+    buttons.forEach((btn) => {
+      if (!btn) return;
+      if (enabled) btn.setInteractive({ useHandCursor: true });
+      else btn.disableInteractive();
+      btn.setAlpha(enabled ? 1 : 0.5);
+    });
+  }
+
 }

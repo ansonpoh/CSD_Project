@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.ai.AIService;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.roles.contributor.ContributorService;
@@ -76,6 +77,10 @@ public class ContentService {
 
     public List<Content> searchByTitle(String keyword) {
         return contentRepository.findByTitleContainingIgnoreCase(keyword);
+    }
+
+    public AIModerationResult getModerationResult(UUID contentId) throws ResourceNotFoundException {
+        return aiService.getModerationResult(contentId);
     }
 
     // Moderator manually approves content after reviewing AI's NEEDS_REVIEW flag

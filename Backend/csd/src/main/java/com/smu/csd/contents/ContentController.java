@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.exception.ResourceNotFoundException;
 
 @RestController
@@ -42,9 +43,9 @@ public class ContentController {
     }
 
     // View a single content by ID
-    @GetMapping("/{id}")
-    public ResponseEntity<Content> getById(@PathVariable UUID id) throws ResourceNotFoundException {
-        return ResponseEntity.ok(service.getById(id));
+    @GetMapping("/{contentId}")
+    public ResponseEntity<Content> getById(@PathVariable UUID contentId) throws ResourceNotFoundException {
+        return ResponseEntity.ok(service.getById(contentId));
     }
 
     // Contributor views all their own submissions
@@ -67,18 +68,26 @@ public class ContentController {
         return ResponseEntity.ok(service.searchByTitle(keyword));
     }
 
-    // Moderator approves content that AI flagged as NEEDS_REVIEW
-    @PutMapping("/{id}/approve")
+    // Lets admin look at moderation result of a specific content
+    @GetMapping("/{contentId}/moderation")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Content> approve(@PathVariable UUID id) throws ResourceNotFoundException {
-        return ResponseEntity.ok(service.approveContent(id));
+    public ResponseEntity<AIModerationResult> getModeration(@PathVariable UUID contentId)
+            throws ResourceNotFoundException {
+        return ResponseEntity.ok(service.getModerationResult(contentId));
+    }
+
+    // Moderator approves content that AI flagged as NEEDS_REVIEW
+    @PutMapping("/{contentId}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Content> approve(@PathVariable UUID contentId) throws ResourceNotFoundException {
+        return ResponseEntity.ok(service.approveContent(contentId));
     }
 
     // Moderator rejects content that AI flagged as NEEDS_REVIEW
-    @PutMapping("/{id}/reject")
+    @PutMapping("/{contentId}/reject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Content> reject(@PathVariable UUID id) throws ResourceNotFoundException {
-        return ResponseEntity.ok(service.rejectContent(id));
+    public ResponseEntity<Content> reject(@PathVariable UUID contentId) throws ResourceNotFoundException {
+        return ResponseEntity.ok(service.rejectContent(contentId));
     }
 
     public record SubmitContentRequest(UUID contributorId, UUID topicId, String title, String description) {}

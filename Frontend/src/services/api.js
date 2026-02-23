@@ -348,6 +348,11 @@ class ApiService {
     const { data } = await this.api.put(`/contents/${id}/reject`);
     return data;
   }
+
+  async getContentModeration(id) {
+    const { data } = await this.api.get(`/contents/${id}/moderation`);
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

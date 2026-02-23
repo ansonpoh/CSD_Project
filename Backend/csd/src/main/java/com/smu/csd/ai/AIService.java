@@ -1,5 +1,7 @@
 package com.smu.csd.ai;
 
+import java.util.UUID;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -7,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentRepository;
+import com.smu.csd.exception.ResourceNotFoundException;
 
 @Service
 public class AIService {
@@ -21,6 +24,11 @@ public class AIService {
         this.chatClient = chatClientBuilder.build();
         this.moderationRepository = moderationRepository;
         this.contentRepository = contentRepository;
+    }
+
+    public AIModerationResult getModerationResult(UUID contentId) throws ResourceNotFoundException {
+        return moderationRepository.findByContent_ContentId(contentId)
+                .orElseThrow(() -> new ResourceNotFoundException("AIModerationResult", "contentId", contentId));
     }
 
     /**

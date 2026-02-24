@@ -119,7 +119,7 @@ export class DialogueScene extends Phaser.Scene {
     this.dialogueText = this.add.text(
       230,
       height - 230,
-      this.lessonPages[this.pageIndex].narrationLines,
+      '',
       {
         fontSize: '20px',
         color: '#ffffff',
@@ -189,9 +189,10 @@ export class DialogueScene extends Phaser.Scene {
 
   renderPage() {
     const p = this.lessonPages[this.pageIndex];
-    this.fullCurrentText = p.narration || '';
-    this.dialogueText.setText(p.narrationLines);
-    this.typeText(this.fullCurrentText);
+    const dialogue = p.narrationLines || p.narration || '';
+    this.fullCurrentText = dialogue;
+    this.dialogueText.setText('');
+    this.typeText(dialogue);
 
     this.lessonTitleText.setText(p.lessonTitle);
     this.lessonBodyText.setText(p.lessonBody);

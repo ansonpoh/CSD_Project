@@ -373,7 +373,6 @@ export class GameMapScene extends Phaser.Scene {
         lessonTitle: title,
         lessonBody: 'No lesson content yet.',
         narration: `Today we learn: ${topic}`,
-        narrationLines: `Today we learn: ${topic}`
       }];
     }
 
@@ -389,7 +388,6 @@ export class GameMapScene extends Phaser.Scene {
 
     // 1) split by paragraph
     const parts = normalized.split(/\n+/).map(s => s.trim()).filter(Boolean);
-    console.log(parts);
     // 2) if one huge paragraph, hard-split by size
     const chunks = [];
     const MAX_CHARS = 420;

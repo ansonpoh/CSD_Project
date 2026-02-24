@@ -14,7 +14,8 @@ const config = {
   width: 1920,
   height: 1088,
   resolution:window.devicePixelRatio,
-  backgroundColor: '#1a1a2e',
+  backgroundColor: '#1a2e4c', // Solid navy color from mockup
+  pixelArt: true, // Ensures crisp pixelated rendering
   scale: {
     mode: Phaser.Scale.FIT,
     // mode: Phaser.Scale.ENVELOP,

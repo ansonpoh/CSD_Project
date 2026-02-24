@@ -9,13 +9,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.leaderboard.LeaderboardService;
 
 @Service
 public class LearnerService {
     private final LearnerRepository repository;
+    private final LeaderboardService leaderboardService;
 
-    public LearnerService(LearnerRepository repository) {
+    public LearnerService(LearnerRepository repository, LeaderboardService leaderboardService) {
         this.repository = repository;
+        this.leaderboardService = leaderboardService;
     }
 
     @Transactional
@@ -35,8 +38,10 @@ public class LearnerService {
                 .email(email)
                 .full_name(fullName)
                 .build();
-
-        return repository.save(learner);
+        
+        Learner saved = repository.save(learner);
+        leaderboardService.upsertLearnerScore(saved);
+        return saved;
     }
 
     public List<Learner> getAllLearners() {
@@ -74,7 +79,9 @@ public class LearnerService {
         }
         learner.setUpdated_at(LocalDateTime.now());
 
-        return repository.save(learner);
+        Learner updated = repository.save(learner);
+        leaderboardService.upsertLearnerScore(updated);
+        return updated;
     }
 
     @Transactional
@@ -83,5 +90,6 @@ public class LearnerService {
             throw new ResourceNotFoundException("Learner", "id", id);
         }
         repository.deleteById(id);
+        leaderboardService.removeLearner(id);
     }
 }

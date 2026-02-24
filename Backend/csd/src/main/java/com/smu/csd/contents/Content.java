@@ -52,4 +52,7 @@ public class Content {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "video_key")
+    private String videoKey;
 }

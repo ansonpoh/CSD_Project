@@ -4,8 +4,12 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.smu.csd.contents.Content;
 import com.smu.csd.npcs.npc_map.NPCMap;
+import com.smu.csd.npcs.npc_map.NPCMapLessonResponse;
 import com.smu.csd.npcs.npc_map.NPCMapRepository;
+
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -28,10 +32,24 @@ public class NPCService {
         return repository.findById(npc_id).orElseThrow(() -> new RuntimeException("NPC not found."));
     }
 
-    public List<NPC> getNPCsByMapId(UUID map_id) {
+    public List<NPCMapLessonResponse> getNPCsByMapId(UUID map_id) {
         return NPCMapRepository.findAllByMapMapId(map_id)
             .stream()
-            .map(NPCMap::getNpc)
+            .map(npcMap -> {
+                var npc = npcMap.getNpc();
+                Content c = npcMap.getContent();
+                return new NPCMapLessonResponse(
+                    npc.getNpc_id(),
+                    npc.getName(),
+                    npc.getAsset(),
+                    c != null ? c.getContentId() : null,
+                    c != null ? c.getTitle() : null,
+                    c != null ? c.getBody() : null,
+                    (c != null && c.getTopic() != null) ? c.getTopic().getTopicId() : null,
+                    (c != null && c.getTopic() != null) ? c.getTopic().getTopicName() : null,
+                    c != null ? c.getVideoKey() : null
+                );
+            })
             .collect(Collectors.toList());
     }
 

@@ -18,27 +18,38 @@ export class GameMapScene extends Phaser.Scene {
     this.interactPrompt = null;
     this.closestNpcSprite = null;
     this.npcInteractDistance = 120;
+    this.map = null;
+  }
+  
+  // mapConfig is passed in from WorldMapScene via scene.start()
+  init(data) {
+    this.mapConfig = data?.mapConfig || { mapKey: 'map1' };
+
+    if (!this.mapConfig.mapKey) {
+      const raw = String(this.mapConfig.asset || this.mapConfig.name || '').toLowerCase();
+      if (raw.includes('forest')) this.mapConfig.mapKey = 'map1';
+      else if (raw.includes('cave')) this.mapConfig.mapKey = 'map2';
+      else if (raw.includes('mountain')) this.mapConfig.mapKey = 'map3';
+      else this.mapConfig.mapKey = 'map1';
+    }
   }
 
   async create() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Create simple background
-    this.add.rectangle(0, 0, width, height, 0x2d5016).setOrigin(0);
+    // // Create simple background
+    // this.add.rectangle(0, 0, width, height, 0x2d5016).setOrigin(0);
     
-    // Add grid pattern for visual interest
-    this.createGrid();
+    // // Add grid pattern for visual interest
+    // this.createGrid();
+
+    // Build the tilemap
+    this.createTilemap();
 
     // Create player
     this.playerCtrl = new SoldierController(this, width, height);
     // this.createPlayer();
-    // this.attackKeys = this.input.keyboard.addKeys({
-    //   atk1: Phaser.Input.Keyboard.KeyCodes.Z,
-    //   atk2: Phaser.Input.Keyboard.KeyCodes.X,
-    //   atk3: Phaser.Input.Keyboard.KeyCodes.C,
-    // });
-    // this.isAttacking = false;
 
     // ORIGINAL CODE - Uncomment when backend is ready:
     /*
@@ -48,8 +59,12 @@ export class GameMapScene extends Phaser.Scene {
 
     // Setup camera
     this.cameras.main.startFollow(this.playerCtrl.sprite);
-    this.cameras.main.setBounds(0, 0, width, height);
-
+    // this.cameras.main.setBounds(0, 0, width, height);
+    if (this.map) {
+      this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+      this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+    }
+    
     // Setup controls
     this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -103,6 +118,49 @@ export class GameMapScene extends Phaser.Scene {
     for (let y = 0; y < this.cameras.main.height; y += 64) {
       graphics.lineBetween(0, y, this.cameras.main.width, y);
     }
+  }
+
+  createTilemap() {
+    const mapKey = this.mapConfig?.mapKey;
+    if (!mapKey) {
+      console.error('Missing mapKey in mapConfig:', this.mapConfig);
+      return;
+    }
+
+    try {
+      this.map = this.make.tilemap({ key: mapKey });
+    } catch (e) {
+      console.error('Failed to load tilemap:', mapKey, e);
+      return;
+    }
+    if (!this.map?.tilesets?.length) return;
+    const jsonSets = this.cache.tilemap.get(mapKey)?.data?.tilesets || [];
+    const tilesets = [];
+    for (const ts of this.map.tilesets) {
+      const added = this.map.addTilesetImage(ts.name, ts.name);
+      if (added) {
+        const j = jsonSets.find((t) => t.name === ts.name);
+        if (j && (j.margin || j.spacing)) this.fixTilesetTexCoords(added, j);
+        tilesets.push(added);
+      }
+    }
+    this.map.layers.forEach((ld) => this.map.createLayer(ld.name, tilesets, 0, 0));
+  }
+
+  // Tiled formula for tex coords (uses texture size; Phaser uses different margin formula).
+  fixTilesetTexCoords(tileset, j) {
+    const tw = j.tilewidth ?? 32, th = j.tileheight ?? 32, m = j.margin ?? 0, s = j.spacing ?? 0;
+    const src = tileset.image?.source?.[0];
+    const w = src?.width ?? j.imagewidth ?? 0, h = src?.height ?? j.imageheight ?? 0;
+    if (!w || !h) return;
+    const cols = Math.floor((w - m + s) / (tw + s)), rows = Math.floor((h - m + s) / (th + s));
+    tileset.rows = rows;
+    tileset.columns = cols;
+    tileset.total = cols * rows;
+    tileset.texCoordinates.length = 0;
+    for (let row = 0; row < rows; row++)
+      for (let col = 0; col < cols; col++)
+        tileset.texCoordinates.push({ x: m + col * (tw + s), y: m + row * (th + s) });
   }
 
   createPlayer() {
@@ -161,6 +219,7 @@ export class GameMapScene extends Phaser.Scene {
     // Create NPC sprites at random positions
 
     this.npcs.forEach((npc, index) => {
+      if(!npc || !npc.name) return;
       const x = 200 + index * 180;
       const y = 480 + Math.random() * 150;
 
@@ -299,9 +358,73 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   interactWithNPC(npc) {
-    console.log('Talking to NPC:', npc.name);
-    this.scene.launch('DialogueScene', { npc });
+    const lessonPages = this.buildLessonPages(npc);
+    this.scene.launch('DialogueScene', { npc, lessonPages});
     this.scene.pause();
+  }
+
+  buildLessonPages(npc) {
+    const title = npc.contentTitle || 'Lesson';
+    const topic = npc.topicName || 'Topic';
+    const body = (npc.contentBody || '').trim();
+    const videoKey = npc.videoKey || null;
+
+    const pages = [];
+    console.log(npc);
+    if (!body) {
+      pages.push({
+        lessonTitle: title,
+        lessonBody: 'No lesson content yet.',
+        narration: `Today we learn: ${topic}`,
+        mediaType: 'text'
+      });
+    } else {
+      const normalized = body
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .trim();
+
+      const parts = normalized.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      const chunks = [];
+      const MAX_CHARS = 420;
+      const source = parts.length > 1 ? parts : [normalized];
+
+      source.forEach((p) => {
+        if (p.length <= MAX_CHARS) {
+          chunks.push(p);
+          return;
+        }
+        for (let i = 0; i < p.length; i += MAX_CHARS) {
+          chunks.push(p.slice(i, i + MAX_CHARS).trim());
+        }
+      });
+
+      chunks.forEach((chunk, i) => {
+        pages.push({
+          lessonTitle: `${title} (${i + 1}/${chunks.length})`,
+          lessonBody: chunk,
+          narration: `Today we learn: ${topic}`,
+          mediaType: 'text'
+        });
+      });
+    }
+
+    // Inject video page for this NPC if configured
+    if (videoKey) {
+      const clampedIndex = Math.max(0, pages.length);
+      pages.splice(clampedIndex, 0, {
+        lessonTitle: `${title} (Video)`,
+        lessonBody: '',
+        narration: 'Watch this short lesson clip.',
+        mediaType: 'video',
+        videoKey
+      });
+    }
+
+    return pages;
+
   }
 
   encounterMonster(monster) {
@@ -312,38 +435,6 @@ export class GameMapScene extends Phaser.Scene {
   update() {
     this.playerCtrl.update();
     this.updateNpcInteraction();
-    // if (!this.player || !this.cursors) return;
-    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk1)) this.attack('attack_1');
-    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk2)) this.attack('attack_2');
-    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk3)) this.attack('attack_3');
-    // if (this.isAttacking) return;
-
-    // const speed = 200;
-    // let vx = 0;
-    // let vy = 0;
-    // this.player.setVelocity(0);
-
-    // if (this.cursors.left.isDown) {
-    //   vx -= speed
-    //   this.player.setFlipX(true);
-    // } else if (this.cursors.right.isDown) {
-    //   vx = speed;
-    //   this.player.setFlipX(false);
-    // }
-    // if (this.cursors.up.isDown) {
-    //   vy -= speed;
-    // } else if (this.cursors.down.isDown) {
-    //   vy = speed;
-    // }
-
-    // this.player.setVelocity(vx, vy);
-    // const isMoving = vx !== 0 || vy !== 0;
-    // const nextAnim = isMoving ? 'move' : 'idle';
-
-    // // Prevents restarting of animation at every frame.
-    // if(this.player.anims.currentAnim?.key !== nextAnim) {
-    //   this.player.play(nextAnim, true);
-    // }
 
     // Update NPC name positions
     this.npcSprites.forEach(sprite => {
@@ -371,6 +462,10 @@ export class GameMapScene extends Phaser.Scene {
     const player = this.playerCtrl?.sprite;
     if (!player || !this.interactPrompt) return;
 
+    this.npcSprites = this.npcSprites.filter((sprite) => {
+      return sprite && sprite.active && sprite.body && sprite.getData('npc');
+    });
+
     let closest = null;
     let closestDist = Number.POSITIVE_INFINITY;
 
@@ -386,6 +481,12 @@ export class GameMapScene extends Phaser.Scene {
 
     if (inRange) {
       const npc = closest.getData('npc');
+      if (!npc || !npc.name) {
+        this.closestNpcSprite = null;
+        this.interactPrompt.setVisible(false);
+        return;
+      }
+      
       this.closestNpcSprite = closest;
       this.interactPrompt.setText(`Press E to talk to ${npc.name}`);
       this.interactPrompt.setVisible(true);
@@ -399,6 +500,5 @@ export class GameMapScene extends Phaser.Scene {
       this.interactPrompt.setVisible(false);
     }
   }
-
 
 }

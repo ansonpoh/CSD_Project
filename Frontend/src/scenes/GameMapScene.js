@@ -23,7 +23,15 @@ export class GameMapScene extends Phaser.Scene {
   
   // mapConfig is passed in from WorldMapScene via scene.start()
   init(data) {
-    this.mapConfig = data.mapConfig;
+    this.mapConfig = data?.mapConfig || saved || { mapKey: 'map1' };
+
+    if (!this.mapConfig.mapKey) {
+      const raw = String(this.mapConfig.asset || this.mapConfig.name || '').toLowerCase();
+      if (raw.includes('forest')) this.mapConfig.mapKey = 'map1';
+      else if (raw.includes('cave')) this.mapConfig.mapKey = 'map2';
+      else if (raw.includes('mountain')) this.mapConfig.mapKey = 'map3';
+      else this.mapConfig.mapKey = 'map1';
+    }
   }
 
   async create() {
@@ -42,12 +50,6 @@ export class GameMapScene extends Phaser.Scene {
     // Create player
     this.playerCtrl = new SoldierController(this, width, height);
     // this.createPlayer();
-    // this.attackKeys = this.input.keyboard.addKeys({
-    //   atk1: Phaser.Input.Keyboard.KeyCodes.Z,
-    //   atk2: Phaser.Input.Keyboard.KeyCodes.X,
-    //   atk3: Phaser.Input.Keyboard.KeyCodes.C,
-    // });
-    // this.isAttacking = false;
 
     // ORIGINAL CODE - Uncomment when backend is ready:
     /*
@@ -119,14 +121,20 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   createTilemap() {
+    const mapKey = this.mapConfig?.mapKey;
+    if (!mapKey) {
+      console.error('Missing mapKey in mapConfig:', this.mapConfig);
+      return;
+    }
+
     try {
-      this.map = this.make.tilemap({ key: this.mapConfig.mapKey });
+      this.map = this.make.tilemap({ key: mapKey });
     } catch (e) {
-      console.error('Failed to load tilemap:', this.mapConfig.mapKey, e);
+      console.error('Failed to load tilemap:', mapKey, e);
       return;
     }
     if (!this.map?.tilesets?.length) return;
-    const jsonSets = this.cache.tilemap.get(this.mapConfig.mapKey)?.data?.tilesets || [];
+    const jsonSets = this.cache.tilemap.get(mapKey)?.data?.tilesets || [];
     const tilesets = [];
     for (const ts of this.map.tilesets) {
       const added = this.map.addTilesetImage(ts.name, ts.name);
@@ -369,38 +377,6 @@ export class GameMapScene extends Phaser.Scene {
   update() {
     this.playerCtrl.update();
     this.updateNpcInteraction();
-    // if (!this.player || !this.cursors) return;
-    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk1)) this.attack('attack_1');
-    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk2)) this.attack('attack_2');
-    // if (Phaser.Input.Keyboard.JustDown(this.attackKeys.atk3)) this.attack('attack_3');
-    // if (this.isAttacking) return;
-
-    // const speed = 200;
-    // let vx = 0;
-    // let vy = 0;
-    // this.player.setVelocity(0);
-
-    // if (this.cursors.left.isDown) {
-    //   vx -= speed
-    //   this.player.setFlipX(true);
-    // } else if (this.cursors.right.isDown) {
-    //   vx = speed;
-    //   this.player.setFlipX(false);
-    // }
-    // if (this.cursors.up.isDown) {
-    //   vy -= speed;
-    // } else if (this.cursors.down.isDown) {
-    //   vy = speed;
-    // }
-
-    // this.player.setVelocity(vx, vy);
-    // const isMoving = vx !== 0 || vy !== 0;
-    // const nextAnim = isMoving ? 'move' : 'idle';
-
-    // // Prevents restarting of animation at every frame.
-    // if(this.player.anims.currentAnim?.key !== nextAnim) {
-    //   this.player.play(nextAnim, true);
-    // }
 
     // Update NPC name positions
     this.npcSprites.forEach(sprite => {

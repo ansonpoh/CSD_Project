@@ -273,7 +273,7 @@ export class CombatScene extends Phaser.Scene {
     if (chance > 0.5) {
       this.addLog('You escaped successfully!');
       this.time.delayedCall(1000, () => {
-        this.scene.start('GameMapScene');
+        this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
       });
     } else {
       this.addLog('Failed to escape!');
@@ -330,7 +330,7 @@ export class CombatScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     this.time.delayedCall(2000, () => {
-      this.scene.start('GameMapScene');
+      this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
     });
   }
 
@@ -358,7 +358,7 @@ export class CombatScene extends Phaser.Scene {
 
     this.time.delayedCall(2000, () => {
       this.playerHP = 100;
-      this.scene.start('GameMapScene');
+      this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
     });
   }
 

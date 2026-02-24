@@ -167,7 +167,21 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   enterMap(map) {
-    gameState.setCurrentMap(map);
+    const normalizedMap = {
+      ...map,
+      mapKey: map.mapKey || this.resolveMapKey(map)
+    };
+    gameState.setCurrentMap(normalizedMap);
     this.scene.start('GameMapScene', {mapConfig: map});
+  }
+
+  resolveMapKey(map) {
+    const raw = String(map?.mapKey || map?.asset || map?.name || '').toLowerCase();
+
+    if (raw === 'map1' || raw.includes('forest')) return 'map1';
+    if (raw === 'map2' || raw.includes('cave')) return 'map2';
+    if (raw === 'map3' || raw.includes('mountain')) return 'map3';
+
+    return 'map1';
   }
 }

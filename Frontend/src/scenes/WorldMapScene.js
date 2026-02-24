@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
+import { soldier } from "../characters/soldier/Soldier.js"; //temp image
 
 export class WorldMapScene extends Phaser.Scene {
   constructor() {
@@ -123,8 +124,15 @@ export class WorldMapScene extends Phaser.Scene {
     const lvlDisplay = this.add.text(40, 130, `Current Level: ${learner.level}`, { fontSize: '20px', fontFamily: '"Courier New", Courier, monospace', color: '#0f172a', fontStyle: 'bold' });
     const pbTrack = this.add.rectangle(40, 170, 280, 24, 0x1e293b).setOrigin(0).setStrokeStyle(2, 0x64748b);
     const pbFill = this.add.rectangle(44, 174, 100, 16, 0x4a90e2).setOrigin(0);
-    const giantAvatar = this.add.image(430, 120, 'player').setScale(5);
+    let giantAvatar;
+    if (this.textures.exists(soldier.sheetKey)) {
+      giantAvatar = this.add.sprite(430, 120, soldier.sheetKey, 0).setScale(3);
+    } else {
+      giantAvatar = this.add.circle(430, 120, 42, 0x4a90e2).setStrokeStyle(6, borderColor);
+    }
     welcomeCard.add([bubbleBg, welcomeMsg, lvlDisplay, pbTrack, pbFill, giantAvatar]);
+    // const giantAvatar = this.add.image(430, 120, 'player').setScale(5);
+    // welcomeCard.add([bubbleBg, welcomeMsg, lvlDisplay, pbTrack, pbFill, giantAvatar]);
 
     // 2. Map View
     const mapCard = createPixelCard(rightX, topY, cardWidth, 240, "Map View", lightCardColor);
@@ -175,7 +183,6 @@ export class WorldMapScene extends Phaser.Scene {
       });
       
       actionCard.add([btnBg, btnText]);
-      container.add([bg, nameText, descText, button, buttonText]);
 
       for (let i = actionMaps.length; i < 3; i++) {
         const btnBg = this.add.rectangle(20 + (i * 165), 65, 145, 40, 0x1e293b).setOrigin(0).setStrokeStyle(3, borderColor);

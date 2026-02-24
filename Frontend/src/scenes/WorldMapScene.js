@@ -35,6 +35,8 @@ export class WorldMapScene extends Phaser.Scene {
     super({ key: 'WorldMapScene' });
     this.maps = [];
     this.uiTileSize = 56;
+    this.cloudSet = 1;
+    this.cloudLayerCount = 4;
   }
 
   preload() {
@@ -58,6 +60,17 @@ export class WorldMapScene extends Phaser.Scene {
         frameWidth: 28,
         frameHeight: 14
       });
+    }
+
+    const { cloudSet, cloudLayerCount } = this.getCloudConfigForCurrentTime();
+    this.cloudSet = cloudSet;
+    this.cloudLayerCount = cloudLayerCount;
+
+    for (let i = 1; i <= this.cloudLayerCount; i += 1) {
+      this.load.image(
+        `home-cloud-${i}`,
+        `assets/Clouds/Clouds%20${this.cloudSet}/${i}.png`
+      );
     }
   }
 
@@ -95,6 +108,7 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor(0x090f24);
     this.drawBackdrop(width, height);
+    this.createHomeCloudBackdrop(width, height);
 
     try {
       this.maps = await apiService.getAllMaps();
@@ -159,6 +173,49 @@ export class WorldMapScene extends Phaser.Scene {
     }
   }
 
+  getCloudConfigForCurrentTime() {
+    const hour = new Date().getHours();
+    const cloudSet = Math.floor(hour / 3) + 1;
+    const layerCountsBySet = {
+      1: 4,
+      2: 4,
+      3: 4,
+      4: 4,
+      5: 5,
+      6: 6,
+      7: 4,
+      8: 6
+    };
+
+    return {
+      cloudSet,
+      cloudLayerCount: layerCountsBySet[cloudSet] || 4
+    };
+  }
+
+  createHomeCloudBackdrop(width, height) {
+    for (let i = 1; i <= this.cloudLayerCount; i += 1) {
+      const drift = 20 + i * 14;
+      const cloud = this.add.image(width / 2, height / 2, `home-cloud-${i}`);
+      const requiredWidth = width + drift * 2 + 120;
+      const requiredHeight = height + 120;
+      const scale = Math.max(requiredWidth / cloud.width, requiredHeight / cloud.height);
+
+      cloud.setScale(scale);
+      cloud.setAlpha(Math.min(0.06 + i * 0.035, 0.2));
+      cloud.setDepth(2 + i);
+
+      this.tweens.add({
+        targets: cloud,
+        x: { from: width / 2 - drift, to: width / 2 + drift },
+        duration: 22000 + i * 3200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+  }
+
   //  panel builder 
 
   createWindowPanel(x, y, cols, rows, title) {
@@ -166,6 +223,7 @@ export class WorldMapScene extends Phaser.Scene {
     const width     = cols * tile;
     const height    = rows * tile;
     const container = this.add.container(x, y);
+    container.setDepth(50);
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {

@@ -24,7 +24,7 @@ export class DialogueScene extends Phaser.Scene {
   init(data) {
     this.npc = data.npc;
     this.dialogueIndex = 0;
-
+    this.pageIndex = 0;
     this.lessonPages = data.lessonPages;
   }
 
@@ -263,6 +263,14 @@ export class DialogueScene extends Phaser.Scene {
 
   prevPage() {
     if (!this.lessonPages.length) return;
+
+    if (this.isTyping) {
+      this.typingTimer?.remove();
+      this.typingTimer = null;
+      this.dialogueText.setText(this.fullCurrentText);
+      this.isTyping = false;
+      return;
+    }
 
     this.pageIndex = (this.pageIndex - 1 + this.lessonPages.length) % this.lessonPages.length;
     this.renderPage();

@@ -242,6 +242,25 @@ class ApiService {
     const { data } = await this.api.put(`/administrators/${id}/deactivate`);
     return data;
   }
+  
+  // Contents endpoints
+  async getContentsByContributorId(id) {
+    const { data } = await this.api.get(`/contents/contributor/${id}`);
+    return data;
+  }
+
+  // Contributor endpoints
+  async addContributor(contributor) {
+    const { data } = await this.api.post("/contributors", contributor);
+    return data;
+  }
+
+  async getContributorBySupabaseId(supabaseUserId) {
+    const { data } = await this.api.get(
+        `/contributors/supabase/${supabaseUserId}`,
+    );
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

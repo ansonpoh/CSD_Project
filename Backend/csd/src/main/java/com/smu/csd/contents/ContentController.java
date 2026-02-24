@@ -49,7 +49,7 @@ public class ContentController {
 
     // Contributor views all their own submissions
     @GetMapping("/contributor/{contributorId}")
-    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
+    //@PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
     public ResponseEntity<List<Content>> getByContributor(@PathVariable UUID contributorId) {
         return ResponseEntity.ok(service.getByContributorId(contributorId));
     }

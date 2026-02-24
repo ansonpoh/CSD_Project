@@ -132,6 +132,13 @@ export class LoginScene extends Phaser.Scene {
       const userId = data.user?.id || data.session?.user?.id;
       if (!userId) throw new Error('No Supabase user id returned');
 
+      try {
+        const contributor = await apiService.getContributorBySupabaseId(userId);
+        if (contributor) {
+          localStorage.setItem('contributorId', contributor.contributorId);
+        }
+      } catch (e) {}
+
       const learner = await apiService.getCurrentLearner();
       if (!learner) {
         this.setMessage('No learner profile found. Please register first.');

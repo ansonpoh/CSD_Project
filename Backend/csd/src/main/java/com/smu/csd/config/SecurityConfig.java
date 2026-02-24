@@ -12,6 +12,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import com.smu.csd.security.JwtAuthenticationFilter;
 
@@ -54,7 +55,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/administrators/**").hasRole("ADMIN")
 
                 // Contributor endpoints - requires ROLE_CONTRIBUTOR or ROLE_ADMIN
-                .requestMatchers("/api/contributors/**").hasAnyRole("CONTRIBUTOR", "ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/contributors").permitAll()
+                //.requestMatchers("/api/contributors/**").hasAnyRole("CONTRIBUTOR", "ADMIN")
+                .requestMatchers("/api/contributors/**").permitAll()
 
                 // All other requests require authentication (no unauthenticated access)
                 .anyRequest().authenticated()

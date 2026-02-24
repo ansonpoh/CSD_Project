@@ -82,6 +82,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image('bridges', 'assets/basic caves and dungeons 32x32 standard - v1.0/assets/bridges.png');
     this.load.image('water_and_island_tiles_v2.1', 'assets/basic_tileset_and_assets_standard/water_and_island_tiles_v2.1.png');
     this.load.image('fence_tiles', 'assets/basic_tileset_and_assets_standard/fence_tiles.png');
+
+    //Load video
+    this.load.video('test_video', 'assets/videos/test_video.mp4', 'loadeddata', false, true);
+
   }
 
   //Patch tilesets (margin/spacing) so Phaser's tile count matches Tiled; clamp out-of-range GIDs.

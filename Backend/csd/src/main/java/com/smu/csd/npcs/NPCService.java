@@ -46,7 +46,8 @@ public class NPCService {
                     c != null ? c.getTitle() : null,
                     c != null ? c.getBody() : null,
                     (c != null && c.getTopic() != null) ? c.getTopic().getTopicId() : null,
-                    (c != null && c.getTopic() != null) ? c.getTopic().getTopicName() : null
+                    (c != null && c.getTopic() != null) ? c.getTopic().getTopicName() : null,
+                    c != null ? c.getVideoKey() : null
                 );
             })
             .collect(Collectors.toList());

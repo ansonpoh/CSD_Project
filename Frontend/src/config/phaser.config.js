@@ -12,8 +12,11 @@ const config = {
   type: Phaser.AUTO,
   parent: 'app',
   width: 1920,
+  dom: {
+    createContainer: true
+  },
   height: 1088,
-  resolution:window.devicePixelRatio,
+  // resolution:window.devicePixelRatio,
   backgroundColor: '#1a2e4c', // Solid navy color from mockup
   pixelArt: true, // Ensures crisp pixelated rendering
   scale: {

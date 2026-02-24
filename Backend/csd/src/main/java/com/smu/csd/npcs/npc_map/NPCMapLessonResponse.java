@@ -10,5 +10,6 @@ public record NPCMapLessonResponse(
     String contentTitle,
     String contentBody,
     UUID topicId,
-    String topicName
+    String topicName,
+    String videoKey
 ) {}

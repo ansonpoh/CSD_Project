@@ -28,4 +28,5 @@ public class NPC {
     private String name;
     @Column
     private String asset;
+    
 }

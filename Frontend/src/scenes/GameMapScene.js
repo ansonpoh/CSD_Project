@@ -367,47 +367,64 @@ export class GameMapScene extends Phaser.Scene {
     const title = npc.contentTitle || 'Lesson';
     const topic = npc.topicName || 'Topic';
     const body = (npc.contentBody || '').trim();
+    const videoKey = npc.videoKey || null;
 
+    const pages = [];
+    console.log(npc);
     if (!body) {
-      return [{
+      pages.push({
         lessonTitle: title,
         lessonBody: 'No lesson content yet.',
         narration: `Today we learn: ${topic}`,
-      }];
+        mediaType: 'text'
+      });
+    } else {
+      const normalized = body
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .trim();
+
+      const parts = normalized.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      const chunks = [];
+      const MAX_CHARS = 420;
+      const source = parts.length > 1 ? parts : [normalized];
+
+      source.forEach((p) => {
+        if (p.length <= MAX_CHARS) {
+          chunks.push(p);
+          return;
+        }
+        for (let i = 0; i < p.length; i += MAX_CHARS) {
+          chunks.push(p.slice(i, i + MAX_CHARS).trim());
+        }
+      });
+
+      chunks.forEach((chunk, i) => {
+        pages.push({
+          lessonTitle: `${title} (${i + 1}/${chunks.length})`,
+          lessonBody: chunk,
+          narration: `Today we learn: ${topic}`,
+          mediaType: 'text'
+        });
+      });
     }
 
-    const raw = String(body ?? '');
+    // Inject video page for this NPC if configured
+    if (videoKey) {
+      const clampedIndex = Math.max(0, pages.length);
+      pages.splice(clampedIndex, 0, {
+        lessonTitle: `${title} (Video)`,
+        lessonBody: '',
+        narration: 'Watch this short lesson clip.',
+        mediaType: 'video',
+        videoKey
+      });
+    }
 
-    // convert escaped newlines to real newlines, then normalize
-    const normalized = raw
-      .replace(/\\r\\n/g, '\n')
-      .replace(/\\n/g, '\n')
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .trim();
+    return pages;
 
-    // 1) split by paragraph
-    const parts = normalized.split(/\n+/).map(s => s.trim()).filter(Boolean);
-    // 2) if one huge paragraph, hard-split by size
-    const chunks = [];
-    const MAX_CHARS = 420;
-
-    const source = parts.length > 1 ? parts : [body];
-    source.forEach((p) => {
-      if (p.length <= MAX_CHARS) {
-        chunks.push(p);
-        return;
-      }
-      for (let i = 0; i < p.length; i += MAX_CHARS) {
-        chunks.push(p.slice(i, i + MAX_CHARS).trim());
-      }
-    });
-
-    return chunks.map((chunk, i) => ({
-      lessonTitle: `${title} (${i + 1}/${chunks.length})`,
-      lessonBody: chunk,
-      narration: `Today we learn: ${topic}`,
-    }));
   }
 
   encounterMonster(monster) {

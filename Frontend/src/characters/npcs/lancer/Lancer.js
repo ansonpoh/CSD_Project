@@ -8,18 +8,6 @@ export const lancer = {
   scale: 3,
   labelOffsetY: 80,
   portraitOffsetY: -20,
-  lessonPages: [
-      {
-          narrationLines: "I sense discipline in your stance.",
-          lessonTitle: "Input validation",
-          lessonBody:"Always validate user input on the server side.",
-      },
-      {
-          narrationLines: "Stinky",
-          lessonTitle: "Client vs Server",
-          lessonBody:"Client checks are for UX only.",
-      }
-  ],
 
   anims: {  
     idle: { row: 0, count: 6, frameRate: 4, repeat: -1 },

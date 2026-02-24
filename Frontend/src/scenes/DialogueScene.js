@@ -5,8 +5,6 @@ export class DialogueScene extends Phaser.Scene {
   constructor() {
     super({ key: 'DialogueScene' });
     this.npc = null;
-    this.dialogueIndex = 0;
-    this.dialogues = [];
     this.pageIndex = 0;
     this.lessonPages = [];
     this.lessonTitleText = null;
@@ -140,11 +138,6 @@ export class DialogueScene extends Phaser.Scene {
         fontStyle: 'italic'
       }
     );
-
-    // Make scene interactive
-    this.input.on('pointerdown', () => {
-      this.nextDialogue();
-    });
 
     // Show first dialogue
     this.renderPage();

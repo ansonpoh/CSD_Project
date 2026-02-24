@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
+import com.smu.csd.contents.Content;
 import com.smu.csd.maps.Map;
 import com.smu.csd.npcs.NPC;
 
@@ -33,4 +34,7 @@ public class NPCMap {
     @ManyToOne
     @JoinColumn(name = "map_id")
     private Map map;
+    @ManyToOne
+    @JoinColumn(name = "content_id")
+    private Content content;
 }

@@ -358,15 +358,58 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   interactWithNPC(npc) {
-
-    const npcDef = NPCRegistry[npc.name] || {};
-
-    const narrationLines = npcDef.narrationLines || [
-      `Hello, traveler! I am ${npc.name}.`
-    ];
-
-    this.scene.launch('DialogueScene', { npc, lines: narrationLines, lessonPages: npcDef.lessonPages});
+    const lessonPages = this.buildLessonPages(npc);
+    this.scene.launch('DialogueScene', { npc, lessonPages});
     this.scene.pause();
+  }
+
+  buildLessonPages(npc) {
+    const title = npc.contentTitle || 'Lesson';
+    const topic = npc.topicName || 'Topic';
+    const body = (npc.contentBody || '').trim();
+
+    if (!body) {
+      return [{
+        lessonTitle: title,
+        lessonBody: 'No lesson content yet.',
+        narration: `Today we learn: ${topic}`,
+        narrationLines: `Today we learn: ${topic}`
+      }];
+    }
+
+    const raw = String(body ?? '');
+
+    // convert escaped newlines to real newlines, then normalize
+    const normalized = raw
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
+
+    // 1) split by paragraph
+    const parts = normalized.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    console.log(parts);
+    // 2) if one huge paragraph, hard-split by size
+    const chunks = [];
+    const MAX_CHARS = 420;
+
+    const source = parts.length > 1 ? parts : [body];
+    source.forEach((p) => {
+      if (p.length <= MAX_CHARS) {
+        chunks.push(p);
+        return;
+      }
+      for (let i = 0; i < p.length; i += MAX_CHARS) {
+        chunks.push(p.slice(i, i + MAX_CHARS).trim());
+      }
+    });
+
+    return chunks.map((chunk, i) => ({
+      lessonTitle: `${title} (${i + 1}/${chunks.length})`,
+      lessonBody: chunk,
+      narration: `Today we learn: ${topic}`,
+    }));
   }
 
   encounterMonster(monster) {

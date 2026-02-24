@@ -23,7 +23,7 @@ export class GameMapScene extends Phaser.Scene {
   
   // mapConfig is passed in from WorldMapScene via scene.start()
   init(data) {
-    this.mapConfig = data?.mapConfig || saved || { mapKey: 'map1' };
+    this.mapConfig = data?.mapConfig || { mapKey: 'map1' };
 
     if (!this.mapConfig.mapKey) {
       const raw = String(this.mapConfig.asset || this.mapConfig.name || '').toLowerCase();

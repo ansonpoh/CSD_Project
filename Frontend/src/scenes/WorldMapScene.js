@@ -67,11 +67,6 @@ export class WorldMapScene extends Phaser.Scene {
     }
   }
 
-  enterMap(map) {
-    gameState.setCurrentMap(map);
-    this.scene.start('GameMapScene');
-  }
-
   async create() {
     const { width, height } = this.cameras.main;
     const learner = gameState.getLearner() || { username: 'PixelWarrior', level: 10, total_xp: 1500 };

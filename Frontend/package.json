@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "axios": "^1.6.5",
-    "phaser": "^3.80.1",
-    "@supabase/supabase-js": "^2.49.1"
+    "phaser": "^3.90.0"
   },
   "devDependencies": {
     "vite": "^5.0.11"

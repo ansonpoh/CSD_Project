@@ -8,11 +8,28 @@ export class LoginScene extends Phaser.Scene {
     super({ key: 'LoginScene' });
     this.loginForm = null;
     this.authMode = 'login';
+    this.cloudSet = 1;
+    this.cloudLayerCount = 4;
+  }
+
+  preload() {
+    const { cloudSet, cloudLayerCount } = this.getCloudConfigForCurrentTime();
+    this.cloudSet = cloudSet;
+    this.cloudLayerCount = cloudLayerCount;
+
+    for (let i = 1; i <= this.cloudLayerCount; i += 1) {
+      this.load.image(
+        `login-cloud-${i}`,
+        `/assets/Clouds/Clouds%20${this.cloudSet}/${i}.png`
+      );
+    }
   }
 
   create() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+
+    this.createTimeBasedBackground(width, height);
 
     // Add title
     this.add.text(width / 2, 100, 'ADVENTURE GAME', {
@@ -38,6 +55,62 @@ export class LoginScene extends Phaser.Scene {
     this.loginForm.style.border = '2px solid #4a90e2';
     this.loginForm.style.width = '400px';
     document.body.appendChild(this.loginForm);
+  }
+
+  getCloudConfigForCurrentTime() {
+    const hour = new Date().getHours();
+
+    // 8 cloud packs over 24h, rotating every 3 hours.
+    const cloudSet = Math.floor(hour / 3) + 1;
+    const layerCountsBySet = {
+      1: 4,
+      2: 4,
+      3: 4,
+      4: 4,
+      5: 5,
+      6: 6,
+      7: 4,
+      8: 6
+    };
+
+    return {
+      cloudSet,
+      cloudLayerCount: layerCountsBySet[cloudSet] || 4
+    };
+  }
+
+  getSkyColorForCurrentTime() {
+    const hour = new Date().getHours();
+
+    if (hour >= 5 && hour < 8) return 0xffc48c; // sunrise
+    if (hour >= 8 && hour < 17) return 0x87c8ff; // day
+    if (hour >= 17 && hour < 20) return 0xff8f70; // sunset
+    return 0x0b1736; // night
+  }
+
+  createTimeBasedBackground(width, height) {
+    this.add
+      .rectangle(width / 2, height / 2, width, height, this.getSkyColorForCurrentTime())
+      .setDepth(-200);
+
+    for (let i = 1; i <= this.cloudLayerCount; i += 1) {
+      const drift = 40 + i * 25;
+      const cloud = this.add.image(width / 2, height / 2, `login-cloud-${i}`).setDepth(-150 + i);
+      const requiredWidth = width + drift * 2 + 160;
+      const requiredHeight = height + 120;
+      const scale = Math.max(requiredWidth / cloud.width, requiredHeight / cloud.height);
+      cloud.setScale(scale);
+      cloud.setAlpha(Math.min(0.22 + i * 0.07, 0.78));
+
+      this.tweens.add({
+        targets: cloud,
+        x: { from: width / 2 - drift, to: width / 2 + drift },
+        duration: 9000 + i * 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
   }
 
   renderAuthForm() {
@@ -104,7 +177,7 @@ export class LoginScene extends Phaser.Scene {
 
   async handleLogin() {
     const email = document.getElementById('email')?.value?.trim();
-    const password = document.getElementById('password')?.value?.trim() || 'password'; // add password field in UI
+    const password = document.getElementById('password')?.value?.trim();
     const messageDiv = document.getElementById('message');
 
     if (!email || !password) {

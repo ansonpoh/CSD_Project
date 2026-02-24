@@ -1,195 +1,600 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
-import { soldier } from "../characters/soldier/Soldier.js"; //temp image
+import { soldier } from '../characters/soldier/Soldier.js';
+
+const P = {
+  // button fill states
+  btnNormal:    0x2a0f42,
+  btnHover:     0x3d1860,
+  btnPress:     0x100520,
+  btnDisabled:  0x130b20,
+
+  // border gold
+  borderGold:   0xc8870a,
+  borderGlow:   0xf0b030,
+  borderDim:    0x604008,
+
+  // top accent line inside button
+  accentGlow:   0xffdd60,
+
+  // text
+  textMain:     '#f0ecff',
+  textSub:      '#c0a8e0',
+  textDisabled: '#5a4a72',
+  textDesc:     '#9e88c0',
+
+  // XP bar
+  xpFill:       0x4193d5,   // sampled from ButtonA blue body
+  xpTrack:      0x0e0820,
+  xpBorder:     0xc8870a,
+};
 
 export class WorldMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'WorldMapScene' });
     this.maps = [];
+    this.uiTileSize = 56;
   }
+
+  preload() {
+    if (!this.textures.exists('ui-panel-a')) {
+      this.load.spritesheet('ui-panel-a', 'assets/ui_set/20250420manaSoul9SlicesA-Sheet.png', {
+        frameWidth: 32,
+        frameHeight: 32
+      });
+    }
+
+    if (!this.textures.exists('ui-header-a')) {
+      this.load.spritesheet('ui-header-a', 'assets/ui_set/20250420manaSoulHeaderA-Sheet.png', {
+        frameWidth: 32,
+        frameHeight: 32
+      });
+    }
+
+    // Right-arrow sprite - decorative indicator on travel buttons
+    if (!this.textures.exists('ui-arrow-r')) {
+      this.load.spritesheet('ui-arrow-r', 'assets/ui_set/20250425rightArrow-Sheet.png', {
+        frameWidth: 28,
+        frameHeight: 14
+      });
+    }
+  }
+
+  //  mock / api helpers
 
   getMockMaps() {
     return [
-      {
-        id: 1,
-        name: 'Forest Clearing',
-        description: 'A peaceful forest filled with mysteries',
-        mapKey: 'map1', 
-        tilesets: [ 
-          { name: 'stone_tiles_v2.1',            imageKey: 'stone_tiles_v2.1' },
-          { name: 'tiles-all-32x32',             imageKey: 'tiles-all-32x32' },
-          { name: 'assets_spritesheet_v2.1_free',imageKey: 'assets_spritesheet_v2.1_free' },
-          { name: 'terrain_tiles_v2.1',          imageKey: 'terrain_tiles_v2.1' },
-          { name: 'assets-all',                  imageKey: 'assets-all' },
-        ]
-      },
-      {
-        id: 2,
-        name: 'Dark Cave',
-        description: 'A dangerous cave system with hidden treasures',
-        mapKey: 'map2',
-        tilesets: [
-          { name: 'tiles-all-32x32',             imageKey: 'tiles-all-32x32' },
-          { name: 'assets_spritesheet_v2.1_free',imageKey: 'assets_spritesheet_v2.1_free' },
-          { name: 'assets-all',                  imageKey: 'assets-all' },
-          { name: 'bridges',                     imageKey: 'bridges' },
-        ]
-      },
-      {
-        id: 3,
-        name: 'Mountain Peak',
-        description: 'The highest mountain in the realm',
-        mapKey: 'map3',
-        tilesets: [
-          { name: 'water_and_island_tiles_v2.1', imageKey: 'water_and_island_tiles_v2.1' },
-          { name: 'terrain_tiles_v2.1',          imageKey: 'terrain_tiles_v2.1' },
-          { name: 'assets_spritesheet_v2.1_free',imageKey: 'assets_spritesheet_v2.1_free' },
-          { name: 'fence_tiles',                 imageKey: 'fence_tiles' },
-        ]
-      }
+      { id: 1, name: 'Forest Clearing',  description: 'A peaceful forest filled with mysteries', mapKey: 'map1' },
+      { id: 2, name: 'Dark Cave',        description: 'A dangerous cave system with hidden treasures', mapKey: 'map2' },
+      { id: 3, name: 'Mountain Peak',    description: 'The highest mountain in the realm', mapKey: 'map3' }
     ];
   }
 
   async createDemoMap() {
     try {
-      const demoMap = {
-        name: 'Forest Clearing',
-        description: 'A peaceful forest clearing',
-        asset: 'forest_tileset',
-        world: null
-      };
+      const demoMap = { name: 'Forest Clearing', description: 'A peaceful forest clearing', asset: 'forest_tileset', world: null };
       const createdMap = await apiService.addMap(demoMap);
       this.maps = [createdMap];
     } catch (error) {
       console.error('Failed to create demo map:', error);
-      this.maps = this.getMockMaps(); // Fallback if creation fails
+      this.maps = this.getMockMaps();
     }
   }
 
+  //  main create
+
   async create() {
     const { width, height } = this.cameras.main;
-    const learner = gameState.getLearner() || { username: 'PixelWarrior', level: 10, total_xp: 1500 };
+    const learner = gameState.getLearner();
+    if (!learner) {
+      this.scene.stop('UIScene');
+      this.scene.start('LoginScene');
+      return;
+    }
 
-    // --- COLOR PALETTE ---
-    const bgColor = 0x1f3454;
-    const darkCardColor = 0x12233f;
-    const lightCardColor = 0x829db1;
-    const borderColor = 0x0f172a;
-    const textColor = '#ffffff';
+    this.cameras.main.setBackgroundColor(0x090f24);
+    this.drawBackdrop(width, height);
 
-    this.cameras.main.setBackgroundColor(bgColor);
-
-    // --- FETCH MAPS FROM BACKEND ---
     try {
       this.maps = await apiService.getAllMaps();
-      if (!this.maps || this.maps.length === 0) {
-        console.log('No maps found, creating demo map...');
-        await this.createDemoMap();
-      }
+      if (!this.maps?.length) await this.createDemoMap();
     } catch (error) {
       console.error('Failed to load maps:', error);
-      this.maps = this.getMockMaps(); // Fallback to mock maps if backend is down
+      this.maps = this.getMockMaps();
     }
 
-    // --- GRID LAYOUT SEGMENTS ---
-    const cardWidth = 520;
-    const leftX = width / 2 - 540;
-    const rightX = width / 2 + 20;
-    const topY = 120;
+    const panelGapX = Math.max(18, Math.floor(width * 0.016));
+    const panelGapY = Math.max(18, Math.floor(height * 0.018));
+    const leftCols  = 10;
+    const rightCols = 13;
+    const topRows   = 8;
+    const botRows   = 6;
 
-    const createPixelCard = (x, y, w, h, title, bgHex) => {
-      const card = this.add.container(x, y);
-      const bg = this.add.rectangle(0, 0, w, h, bgHex).setOrigin(0);
-      bg.setStrokeStyle(6, borderColor);
-      card.add(bg);
+    const sidePadding   = 40;
+    const availableWidth = width - sidePadding * 2 - panelGapX;
+    this.uiTileSize = Phaser.Math.Clamp(Math.floor(availableWidth / (leftCols + rightCols)), 44, 64);
+    const tile = this.uiTileSize;
 
-      if (title) {
-        const titleText = this.add.text(20, 15, title, { fontSize: '24px', fontFamily: '"Courier New", Courier, monospace', color: textColor, fontStyle: 'bold' });
-        titleText.setShadow(2, 2, '#000000', 0, false, true);
-        card.add(titleText);
-      }
-      return card;
-    };
+    const totalWidth = (leftCols + rightCols) * tile + panelGapX;
+    const leftX  = Math.floor((width - totalWidth) / 2);
+    const topY   = 86;
+    const rightX = leftX + leftCols * tile + panelGapX;
+    const botY   = topY + topRows * tile + panelGapY;
 
-    // 1. Welcome Card
-    const welcomeCard = createPixelCard(leftX, topY, cardWidth, 240, "", lightCardColor);
-    const bubbleBg = this.add.rectangle(20, 20, 320, 200, 0xf8fafc).setOrigin(0).setStrokeStyle(4, borderColor);
-    const welcomeMsg = this.add.text(40, 40, `Welcome back,\n${learner.username}!`, { fontSize: '28px', fontFamily: '"Courier New", Courier, monospace', color: '#0f172a', fontStyle: 'bold' });
-    const lvlDisplay = this.add.text(40, 130, `Current Level: ${learner.level}`, { fontSize: '20px', fontFamily: '"Courier New", Courier, monospace', color: '#0f172a', fontStyle: 'bold' });
-    const pbTrack = this.add.rectangle(40, 170, 280, 24, 0x1e293b).setOrigin(0).setStrokeStyle(2, 0x64748b);
-    const pbFill = this.add.rectangle(44, 174, 100, 16, 0x4a90e2).setOrigin(0);
-    let giantAvatar;
-    if (this.textures.exists(soldier.sheetKey)) {
-      giantAvatar = this.add.sprite(430, 120, soldier.sheetKey, 0).setScale(3);
-    } else {
-      giantAvatar = this.add.circle(430, 120, 42, 0x4a90e2).setStrokeStyle(6, borderColor);
-    }
-    welcomeCard.add([bubbleBg, welcomeMsg, lvlDisplay, pbTrack, pbFill, giantAvatar]);
-    // const giantAvatar = this.add.image(430, 120, 'player').setScale(5);
-    // welcomeCard.add([bubbleBg, welcomeMsg, lvlDisplay, pbTrack, pbFill, giantAvatar]);
+    const profilePanel = this.createWindowPanel(leftX,  topY,  leftCols,  topRows,  'ADVENTURER');
+    const mapPanel     = this.createWindowPanel(rightX, topY,  rightCols, topRows,  'WORLD GATES');
+    const recPanel     = this.createWindowPanel(leftX,  botY,  leftCols,  botRows,  'RECOMMENDED');
+    const actionPanel  = this.createWindowPanel(rightX, botY,  rightCols, botRows,  'QUICK TRAVEL');
 
-    // 2. Map View
-    const mapCard = createPixelCard(rightX, topY, cardWidth, 240, "Map View", lightCardColor);
-    const mountain1 = this.add.triangle(40, 90, 0, 150, 120, 0, 240, 150, 0x475569).setOrigin(0);
-    const mountain2 = this.add.triangle(180, 50, 0, 190, 140, 0, 280, 190, 0x334155).setOrigin(0);
-    const mountain3 = this.add.triangle(320, 110, 0, 130, 80, 0, 160, 130, 0x475569).setOrigin(0);
-    const ground = this.add.rectangle(0, 220, cardWidth, 20, 0x22c55e).setOrigin(0);
-    mapCard.add([mountain1, mountain3, mountain2, ground]);
+    this.populateProfilePanel(profilePanel, learner);
+    this.populateMapPanel(mapPanel);
+    this.populateRecommendations(recPanel, learner);
+    this.populateQuickTravel(actionPanel);
+  }
 
-    // 3. Recommendations
-    const recCard = createPixelCard(leftX, topY + 270, cardWidth, 360, "Recommendations", darkCardColor);
-    const recs = ["1. Pixel Art Basics", "2. Retro Game Design", "3. 8-bit Music Creation"];
-    recs.forEach((text, i) => {
-      const recItem = this.add.text(30, 70 + (i * 50), text, { fontSize: '22px', fontFamily: '"Courier New", Courier, monospace', color: textColor, fontStyle: 'bold' });
-      recItem.setShadow(2, 2, '#000000', 0, false, true);
-      recCard.add(recItem);
-    });
+  //  backdrop
 
-    // 4. Quick Actions (Using Fetched Maps)
-    const actionCard = createPixelCard(rightX, topY + 270, cardWidth, 130, "Quick Actions", darkCardColor);
-    
-    // Grab up to 3 maps from the API to display as buttons
-    const actionMaps = this.maps.slice(0, 3);
-    
-    // Default short labels in case map names are too long, or fallback to the first word of the map name
-    const getShortLabel = (name, index) => {
-      const defaults = ["Forest", "Cave", "Mountain"];
-      if (name) return name.split(' ')[0]; // Takes the first word of the fetched map name
-      return defaults[index];
-    };
+  drawBackdrop(width, height) {
+    this.add.rectangle(width / 2, height / 2, width, height, 0x090f24);
+    this.add.circle(width * 0.20, height * 0.18, 260, 0x1a3266, 0.14);
+    this.add.circle(width * 0.82, height * 0.32, 300, 0x204880, 0.12);
+    this.add.circle(width * 0.55, height * 0.75, 420, 0x1a2f60, 0.16);
 
-    actionMaps.forEach((map, i) => {
-      const btnBg = this.add.rectangle(20 + (i * 165), 65, 145, 40, 0x475e7a).setOrigin(0).setStrokeStyle(3, borderColor);
-      btnBg.setInteractive({ useHandCursor: true });
-      
-      const btnText = this.add.text(92 + (i * 165), 85, getShortLabel(map.name, i), {
-        fontSize: '16px',
-        fontFamily: '"Courier New", Courier, monospace',
-        color: textColor,
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
-
-      btnBg.on('pointerover', () => btnBg.setFillStyle(0x64748b));
-      btnBg.on('pointerout', () => btnBg.setFillStyle(0x475e7a));
-      
-      btnBg.on('pointerdown', () => {
-        this.enterMap(map);
+    for (let i = 0; i < 85; i += 1) {
+      const dot = this.add.circle(
+        Phaser.Math.Between(0, width),
+        Phaser.Math.Between(18, Math.floor(height * 0.58)),
+        Phaser.Math.Between(1, 2),
+        0xcfe4ff,
+        Phaser.Math.FloatBetween(0.25, 0.85)
+      );
+      this.tweens.add({
+        targets: dot,
+        alpha: Phaser.Math.FloatBetween(0.35, 1),
+        duration: Phaser.Math.Between(1200, 2600),
+        yoyo: true,
+        repeat: -1
       });
-      
-      actionCard.add([btnBg, btnText]);
+    }
+  }
 
-      for (let i = actionMaps.length; i < 3; i++) {
-        const btnBg = this.add.rectangle(20 + (i * 165), 65, 145, 40, 0x1e293b).setOrigin(0).setStrokeStyle(3, borderColor);
-        const btnText = this.add.text(92 + (i * 165), 85, "Locked", {
-          fontSize: '16px',
-          fontFamily: '"Courier New", Courier, monospace',
-          color: '#64748b',
-          fontStyle: 'bold'
-        }).setOrigin(0.5);
-        actionCard.add([btnBg, btnText]);
+  //  panel builder 
+
+  createWindowPanel(x, y, cols, rows, title) {
+    const tile      = this.uiTileSize;
+    const width     = cols * tile;
+    const height    = rows * tile;
+    const container = this.add.container(x, y);
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const top = row === 0, bottom = row === rows - 1;
+        const left = col === 0, right = col === cols - 1;
+        let frame = 4;
+        if      (top    && left)  frame = 0;
+        else if (top    && right) frame = 2;
+        else if (bottom && left)  frame = 6;
+        else if (bottom && right) frame = 8;
+        else if (top)             frame = 1;
+        else if (bottom)          frame = 7;
+        else if (left)            frame = 3;
+        else if (right)           frame = 5;
+
+        container.add(
+          this.add.sprite(col * tile + tile / 2, row * tile + tile / 2, 'ui-panel-a', frame)
+            .setScale(tile / 32)
+        );
       }
+    }
+
+    // Header bar overlay
+    for (let col = 0; col < cols; col += 1) {
+      const headerFrame = col === 0 ? 0 : col === cols - 1 ? 2 : 1;
+      container.add(
+        this.add.sprite(col * tile + tile / 2, tile / 2, 'ui-header-a', headerFrame)
+          .setScale(tile / 32)
+      );
+    }
+
+    // Title text - centred, bold, readable stroke
+    container.add(
+      this.add.text(width / 2, 28, title, {
+        fontSize:        '28px',
+        color:           '#f4f8ff',
+        fontStyle:       'bold',
+        stroke:          '#13233d',
+        strokeThickness: 7
+      }).setOrigin(0.5)
+    );
+
+    return { container, x, y, width, height, pad: 22 };
+  }
+
+  //  ADVENTURER panel 
+
+  populateProfilePanel(panel, learner) {
+    this.ensureWorldIdleAnimation();
+    const c   = panel.container;
+    const pad = panel.pad;
+
+    // ── stats ──
+    const joinedRaw = learner.created_at || learner.createdAt || learner.joined_at || learner.joinedAt;
+    const joined    = joinedRaw ? new Date(joinedRaw).toLocaleDateString() : 'Unknown';
+    const stats     = [
+      { label: 'Name',     value: learner.username ?? 'Unknown' },
+      { label: 'Level',    value: learner.level ?? 1 },
+      { label: 'Total XP', value: learner.total_xp ?? learner.totalXp ?? 0 },
+      { label: 'Joined',   value: joined }
+    ];
+
+    let y = 76;
+    stats.forEach(({ label, value }) => {
+      // label
+      c.add(this.add.text(pad, y, `${label}:`, {
+        fontSize: '14px',
+        color: P.textSub,
+        fontStyle: 'bold',
+        stroke: '#060814',
+        strokeThickness: 4
+      }));
+      // value (right-aligned)
+      c.add(this.add.text(panel.width - pad, y, String(value), {
+        fontSize: '14px',
+        color: P.textMain,
+        fontStyle: 'bold',
+        stroke: '#060814',
+        strokeThickness: 4
+      }).setOrigin(1, 0));
+      y += 28;
     });
+
+    // divider
+    y += 4;
+    const divider = this.add.graphics();
+    divider.lineStyle(1, P.borderGold, 0.35);
+    divider.beginPath();
+    divider.moveTo(pad, y);
+    divider.lineTo(panel.width - pad, y);
+    divider.strokePath();
+    c.add(divider);
+    y += 10;
+
+    // XP bar
+    const barW   = panel.width - pad * 2;
+    const barH   = 14;
+    const xp     = Number(learner.total_xp ?? learner.totalXp ?? 0);
+    const lvl    = Number(learner.level ?? 1);
+    const thresh = Math.max(100, Math.floor(lvl * 140));
+    const pct    = Phaser.Math.Clamp((xp % thresh) / thresh, 0, 1);
+
+    // track
+    const track = this.add.graphics();
+    track.fillStyle(P.xpTrack, 1);
+    track.fillRoundedRect(pad, y, barW, barH, 3);
+    track.lineStyle(1, P.xpBorder, 0.7);
+    track.strokeRoundedRect(pad, y, barW, barH, 3);
+    c.add(track);
+
+    // fill
+    if (pct > 0) {
+      const fillW = Math.max(6, Math.floor((barW - 4) * pct));
+      const fill  = this.add.graphics();
+      fill.fillStyle(P.xpFill, 1);
+      fill.fillRoundedRect(pad + 2, y + 2, fillW, barH - 4, 2);
+      // inner glow stripe
+      fill.fillStyle(0xffffff, 0.25);
+      fill.fillRoundedRect(pad + 2, y + 2, fillW, Math.floor((barH - 4) * 0.5), { tl: 2, tr: 2, bl: 0, br: 0 });
+      c.add(fill);
+    }
+
+    // XP label
+    c.add(this.add.text(pad + barW / 2, y + barH / 2, `${xp % thresh} / ${thresh} XP`, {
+      fontSize: '11px',
+      color: '#ffffff',
+      stroke: '#06101a',
+      strokeThickness: 4
+    }).setOrigin(0.5, 0.5));
+
+    // character sprite
+    const avatarY = Math.floor(panel.height * 0.72);
+    const avatar  = this.add.sprite(panel.width / 2, avatarY, soldier.sheetKey, 0).setScale(3.2);
+    avatar.play('wm_soldier_idle');
+    c.add(avatar);
+
+    this.tweens.add({
+      targets:  avatar,
+      y:        avatar.y - 6,
+      duration: 1300,
+      yoyo:     true,
+      repeat:   -1,
+      ease:     'Sine.easeInOut'
+    });
+
+    // subtle glow under avatar
+    const glow = this.add.graphics();
+    glow.fillStyle(0x4193d5, 0.12);
+    glow.fillEllipse(panel.width / 2, avatarY + 28, 80, 20);
+    c.add(glow);
+  }
+
+  //  WORLD GATES panel
+
+  populateMapPanel(panel) {
+    const c    = panel.container;
+    const maps = this.maps.slice(0, 4);
+    const btnW = panel.width - panel.pad * 2;
+    const btnH = 44;
+    let   y    = 72;
+
+    maps.forEach((map, i) => {
+      const btn = this.createButton(
+        panel.pad, y, btnW, btnH,
+        map.name || `Map ${i + 1}`,
+        () => this.enterMap(map)
+      );
+      c.add(btn);
+
+      const desc = this.add.text(panel.pad + 10, y + btnH + 7, this.truncate(map.description || 'Travel gate ready.', 60), {
+        fontSize: '13px',
+        color: P.textDesc,
+        stroke: '#060814',
+        strokeThickness: 3
+      });
+      c.add(desc);
+      y += btnH + 32;
+    });
+
+    // Locked placeholder slots
+    for (let i = maps.length; i < 4; i += 1) {
+      const lockedBtn = this.createButton(
+        panel.pad, y, btnW, btnH,
+        `Locked Gate ${i + 1}`,
+        null,
+        true
+      );
+      c.add(lockedBtn);
+      c.add(this.add.text(panel.pad + 10, y + btnH + 7, 'Discover more maps to unlock this gate.', {
+        fontSize: '13px',
+        color: P.textDisabled,
+        stroke: '#060814',
+        strokeThickness: 3
+      }));
+      y += btnH + 32;
+    }
+  }
+
+  //  RECOMMENDED panel
+
+  populateRecommendations(panel, learner) {
+    const c   = panel.container;
+    const pad = panel.pad;
+    const lvl = Number(learner.level ?? 1);
+
+    const recs = [
+      lvl < 3
+        ? 'Clear Forest maps for quick XP growth.'
+        : 'Challenge tougher maps for faster leveling.',
+      'Open your profile to monitor progression.',
+      'Use inventory items before entering combat-heavy maps.'
+    ];
+
+    // Decorative side accent
+    const accent = this.add.graphics();
+    accent.lineStyle(2, P.borderGold, 0.4);
+    accent.beginPath();
+    accent.moveTo(pad, 68);
+    accent.lineTo(pad, panel.height - 28);
+    accent.strokePath();
+    c.add(accent);
+
+    let y = 76;
+    recs.forEach((line, idx) => {
+      // Number badge
+      const badge = this.add.graphics();
+      badge.fillStyle(P.btnNormal, 1);
+      badge.lineStyle(1, P.borderGold, 0.7);
+      badge.fillCircle(pad + 18, y + 12, 11);
+      badge.strokeCircle(pad + 18, y + 12, 11);
+      c.add(badge);
+
+      c.add(this.add.text(pad + 18, y + 12, String(idx + 1), {
+        fontSize: '13px',
+        color: P.textMain,
+        fontStyle: 'bold',
+        stroke: '#060814',
+        strokeThickness: 4
+      }).setOrigin(0.5, 0.5));
+
+      c.add(this.add.text(pad + 36, y, this.truncate(line, 50), {
+        fontSize: '15px',
+        color: P.textMain,
+        fontStyle: 'bold',
+        stroke: '#060814',
+        strokeThickness: 4,
+        wordWrap: { width: panel.width - pad - 48 }
+      }));
+      y += 62;
+    });
+  }
+
+  //  QUICK TRAVEL panel
+
+  populateQuickTravel(panel) {
+    const c    = panel.container;
+    const maps = this.maps.slice(0, 3);
+    const n    = 3;
+    const gap  = 12;
+    const btnW = Math.floor((panel.width - panel.pad * 2 - gap * (n - 1)) / n);
+    const btnH = 52;
+    const y    = Math.floor(panel.height / 2) - Math.floor(btnH / 2);
+
+    for (let i = 0; i < n; i += 1) {
+      const map = maps[i];
+      const x   = panel.pad + i * (btnW + gap);
+
+      if (map) {
+        const btn = this.createTravelButton(x, y, btnW, btnH, map.name || `Map ${i + 1}`, () => this.enterMap(map));
+        c.add(btn);
+      } else {
+        const locked = this.createButton(x, y, btnW, btnH, `Locked`, null, true);
+        c.add(locked);
+      }
+    }
+  }
+
+  //  button factories
+  createButton(x, y, width, height, label, onClick, disabled = false) {
+    const btn = this.add.container(x, y);
+    const bg  = this.add.graphics();
+
+    const draw = (fill, border, glowLine) => {
+      bg.clear();
+
+      bg.fillStyle(fill, 1);
+      bg.fillRoundedRect(0, 0, width, height, 4);
+
+      bg.lineStyle(2, border, disabled ? 0.35 : 1);
+      bg.strokeRoundedRect(0, 0, width, height, 4);
+
+      if (!disabled) {
+        // subtle inner top-shine
+        bg.fillStyle(0xffffff, 0.05);
+        bg.fillRoundedRect(2, 2, width - 4, height * 0.42, { tl: 3, tr: 3, bl: 0, br: 0 });
+        // thin gold accent line at top
+        bg.lineStyle(1, glowLine, 0.55);
+        bg.beginPath();
+        bg.moveTo(8, 2);
+        bg.lineTo(width - 8, 2);
+        bg.strokePath();
+      }
+    };
+
+    draw(
+      disabled ? P.btnDisabled : P.btnNormal,
+      disabled ? P.borderDim   : P.borderGold,
+      P.accentGlow
+    );
+    btn.add(bg);
+
+    btn.add(
+      this.add.text(16, height / 2, this.truncate(label, 36), {
+        fontSize:        '17px',
+        fontStyle:       'bold',
+        color:           disabled ? P.textDisabled : P.textMain,
+        stroke:          '#060814',
+        strokeThickness: 5
+      }).setOrigin(0, 0.5)
+    );
+
+    if (!disabled && onClick) {
+      const hit = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+        .setInteractive({ useHandCursor: true });
+      btn.add(hit);
+
+      hit.on('pointerover',  () => draw(P.btnHover, P.borderGlow,  P.accentGlow));
+      hit.on('pointerout',   () => draw(P.btnNormal, P.borderGold, P.accentGlow));
+      hit.on('pointerdown',  () => draw(P.btnPress, P.borderDim,   P.borderGold));
+      hit.on('pointerup',    () => { draw(P.btnHover, P.borderGlow, P.accentGlow); onClick(); });
+    }
+
+    return btn;
+  }
+
+  createTravelButton(x, y, width, height, label, onClick) {
+    const btn = this.add.container(x, y);
+    const bg  = this.add.graphics();
+
+    // Declare arrow before draw() so the closure can reference it safely.
+    // It gets assigned below after the Phaser object is created.
+    let arrow = null;
+
+    const draw = (fill, border, glowLine, arrowFrame) => {
+      bg.clear();
+
+      bg.fillStyle(fill, 1);
+      bg.fillRoundedRect(0, 0, width, height, 5);
+
+      bg.lineStyle(2, border, 1);
+      bg.strokeRoundedRect(0, 0, width, height, 5);
+
+      // inner top shine
+      bg.fillStyle(0xffffff, 0.06);
+      bg.fillRoundedRect(2, 2, width - 4, height * 0.4, { tl: 4, tr: 4, bl: 0, br: 0 });
+
+      // gold accent line
+      bg.lineStyle(1, glowLine, 0.6);
+      bg.beginPath();
+      bg.moveTo(10, 2);
+      bg.lineTo(width - 10, 2);
+      bg.strokePath();
+
+      if (arrow) arrow.setFrame(arrowFrame);
+    };
+
+    draw(P.btnNormal, P.borderGold, P.accentGlow, 0);
+    btn.add(bg);
+
+    // Centred map name
+    btn.add(
+      this.add.text(width / 2, height / 2 - 6, this.truncate(label, 16), {
+        fontSize:        '16px',
+        fontStyle:       'bold',
+        color:           P.textMain,
+        stroke:          '#060814',
+        strokeThickness: 5
+      }).setOrigin(0.5, 0.5)
+    );
+
+    // "Enter" sub-label
+    btn.add(
+      this.add.text(width / 2, height / 2 + 12, 'ENTER', {
+        fontSize:        '11px',
+        fontStyle:       'bold',
+        color:           P.textSub,
+        stroke:          '#060814',
+        strokeThickness: 3,
+        letterSpacing:   3
+      }).setOrigin(0.5, 0.5)
+    );
+
+    // Arrow sprite — now assigned after draw() is defined, no TDZ
+    arrow = this.add.sprite(width - 14, height / 2, 'ui-arrow-r', 0)
+      .setScale(1.4)
+      .setOrigin(0.5);
+    btn.add(arrow);
+
+    const hit = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    btn.add(hit);
+
+    hit.on('pointerover',  () => draw(P.btnHover,  P.borderGlow, P.accentGlow, 1));
+    hit.on('pointerout',   () => draw(P.btnNormal, P.borderGold, P.accentGlow, 0));
+    hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim,  P.borderGold, 0));
+    hit.on('pointerup',    () => { draw(P.btnHover, P.borderGlow, P.accentGlow, 1); onClick(); });
+
+    return btn;
+  }
+
+  //  animation helpers 
+
+  ensureWorldIdleAnimation() {
+    if (this.anims.exists('wm_soldier_idle')) return;
+    const idle   = soldier.anims.idle;
+    const frames = Array.from({ length: idle.count }, (_, i) => idle.row * soldier.maxCols + i);
+    this.anims.create({
+      key:       'wm_soldier_idle',
+      frames:    this.anims.generateFrameNumbers(soldier.sheetKey, { frames }),
+      frameRate: idle.frameRate,
+      repeat:    idle.repeat
+    });
+  }
+
+  //  utility 
+
+  truncate(text, maxLen) {
+    const s = String(text ?? '');
+    return s.length > maxLen ? `${s.slice(0, maxLen - 1)}…` : s;
   }
 
   enterMap(map) {
@@ -198,16 +603,14 @@ export class WorldMapScene extends Phaser.Scene {
       mapKey: map.mapKey || this.resolveMapKey(map)
     };
     gameState.setCurrentMap(normalizedMap);
-    this.scene.start('GameMapScene', {mapConfig: map});
+    this.scene.start('GameMapScene', { mapConfig: normalizedMap });
   }
 
   resolveMapKey(map) {
     const raw = String(map?.mapKey || map?.asset || map?.name || '').toLowerCase();
-
-    if (raw === 'map1' || raw.includes('forest')) return 'map1';
-    if (raw === 'map2' || raw.includes('cave')) return 'map2';
+    if (raw === 'map1' || raw.includes('forest'))   return 'map1';
+    if (raw === 'map2' || raw.includes('cave'))     return 'map2';
     if (raw === 'map3' || raw.includes('mountain')) return 'map3';
-
     return 'map1';
   }
 }

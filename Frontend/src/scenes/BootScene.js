@@ -3,6 +3,8 @@ import { supabase } from "../config/supabaseClient";
 import { soldier } from '../characters/soldier/Soldier';
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry';
+import { apiService } from '../services/api';
+import { gameState } from '../services/gameState';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -123,30 +125,38 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  create() {
+  async create() {
     this.sanitizeTilemapCache();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        gameState.clearState();
+        this.scene.start('LoginScene');
+        return;
+      }
 
-    // DEVELOPMENT MODE - Skip login and go directly to WorldMapScene
-    this.scene.start('WorldMapScene');
-    this.scene.launch('UIScene');
-    
-    // ORIGINAL CODE - Uncomment this when you want to re-enable login:
-    
-    // Check if user is logged in
-    // const savedState = localStorage.getItem('gameState');
-    
-    // if (savedState) {
-    //   const state = JSON.parse(savedState);
-    //   if (state.learner) {
-    //     // User is logged in, go to world map
-    //     this.scene.start('WorldMapScene');
-    //     this.scene.launch('UIScene');
-    //     return;
-    //   }
-    // }
-    
-    // // No saved state, go to login
-    // this.scene.start('LoginScene');
-    
+      const learner = await apiService.getCurrentLearner();
+      if (!learner) {
+        gameState.clearState();
+        this.scene.start('LoginScene');
+        return;
+      }
+
+      gameState.setLearner(learner);
+      try {
+        const inventory = await apiService.getMyInventory();
+        gameState.setInventory(inventory || []);
+      } catch (err) {
+        console.error('Failed to load inventory during boot:', err);
+        gameState.setInventory([]);
+      }
+
+      this.scene.start('WorldMapScene');
+      this.scene.launch('UIScene');
+    } catch (error) {
+      console.error('Boot auth check failed:', error);
+      gameState.clearState();
+      this.scene.start('LoginScene');
+    }
   }
 }

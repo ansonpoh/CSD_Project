@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
+import { supabase } from '../config/supabaseClient.js';
+import { soldier } from '../characters/soldier/Soldier.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -10,84 +12,160 @@ export class UIScene extends Phaser.Scene {
     this.usernameText = null;
     this.leaderboardBtn = null;
     this.leaderboardBtnText = null;
+    this.logoutBtn = null;
+    this.logoutBtnText = null;
     this.lastKnownLevel = null;
+  }
+
+  preload() {
+    if (!this.textures.exists('ui-panel-a')) {
+      this.load.spritesheet('ui-panel-a', 'assets/ui_set/20250420manaSoul9SlicesA-Sheet.png', {
+        frameWidth: 32,
+        frameHeight: 32
+      });
+    }
+
+    if (!this.textures.exists('ui-header-a')) {
+      this.load.spritesheet('ui-header-a', 'assets/ui_set/20250420manaSoulHeaderA-Sheet.png', {
+        frameWidth: 32,
+        frameHeight: 32
+      });
+    }
+
+    if (!this.textures.exists('ui-close-btn')) {
+      this.load.spritesheet('ui-close-btn', 'assets/ui_set/20250425closeButton-Sheet.png', {
+        frameWidth: 32,
+        frameHeight: 32
+      });
+    }
+
+    if (!this.textures.exists('ui-portrait-frame')) {
+      this.load.image('ui-portrait-frame', 'assets/ui_set/20250425portraitFrame-Sheet.png');
+    }
+
   }
 
   create() {
     const width = this.cameras.main.width;
 
-    // Create HUD background
-    const hudBg = this.add.rectangle(0, 0, width, 60, 0x16213e, 0.9).setOrigin(0);
+    //  HUD bar background
+    // Solid dark bar with a thin gold bottom border
+    const hudBg = this.add.graphics();
+    hudBg.fillStyle(0x0d1530, 0.97);
+    hudBg.fillRect(0, 0, width, 58);
+    hudBg.lineStyle(1, 0xc8870a, 0.55);
+    hudBg.beginPath();
+    hudBg.moveTo(0, 57);
+    hudBg.lineTo(width, 57);
+    hudBg.strokePath();
 
-    // DEVELOPMENT MODE - Use mock learner data
-    let learner = gameState.getLearner();
-    
+    const learner = gameState.getLearner();
     if (!learner) {
-      // Create mock learner if none exists
-      learner = {
-        username: 'Player',
-        level: 1,
-        total_xp: 0
-      };
-      gameState.setLearner(learner);
+      this.scene.stop('WorldMapScene');
+      this.scene.start('LoginScene');
+      return;
     }
-    
-    // Username
-    this.usernameText = this.add.text(20, 15, `👤 ${learner.username}`, {
-      fontSize: '20px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setInteractive({useHandCursor: true});
 
-    this.usernameText.on('pointerdown', () => {
-      this.showUserProfile();
-    })
-
-    // Leaderboard
-    const leaderboardBtnX = this.usernameText.x + this.usernameText.width + 70;
-    this.leaderboardBtn = this.add.rectangle(leaderboardBtnX, 25, 110, 32, 0x2563eb)
-      .setInteractive({ useHandCursor: true });
-
-    this.leaderboardBtnText = this.add.text(leaderboardBtnX, 25, 'Leaderboard', {
-      fontSize: '14px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-
-    this.leaderboardBtn.on('pointerdown', () => {
-      this.showLeaderboard();
+    //  Username + level (left side)
+    this.usernameText = this.add.text(16, 10, `@ ${learner.username}`, {
+      fontSize:        '18px',
+      color:           '#e8f0ff',
+      fontStyle:       'bold',
+      stroke:          '#060d1e',
+      strokeThickness: 4
     });
 
-
-    // Level
-    this.levelText = this.add.text(20, 35, `Level: ${learner.level}`, {
-      fontSize: '16px',
-      color: '#4ade80'
+    this.levelText = this.add.text(16, 32, `Level: ${learner.level}`, {
+      fontSize:        '13px',
+      color:           '#4ade80',
+      stroke:          '#060d1e',
+      strokeThickness: 3
     });
     this.lastKnownLevel = learner.level;
 
-    // XP
-    this.xpText = this.add.text(width - 200, 25, `XP: ${learner.total_xp}`, {
-      fontSize: '18px',
-      color: '#f59e0b'
-    }).setOrigin(1, 0.5);
+    //  XP (right of centre)
+    this.xpText = this.add.text(width / 2, 29, `XP: ${learner.total_xp}`, {
+      fontSize:        '16px',
+      color:           '#f4c048',
+      fontStyle:       'bold',
+      stroke:          '#060d1e',
+      strokeThickness: 4
+    }).setOrigin(0.5, 0.5);
 
-    // Subscribe to state changes
-    gameState.subscribe(() => {
-      this.updateUI();
-    });
+    //  Helper: build a small Graphics HUD button 
+    //   Returns { container } — text label floats inside.
+    const makeHudBtn = (cx, cy, btnW, btnH, label, colorNormal, colorHover, onPress) => {
+      const container = this.add.container(cx - btnW / 2, cy - btnH / 2);
+      const bg = this.add.graphics();
 
-    // Inventory indicator
-    const inventoryBtn = this.add.rectangle(width - 60, 30, 80, 40, 0x8b5cf6)
-      .setInteractive({ useHandCursor: true });
-    
-    this.add.text(width - 60, 30, '🎒', {
-      fontSize: '24px'
-    }).setOrigin(0.5);
+      const draw = (fill, border) => {
+        bg.clear();
+        bg.fillStyle(fill, 1);
+        bg.fillRoundedRect(0, 0, btnW, btnH, 4);
+        bg.lineStyle(1, border, 0.85);
+        bg.strokeRoundedRect(0, 0, btnW, btnH, 4);
+        // inner highlight
+        bg.fillStyle(0xffffff, 0.07);
+        bg.fillRoundedRect(1, 1, btnW - 2, btnH * 0.45, { tl: 3, tr: 3, bl: 0, br: 0 });
+      };
 
-    inventoryBtn.on('pointerdown', () => {
-      this.showInventory();
-    });
+      draw(colorNormal, 0xc8870a);
+      container.add(bg);
+
+      container.add(
+        this.add.text(btnW / 2, btnH / 2, label, {
+          fontSize:        '13px',
+          fontStyle:       'bold',
+          color:           '#f0ecff',
+          stroke:          '#060814',
+          strokeThickness: 4
+        }).setOrigin(0.5, 0.5)
+      );
+
+      const hit = this.add.rectangle(btnW / 2, btnH / 2, btnW, btnH, 0x000000, 0)
+        .setInteractive({ useHandCursor: true });
+      container.add(hit);
+
+      hit.on('pointerover',  () => draw(colorHover,  0xf0c050));
+      hit.on('pointerout',   () => draw(colorNormal, 0xc8870a));
+      hit.on('pointerdown',  () => draw(0x08031a,    0x604008));
+      hit.on('pointerup',    () => { draw(colorHover, 0xf0c050); onPress(); });
+
+      return container;
+    };
+
+    //  Leaderboard button
+    const lbX = this.usernameText.x + this.usernameText.width + 80;
+    makeHudBtn(lbX + 56, 29, 112, 30, 'Leaderboard', 0x1a2a52, 0x2a4278, () => this.showLeaderboard());
+
+    //  INV button
+    makeHudBtn(width - 52, 29, 56, 30, 'INV', 0x1e1040, 0x2d1860, () => this.showInventory());
+
+    //  Logout button 
+    makeHudBtn(width - 122, 29, 60, 30, 'Logout', 0x3a0e0e, 0x601818, () => this.handleLogout());
+
+    //  State subscription
+    gameState.subscribe(() => { this.updateUI(); });
+  }
+
+  async handleLogout() {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Supabase sign out failed:', err);
+    } finally {
+      gameState.clearState();
+
+      const activeScenes = this.scene.manager.getScenes(true);
+      activeScenes.forEach((activeScene) => {
+        const key = activeScene.scene.key;
+        if (key !== 'UIScene' && key !== 'LoginScene') {
+          this.scene.stop(key);
+        }
+      });
+
+      this.scene.start('LoginScene');
+    }
   }
 
   updateUI() {
@@ -347,56 +425,243 @@ export class UIScene extends Phaser.Scene {
   showUserProfile() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
-    const learner = gameState.getLearner() || {};
+    const learner = gameState.getLearner();
+    if (!learner) return;
 
-    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.75)
+    const overlay = this.add.rectangle(0, 0, width, height, 0x060a14, 0.86)
       .setOrigin(0)
       .setDepth(1200)
       .setInteractive();
+    const nodes = [overlay];
+    const depth = 1201;
+    const tileSize = 56;
+    const cols = 12;
+    const rows = 8;
+    const panelLeft = Math.floor(width / 2 - (cols * tileSize) / 2);
+    const panelTop = Math.floor(height / 2 - (rows * tileSize) / 2);
+    const panelWidth = cols * tileSize;
 
-    const panel = this.add.rectangle(width / 2, height / 2, 520, 380, 0x0f172a, 1)
-      .setStrokeStyle(3, 0x3b82f6)
-      .setDepth(1201);
+    this.buildProfilePanel(panelLeft, panelTop, cols, rows, tileSize, depth, nodes);
 
-    const title = this.add.text(width / 2, height / 2 - 145, 'USER PROFILE', {
-      fontSize: '30px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(1202);
+    const headerY = panelTop + 42;
+    const title = this.add.text(width / 2, headerY, 'PLAYER PROFILE', {
+      fontSize: '34px',
+      color: '#f8fbff',
+      fontStyle: 'bold',
+      stroke: '#13233d',
+      strokeThickness: 6
+    }).setOrigin(0.5).setDepth(depth + 3);
+    nodes.push(title);
 
-    const fields = [
-      ['Username', learner.username ?? 'Unknown'],
-      ['Level', learner.level ?? 1],
-      ['XP', learner.total_xp ?? learner.totalXp ?? 0],
-      ['Learner ID', learner.learnerId ?? 'N/A']
-    ];
+    const closeBtn = this.add.sprite(panelLeft + panelWidth - 40, panelTop + 36, 'ui-close-btn', 0)
+      .setScale(1.8)
+      .setDepth(depth + 4)
+      .setInteractive({ useHandCursor: true });
+    nodes.push(closeBtn);
 
-    let y = height / 2 - 75;
-    const nodes = [overlay, panel, title];
-    fields.forEach(([label, value]) => {
-      const row = this.add.text(width / 2, y, `${label}: ${value}`, {
-        fontSize: '22px',
-        color: '#e2e8f0'
-      }).setOrigin(0.5).setDepth(1202);
-      nodes.push(row);
-      y += 48;
+    closeBtn.on('pointerover', () => closeBtn.setFrame(1));
+    closeBtn.on('pointerout', () => closeBtn.setFrame(0));
+
+    this.ensureProfileIdleAnimation();
+
+    const portraitFrame = this.add.image(width / 2, height / 2 + 16, 'ui-portrait-frame')
+      .setScale(4.2)
+      .setDepth(depth + 2);
+    nodes.push(portraitFrame);
+
+    const character = this.add.sprite(width / 2, height / 2 + 26, soldier.sheetKey, 0)
+      .setScale(2.85)
+      .setDepth(depth + 3);
+    character.play('idle');
+    nodes.push(character);
+
+    const glow = this.add.circle(width / 2, height / 2 + 96, 58, 0x6cc0ff, 0.24)
+      .setDepth(depth + 1);
+    nodes.push(glow);
+
+    const leftStats = this.getPrimaryLeftStats(learner);
+    const rightStats = this.getPrimaryRightStats(learner);
+    const extras = this.getExtraProfileStats(learner);
+
+    const renderStatRows = (startX, startY, rowsToDraw, align = 'left') => {
+      let y = startY;
+      rowsToDraw.forEach(([label, value]) => {
+        const labelText = this.add.text(startX, y, `${label}:`, {
+          fontSize: '17px',
+          color: '#a5c8ea',
+          fontStyle: 'bold'
+        }).setDepth(depth + 3);
+        nodes.push(labelText);
+
+        const valueText = this.add.text(startX, y + 19, this.truncateProfileValue(value, 34), {
+          fontSize: '18px',
+          color: '#f1f7ff',
+          fontStyle: 'bold'
+        }).setDepth(depth + 3);
+
+        if (align === 'right') {
+          labelText.setOrigin(1, 0);
+          valueText.setOrigin(1, 0);
+        }
+        nodes.push(valueText);
+        y += 58;
+      });
+    };
+
+    renderStatRows(panelLeft + 36, panelTop + 102, leftStats);
+    renderStatRows(panelLeft + panelWidth - 36, panelTop + 102, rightStats, 'right');
+
+    let extraY = panelTop + rows * tileSize - 124;
+    extras.slice(0, 2).forEach(([label, value]) => {
+      const extraLine = this.add.text(
+        width / 2,
+        extraY,
+        `${label}: ${this.truncateProfileValue(value, 52)}`,
+        {
+          fontSize: '15px',
+          color: '#c4def8'
+        }
+      ).setOrigin(0.5).setDepth(depth + 3);
+      nodes.push(extraLine);
+      extraY += 24;
     });
 
-    const closeBtn = this.add.rectangle(width / 2, height / 2 + 145, 120, 40, 0x475569)
-      .setDepth(1202)
-      .setInteractive({ useHandCursor: true });
+    this.tweens.add({
+      targets: character,
+      y: character.y - 6,
+      duration: 1100,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
 
-    const closeText = this.add.text(width / 2, height / 2 + 145, 'CLOSE', {
-      fontSize: '16px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(1203);
-
-    nodes.push(closeBtn, closeText);
+    const footer = this.add.text(width / 2, panelTop + rows * tileSize - 24, 'Tap outside or X to close', {
+      fontSize: '14px',
+      color: '#9ec6ea'
+    }).setOrigin(0.5).setDepth(depth + 3);
+    nodes.push(footer);
 
     const cleanup = () => nodes.forEach((node) => node?.destroy());
     closeBtn.on('pointerdown', cleanup);
     overlay.on('pointerdown', cleanup);
+  }
+
+  buildProfilePanel(left, top, cols, rows, tileSize, depth, nodes) {
+    const cornerFrames = {
+      tl: 0,
+      tr: 2,
+      bl: 6,
+      br: 8
+    };
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const isTop = row === 0;
+        const isBottom = row === rows - 1;
+        const isLeft = col === 0;
+        const isRight = col === cols - 1;
+        let frame = 4;
+
+        if (isTop && isLeft) frame = cornerFrames.tl;
+        else if (isTop && isRight) frame = cornerFrames.tr;
+        else if (isBottom && isLeft) frame = cornerFrames.bl;
+        else if (isBottom && isRight) frame = cornerFrames.br;
+        else if (isTop) frame = 1;
+        else if (isBottom) frame = 7;
+        else if (isLeft) frame = 3;
+        else if (isRight) frame = 5;
+
+        const tile = this.add.sprite(
+          left + col * tileSize + tileSize / 2,
+          top + row * tileSize + tileSize / 2,
+          'ui-panel-a',
+          frame
+        ).setScale(tileSize / 32).setDepth(depth);
+        nodes.push(tile);
+      }
+    }
+
+    for (let col = 1; col < cols - 1; col += 1) {
+      const x = left + col * tileSize + tileSize / 2;
+      const topHeader = this.add.sprite(x, top + tileSize / 2, 'ui-header-a', 1)
+        .setScale(tileSize / 32)
+        .setDepth(depth + 1);
+      nodes.push(topHeader);
+    }
+
+    const headerLeft = this.add.sprite(left + tileSize / 2, top + tileSize / 2, 'ui-header-a', 0)
+      .setScale(tileSize / 32)
+      .setDepth(depth + 1);
+    const headerRight = this.add.sprite(left + (cols - 0.5) * tileSize, top + tileSize / 2, 'ui-header-a', 2)
+      .setScale(tileSize / 32)
+      .setDepth(depth + 1);
+    nodes.push(headerLeft, headerRight);
+  }
+
+  ensureProfileIdleAnimation() {
+    if (this.anims.exists('idle')) return;
+
+    const idle = soldier.anims.idle;
+    const frames = Array.from({ length: idle.count }, (_, i) => idle.row * soldier.maxCols + i);
+    this.anims.create({
+      key: 'idle',
+      frames: this.anims.generateFrameNumbers(soldier.sheetKey, { frames }),
+      frameRate: idle.frameRate,
+      repeat: idle.repeat
+    });
+  }
+
+  getPrimaryLeftStats(learner) {
+    return [
+      ['Username', learner.username ?? 'Unknown'],
+      ['Full Name', learner.full_name ?? learner.fullName ?? 'Unknown'],
+      ['Email', learner.email ?? 'Unknown'],
+      ['User ID', learner.learnerId ?? learner.id ?? 'N/A']
+    ];
+  }
+
+  getPrimaryRightStats(learner) {
+    const joined = learner.created_at || learner.createdAt || learner.joined_at || learner.joinedAt;
+    return [
+      ['Level', String(learner.level ?? 1)],
+      ['Total XP', String(learner.total_xp ?? learner.totalXp ?? 0)],
+      ['Status', learner.is_active === false ? 'Inactive' : 'Active'],
+      ['Joined', joined ? this.formatJoinDate(joined) : 'Unknown']
+    ];
+  }
+
+  getExtraProfileStats(learner) {
+    const tracked = new Set([
+      'username', 'full_name', 'fullName', 'email', 'level', 'total_xp', 'totalXp',
+      'learnerId', 'id', 'is_active', 'created_at', 'createdAt', 'joined_at', 'joinedAt'
+    ]);
+
+    return Object.entries(learner)
+      .filter(([key, value]) => !tracked.has(key) && ['string', 'number', 'boolean'].includes(typeof value))
+      .slice(0, 2)
+      .map(([key, value]) => [this.toTitleCase(key), String(value)]);
+  }
+
+  truncateProfileValue(value, maxLen = 34) {
+    const text = String(value ?? 'Unknown');
+    return text.length > maxLen ? `${text.slice(0, maxLen - 1)}...` : text;
+  }
+
+  formatJoinDate(value) {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  toTitleCase(text) {
+    return text
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1));
   }
 
 }

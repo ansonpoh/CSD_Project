@@ -43,10 +43,11 @@ public class AIService {
                         Title: %s
                         Description: %s
 
-                        Write 6-10 short NPC lines that teach this concept one idea at a time.
+                        Write exactly 10 NPC lines that teach this concept one idea at a time.
                         The NPC is a wise, fun game character who explains Gen Alpha concepts in a relatable way.
-                        Each line should be a single sentence or short phrase the player reads before pressing Space to continue.
-                        Use real Gen Alpha examples and end with a memorable takeaway.
+                        Each line must be a complete, informative sentence that genuinely teaches the player something — avoid filler or vague statements.
+                        Cover: what the term means, its origin, how it is used in context, variations or nuances, and a memorable takeaway.
+                        Use real Gen Alpha examples and make every line count — the player should learn something new from each one.
 
                         Return ONLY a valid JSON array of strings with no other text, in this exact format:
                         ["line 1", "line 2", "line 3"]

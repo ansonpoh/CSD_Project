@@ -15,12 +15,16 @@ import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentService;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.leaderboard.LeaderboardService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ContentFlowTest {
 
     @MockitoBean
     JwtDecoder jwtDecoder; // prevents Security from trying to reach Supabase on startup
+
+    @MockitoBean
+    LeaderboardService leaderboardService; // prevents Redis connection on startup
 
     @Autowired
     private ContentService contentService;
@@ -30,19 +34,14 @@ class ContentFlowTest {
     private static final UUID TOPIC_ID       = UUID.fromString("0b2c4978-5bec-4bae-8a3a-4bf5fa92b291");
     private static final String TITLE        = "What is Rizz?";
     private static final String DESCRIPTION  = """
-            In this article, I'll break down "rizz" — one of Gen Alpha's most popular slang 
-            terms meaning natural charm or the ability to attract others effortlessly. 
-            Learn where it came from, how it's used in everyday conversation, 
-            and why it took over the internet overnight.
-
-            "Rizz" refers to someone's ability to charm or attract others, 
-            especially romantically, through confidence and natural charisma. 
-            It was popularized by Twitch streamer Kai Cenat around 2021-2022 
-            and went viral after actor Tom Holland used it in a 2023 interview. 
-            It can be used as a noun ("he has rizz") or a verb ("he rizzed her up"). 
-            Variations include "unspoken rizz" (attracting without words) and "W rizz" (exceptional charm). 
-            It was named Oxford Word of the Year in 2023. 
-            Commonly used among teenagers and young adults online, in memes, and in everyday conversation.
+            Rizz means natural charm — the ability to attract others effortlessly.
+            It was coined by Twitch streamer Kai Cenat around 2021-2022.
+            It went viral after actor Tom Holland used it in a 2023 interview.
+            It works as a noun ("he has rizz") or a verb ("he rizzed her up").
+            Unspoken rizz means attracting someone without even saying a word.
+            W rizz means someone has exceptional, top-tier charm.
+            It was named Oxford Word of the Year in 2023.
+            Teens and young adults use it constantly online, in memes, and in everyday conversation.
             """;
     // ─────────────────────────────────────────────────────────────
 

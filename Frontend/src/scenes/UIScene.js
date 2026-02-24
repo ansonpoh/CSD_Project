@@ -48,7 +48,7 @@ export class UIScene extends Phaser.Scene {
   create() {
     const width = this.cameras.main.width;
 
-    //  HUD bar background
+    // ── HUD bar background ──────────────────────────────────────────────────
     // Solid dark bar with a thin gold bottom border
     const hudBg = this.add.graphics();
     hudBg.fillStyle(0x0d1530, 0.97);
@@ -66,7 +66,7 @@ export class UIScene extends Phaser.Scene {
       return;
     }
 
-    //  Username + level (left side)
+    // ── Username + level (left side) ────────────────────────────────────────
     this.usernameText = this.add.text(16, 10, `@ ${learner.username}`, {
       fontSize:        '18px',
       color:           '#e8f0ff',
@@ -83,7 +83,7 @@ export class UIScene extends Phaser.Scene {
     });
     this.lastKnownLevel = learner.level;
 
-    //  XP (right of centre)
+    // ── XP (right of centre) ────────────────────────────────────────────────
     this.xpText = this.add.text(width / 2, 29, `XP: ${learner.total_xp}`, {
       fontSize:        '16px',
       color:           '#f4c048',
@@ -92,7 +92,7 @@ export class UIScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5, 0.5);
 
-    //  Helper: build a small Graphics HUD button 
+    // ── Helper: build a small Graphics HUD button ───────────────────────────
     //   Returns { container } — text label floats inside.
     const makeHudBtn = (cx, cy, btnW, btnH, label, colorNormal, colorHover, onPress) => {
       const container = this.add.container(cx - btnW / 2, cy - btnH / 2);
@@ -134,17 +134,17 @@ export class UIScene extends Phaser.Scene {
       return container;
     };
 
-    //  Leaderboard button
+    // ── Leaderboard button ──────────────────────────────────────────────────
     const lbX = this.usernameText.x + this.usernameText.width + 80;
     makeHudBtn(lbX + 56, 29, 112, 30, 'Leaderboard', 0x1a2a52, 0x2a4278, () => this.showLeaderboard());
 
-    //  INV button
+    // ── INV button ──────────────────────────────────────────────────────────
     makeHudBtn(width - 52, 29, 56, 30, 'INV', 0x1e1040, 0x2d1860, () => this.showInventory());
 
-    //  Logout button 
+    // ── Logout button ───────────────────────────────────────────────────────
     makeHudBtn(width - 122, 29, 60, 30, 'Logout', 0x3a0e0e, 0x601818, () => this.handleLogout());
 
-    //  State subscription
+    // ── State subscription ──────────────────────────────────────────────────
     gameState.subscribe(() => { this.updateUI(); });
   }
 
@@ -234,106 +234,221 @@ export class UIScene extends Phaser.Scene {
 
   showInventory() {
     const inventory = gameState.getInventory();
-    const width = this.cameras.main.width;
+    const width  = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const D      = 1000; // base depth
 
-    // Create inventory overlay
-    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.8).setOrigin(0);
-    overlay.setInteractive();
-    overlay.setDepth(1000);
-
-    // Inventory panel
-    const panel = this.add.rectangle(width / 2, height / 2, 600, 500, 0x16213e, 1);
-    panel.setStrokeStyle(3, 0x4a90e2);
-    panel.setDepth(1001);
-
-    // Title
-    const title = this.add.text(width / 2, height / 2 - 220, 'INVENTORY', {
-      fontSize: '32px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-    title.setDepth(1002);
-
-    // Display items
-    const itemTexts = [];
-    const useButtons = [];
-    const useTexts = [];
-
-    const cleanupInventoryUI = () => {
-      overlay.destroy();
-      panel.destroy();
-      title.destroy();
-      closeBtn.destroy();
-      closeBtnText.destroy();
-      itemTexts.forEach(t => t.destroy());
-      useButtons.forEach(b => b.destroy());
-      useTexts.forEach(t => t.destroy());
+    // ── Palette (inline so UIScene has no external dep) ──────────────────
+    const P = {
+      bgDeep:        0x090f24,
+      bgPanel:       0x080e22,
+      bgCard:        0x0d1530,
+      btnNormal:     0x2a0f42,
+      btnHover:      0x3d1860,
+      btnPress:      0x100520,
+      btnSuccess:    0x0e3020,
+      btnSuccessHov: 0x1a5030,
+      btnDanger:     0x3a0e0e,
+      btnDangerHov:  0x601818,
+      borderGold:    0xc8870a,
+      borderGlow:    0xf0b030,
+      borderDim:     0x604008,
+      accentGlow:    0xffdd60,
     };
 
+    // Item type accent colours
+    const TYPE_COLOR = {
+      potion:     0x4193d5,
+      weapon:     0xc03030,
+      armor:      0x7040b0,
+      accessory:  0xc8870a,
+      consumable: 0x22a855,
+    };
+
+    // ── Panel dimensions ─────────────────────────────────────────────────
+    const panelW  = 660;
+    const panelH  = Math.min(560, 120 + Math.max(1, inventory.length) * 80);
+    const panelX  = width  / 2 - panelW / 2;
+    const panelY  = height / 2 - panelH / 2;
+
+    // All nodes for cleanup
+    const nodes = [];
+
+    const cleanup = () => nodes.forEach((n) => n?.destroy());
+
+    // ── Helper: make a Graphics button ──────────────────────────────────
+    const mkBtn = (cx, cy, w, h, label, fillN, fillH, border, onClick) => {
+      const c  = this.add.container(cx - w / 2, cy - h / 2).setDepth(D + 4);
+      const bg = this.add.graphics();
+
+      const draw = (fill, brd) => {
+        bg.clear();
+        bg.fillStyle(fill, 1);
+        bg.fillRoundedRect(0, 0, w, h, 4);
+        bg.lineStyle(2, brd, 1);
+        bg.strokeRoundedRect(0, 0, w, h, 4);
+        bg.fillStyle(0xffffff, 0.06);
+        bg.fillRoundedRect(2, 2, w - 4, h * 0.42, { tl: 3, tr: 3, bl: 0, br: 0 });
+      };
+
+      draw(fillN, border);
+      c.add(bg);
+      c.add(this.add.text(w / 2, h / 2, label, {
+        fontSize: '14px', fontStyle: 'bold',
+        color: '#f0ecff', stroke: '#060814', strokeThickness: 4
+      }).setOrigin(0.5));
+
+      const hit = this.add.rectangle(w / 2, h / 2, w, h, 0, 0)
+        .setInteractive({ useHandCursor: true });
+      c.add(hit);
+      hit.on('pointerover',  () => draw(fillH,       P.borderGlow));
+      hit.on('pointerout',   () => draw(fillN,       border));
+      hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim));
+      hit.on('pointerup',    () => { draw(fillH, P.borderGlow); onClick(); });
+
+      nodes.push(c);
+      return c;
+    };
+
+    // ── Overlay ──────────────────────────────────────────────────────────
+    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.78)
+      .setOrigin(0).setInteractive().setDepth(D);
+    nodes.push(overlay);
+
+    // ── Panel background ─────────────────────────────────────────────────
+    const panelBg = this.add.graphics().setDepth(D + 1);
+    panelBg.fillStyle(P.bgPanel, 0.98);
+    panelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 7);
+    panelBg.lineStyle(2, P.borderGold, 0.9);
+    panelBg.strokeRoundedRect(panelX, panelY, panelW, panelH, 7);
+    // inner top accent line
+    panelBg.lineStyle(1, P.accentGlow, 0.3);
+    panelBg.beginPath();
+    panelBg.moveTo(panelX + 18, panelY + 2);
+    panelBg.lineTo(panelX + panelW - 18, panelY + 2);
+    panelBg.strokePath();
+    nodes.push(panelBg);
+
+    // ── Header bar (reuses ui-panel-a header sprite row) ─────────────────
+    const headerH  = 52;
+    const headerBg = this.add.graphics().setDepth(D + 2);
+    headerBg.fillStyle(P.btnNormal, 1);
+    headerBg.fillRoundedRect(panelX, panelY, panelW, headerH, { tl: 7, tr: 7, bl: 0, br: 0 });
+    headerBg.lineStyle(1, P.borderGold, 0.5);
+    headerBg.beginPath();
+    headerBg.moveTo(panelX, panelY + headerH);
+    headerBg.lineTo(panelX + panelW, panelY + headerH);
+    headerBg.strokePath();
+    nodes.push(headerBg);
+
+    nodes.push(
+      this.add.text(panelX + panelW / 2, panelY + headerH / 2, 'INVENTORY', {
+        fontSize: '26px', fontStyle: 'bold',
+        color: '#f4f8ff', stroke: '#13233d', strokeThickness: 7
+      }).setOrigin(0.5).setDepth(D + 3)
+    );
+
+    // ── Close X button (diamond sprite) ──────────────────────────────────
+    const closeX = this.add.sprite(panelX + panelW - 28, panelY + 26, 'ui-close-btn', 0)
+      .setScale(1.6).setDepth(D + 4).setInteractive({ useHandCursor: true });
+    closeX.on('pointerover',  () => closeX.setFrame(1));
+    closeX.on('pointerout',   () => closeX.setFrame(0));
+    closeX.on('pointerdown',  cleanup);
+    nodes.push(closeX);
+
+    // ── Item count sub-header ─────────────────────────────────────────────
+    nodes.push(
+      this.add.text(panelX + 24, panelY + headerH + 14, `${inventory.length} item${inventory.length !== 1 ? 's' : ''}`, {
+        fontSize: '13px', color: '#c0a8e0', stroke: '#060814', strokeThickness: 3
+      }).setDepth(D + 3)
+    );
+
+    // ── Empty state ───────────────────────────────────────────────────────
     if (inventory.length === 0) {
-      const emptyText = this.add.text(width / 2, height / 2, 'Your inventory is empty', {
-        fontSize: '20px',
-        color: '#aaaaaa'
-      }).setOrigin(0.5);
-      emptyText.setDepth(1002);
-      itemTexts.push(emptyText);
-    } else {
-      inventory.forEach((item, index) => {
-        const y = height / 2 - 150 + (index * 60);
-        const qty = item.quantity ?? 1;
-        
-        const itemText = this.add.text(width / 2 - 250, y, `${item.name} x${qty} - ${item.description}`, {
-          fontSize: '18px',
-          color: '#ffffff'
-        });
-        itemText.setDepth(1002);
-        itemTexts.push(itemText);
+      nodes.push(
+        this.add.text(panelX + panelW / 2, panelY + panelH / 2 + 10, 'Your inventory is empty', {
+          fontSize: '20px', fontStyle: 'bold',
+          color: '#5a4a72', stroke: '#060814', strokeThickness: 4
+        }).setOrigin(0.5).setDepth(D + 3)
+      );
+    }
 
-        const useBtn = this.add.rectangle(width / 2 + 220, y + 10, 70, 30, 0x22c55e)
-        .setInteractive({ useHandCursor: true })
-        .setDepth(1002);
-        useButtons.push(useBtn);
+    // ── Item rows ─────────────────────────────────────────────────────────
+    const cardW  = panelW - 48;
+    const cardH  = 64;
+    const cardX  = panelX + 24;
+    let   cardY  = panelY + headerH + 42;
 
-        const useText = this.add.text(width / 2 + 220, y + 10, 'USE', {
-          fontSize: '14px',
-          color: '#ffffff',
-          fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(1003);
-        useTexts.push(useText);
+    inventory.forEach((item) => {
+      const qty       = item.quantity ?? 1;
+      const typeColor = TYPE_COLOR[item.item_type] ?? 0x4a5568;
 
-        useBtn.on('pointerdown', async () => {
+      // Card bg
+      const card = this.add.graphics().setDepth(D + 2);
+      card.fillStyle(P.bgCard, 1);
+      card.fillRoundedRect(cardX, cardY, cardW, cardH, 5);
+      card.lineStyle(2, typeColor, 0.55);
+      card.strokeRoundedRect(cardX, cardY, cardW, cardH, 5);
+      // top shine
+      card.fillStyle(0xffffff, 0.025);
+      card.fillRoundedRect(cardX + 2, cardY + 2, cardW - 4, cardH * 0.38, { tl: 4, tr: 4, bl: 0, br: 0 });
+      nodes.push(card);
+
+      // Colour accent strip on left edge
+      const strip = this.add.graphics().setDepth(D + 3);
+      strip.fillStyle(typeColor, 0.7);
+      strip.fillRoundedRect(cardX, cardY + 4, 4, cardH - 8, 2);
+      nodes.push(strip);
+
+      // Item name
+      nodes.push(
+        this.add.text(cardX + 18, cardY + 10, item.name ?? 'Unknown Item', {
+          fontSize: '17px', fontStyle: 'bold',
+          color: '#f0ecff', stroke: '#060814', strokeThickness: 4
+        }).setDepth(D + 3)
+      );
+
+      // Description + qty
+      const desc = item.description
+        ? (item.description.length > 52 ? item.description.slice(0, 51) + '…' : item.description)
+        : '';
+      nodes.push(
+        this.add.text(cardX + 18, cardY + 34, `x${qty}  ${desc}`, {
+          fontSize: '13px', color: '#9e88c0', stroke: '#060814', strokeThickness: 3
+        }).setDepth(D + 3)
+      );
+
+      // USE button
+      mkBtn(
+        cardX + cardW - 10, cardY + cardH / 2,
+        72, 34,
+        'USE',
+        P.btnSuccess, P.btnSuccessHov, 0x22a855,
+        async () => {
           try {
             const itemId = item.itemId || item.item_id;
             if (!itemId) return;
-
-            const updatedInventory = await apiService.removeInventoryItem(itemId, 1);
-            gameState.setInventory(updatedInventory);
-
-            cleanupInventoryUI();
-            this.showInventory(); // reopen refreshed list
+            const updated = await apiService.removeInventoryItem(itemId, 1);
+            gameState.setInventory(updated);
+            cleanup();
+            this.showInventory();
           } catch (e) {
             console.error('Failed to use item:', e);
           }
-        });
-      });
-    }
+        }
+      );
 
-    // Close button
-    const closeBtn = this.add.rectangle(width / 2, height / 2 + 200, 120, 40, 0x666666);
-    closeBtn.setInteractive({ useHandCursor: true });
-    closeBtn.setDepth(1002);
-
-    const closeBtnText = this.add.text(width / 2, height / 2 + 200, 'CLOSE', {
-      fontSize: '18px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-    closeBtnText.setDepth(1003);
-
-    closeBtn.on('pointerdown', () => {
-      cleanupInventoryUI();
+      cardY += cardH + 10;
     });
+
+    // ── Bottom close button ───────────────────────────────────────────────
+    mkBtn(
+      panelX + panelW / 2, panelY + panelH - 28,
+      120, 34,
+      'CLOSE',
+      P.btnDanger, P.btnDangerHov, 0x8b2020,
+      cleanup
+    );
   }
 
   async showLeaderboard() {

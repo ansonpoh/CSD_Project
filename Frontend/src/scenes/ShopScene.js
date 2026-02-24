@@ -2,6 +2,39 @@ import Phaser from 'phaser';
 import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
 
+const P = {
+  bgDeep:        0x090f24,
+  bgPanel:       0x0d1530,
+  bgCard:        0x080e22,
+  btnNormal:     0x2a0f42,
+  btnHover:      0x3d1860,
+  btnPress:      0x100520,
+  btnSuccess:    0x0e3020,
+  btnSuccessHov: 0x1a5030,
+  btnDanger:     0x3a0e0e,
+  btnDangerHov:  0x601818,
+  borderGold:    0xc8870a,
+  borderGlow:    0xf0b030,
+  borderDim:     0x604008,
+  accentGlow:    0xffdd60,
+  textMain:      '#f0ecff',
+  textSub:       '#c0a8e0',
+  textGold:      '#f4c048',
+  textGreen:     '#4ade80',
+  textRed:       '#f87171',
+  textDim:       '#5a4a72',
+  textDesc:      '#9e88c0',
+};
+
+// Item type accent colours (borders + icon tints)
+const TYPE_COLOR = {
+  potion:     0x4193d5,
+  weapon:     0xc03030,
+  armor:      0x7040b0,
+  accessory:  0xc8870a,
+  consumable: 0x22a855,
+};
+
 export class ShopScene extends Phaser.Scene {
   constructor() {
     super({ key: 'ShopScene' });
@@ -13,259 +46,266 @@ export class ShopScene extends Phaser.Scene {
   }
 
   async create() {
-    const width = this.cameras.main.width;
+    const width  = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Semi-transparent background
-    this.add.rectangle(0, 0, width, height, 0x000000, 0.8).setOrigin(0);
+    // ── Dark overlay ──────────────────────────────────────────────────────
+    this.add.rectangle(0, 0, width, height, 0x000000, 0.82).setOrigin(0);
 
-    // Title
-    this.add.text(width / 2, 100, 'ITEM SHOP', {
-      fontSize: '36px',
-      color: '#f59e0b',
-      fontStyle: 'bold'
+    // ── Header bar ────────────────────────────────────────────────────────
+    const hdr = this.add.graphics();
+    hdr.fillStyle(P.bgPanel, 0.97);
+    hdr.fillRect(0, 0, width, 72);
+    hdr.lineStyle(1, P.borderGold, 0.6);
+    hdr.beginPath(); hdr.moveTo(0, 71); hdr.lineTo(width, 71); hdr.strokePath();
+
+    this.add.text(width / 2, 36, '✦  ITEM SHOP  ✦', {
+      fontSize:        '30px',
+      fontStyle:       'bold',
+      color:           P.textGold,
+      stroke:          '#06101a',
+      strokeThickness: 7
     }).setOrigin(0.5);
 
-    // Gold display
-    // this.add.text(width / 2, 150, `Gold: ${this.gold}`, {
-    //   fontSize: '24px',
-    //   color: '#f59e0b'
-    // }).setOrigin(0.5);
-    this.goldText = this.add.text(width / 2, 150, `Gold: ${this.gold}`, {
-      fontSize: '24px',
-      color: '#f59e0b'
+    // ── Gold display ──────────────────────────────────────────────────────
+    const goldBg = this.add.graphics();
+    goldBg.fillStyle(P.btnNormal, 1);
+    goldBg.lineStyle(1, P.borderGold, 0.8);
+    goldBg.fillRoundedRect(width / 2 - 90, 82, 180, 32, 5);
+    goldBg.strokeRoundedRect(width / 2 - 90, 82, 180, 32, 5);
+
+    this.goldText = this.add.text(width / 2, 98, `✦  Gold: ${this.gold}`, {
+      fontSize:        '16px',
+      fontStyle:       'bold',
+      color:           P.textGold,
+      stroke:          '#06101a',
+      strokeThickness: 4
     }).setOrigin(0.5);
 
-    // DEVELOPMENT MODE - Use mock items instead of API
-    // this.items = this.getMockItems();
-    // this.displayItems();
-
-    // ORIGINAL CODE - Uncomment when backend is ready:
-    
-    // Load items
-    await this.loadItems();
-
-    // Close button
-    const closeBtn = this.add.rectangle(width - 60, 90, 100, 40, 0x666666)
-      .setInteractive({ useHandCursor: true });
-    
-    this.add.text(width - 60, 90, 'CLOSE', {
-      fontSize: '18px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    
-    closeBtn.on('pointerdown', () => {
+    // ── Close button ──────────────────────────────────────────────────────
+    this._makeBtn(width - 70, 36, 100, 32, 'CLOSE', P.btnDanger, P.btnDangerHov, 0x8b2020, () => {
       this.scene.stop();
       this.scene.resume('GameMapScene');
     });
+
+    await this.loadItems();
   }
+
+  // ── Button factory ─────────────────────────────────────────────────────────
+
+  _makeBtn(cx, cy, w, h, label, fillN, fillH, border, onClick, disabled = false) {
+    const c  = this.add.container(cx - w / 2, cy - h / 2);
+    const bg = this.add.graphics();
+
+    const draw = (fill, brd) => {
+      bg.clear();
+      bg.fillStyle(fill, disabled ? 0.35 : 1);
+      bg.fillRoundedRect(0, 0, w, h, 4);
+      bg.lineStyle(2, brd, disabled ? 0.3 : 0.9);
+      bg.strokeRoundedRect(0, 0, w, h, 4);
+      if (!disabled) {
+        bg.fillStyle(0xffffff, 0.06);
+        bg.fillRoundedRect(2, 2, w - 4, h * 0.42, { tl: 3, tr: 3, bl: 0, br: 0 });
+      }
+    };
+
+    draw(disabled ? P.btnNormal : fillN, disabled ? P.borderDim : border);
+    c.add(bg);
+    c.add(this.add.text(w / 2, h / 2, label, {
+      fontSize:        '14px',
+      fontStyle:       'bold',
+      color:           disabled ? P.textDim : P.textMain,
+      stroke:          '#060814',
+      strokeThickness: 4
+    }).setOrigin(0.5));
+
+    if (!disabled && onClick) {
+      const hit = this.add.rectangle(w / 2, h / 2, w, h, 0, 0).setInteractive({ useHandCursor: true });
+      c.add(hit);
+      hit.on('pointerover',  () => draw(fillH,       P.borderGlow));
+      hit.on('pointerout',   () => draw(fillN,       border));
+      hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim));
+      hit.on('pointerup',    () => { draw(fillH, P.borderGlow); onClick(); });
+    }
+
+    return c;
+  }
+
+  // ── Item loading / display (logic unchanged) ───────────────────────────────
 
   async loadItems() {
     try {
-      let items = await apiService.getAllItems();
-      this.items = items.filter(item => item.is_active);
-      this.displayItems()
+      const items = await apiService.getAllItems();
+      this.items = items.filter((item) => item.is_active);
+      this.displayItems();
     } catch (error) {
       console.error('Failed to load items:', error);
     }
   }
 
   displayItems() {
-    const width = this.cameras.main.width;
-    const startY = 250;
-    const spacing = 120;
+    const width       = this.cameras.main.width;
+    const startY      = 140;
+    const spacing     = 116;
     const itemsPerRow = 2;
-    const columnSpacing = 390;
-    const cardWidth = 360;
-    const cardHeight = 96;
+    const colGap      = 390;
+    const cardW       = 360;
+    const cardH       = 90;
 
-    this.itemContainers.forEach((container) => container.destroy(true));
+    this.itemContainers.forEach((c) => c.destroy(true));
     this.itemContainers = [];
 
     this.items.forEach((item, index) => {
       const row = Math.floor(index / itemsPerRow);
       const col = index % itemsPerRow;
-
-      const itemsInThisRow = Math.min(itemsPerRow, this.items.length - (row * itemsPerRow));
-      const rowStartX = (width / 2) - (((itemsInThisRow - 1) * columnSpacing) / 2);
-
-      const x = rowStartX + (col * columnSpacing);
-      const y = startY + (row * spacing);
+      const itemsInRow = Math.min(itemsPerRow, this.items.length - row * itemsPerRow);
+      const rowStartX  = width / 2 - ((itemsInRow - 1) * colGap) / 2;
+      const x = rowStartX + col * colGap;
+      const y = startY + row * spacing;
 
       const container = this.add.container(x, y);
+      const typeColor  = TYPE_COLOR[item.item_type] ?? 0x4a5568;
 
-      const bg = this.add.rectangle(0, 0, cardWidth, cardHeight, 0x16213e, 0.9);
-      bg.setStrokeStyle(2, this.getTypeColor(item.item_type));
+      // ── Card background ──
+      const cardBg = this.add.graphics();
+      cardBg.fillStyle(P.bgCard, 0.94);
+      cardBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
+      cardBg.lineStyle(2, typeColor, 0.7);
+      cardBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
+      // subtle top shine
+      cardBg.fillStyle(0xffffff, 0.03);
+      cardBg.fillRoundedRect(-cardW / 2 + 2, -cardH / 2 + 2, cardW - 4, cardH * 0.35, { tl: 4, tr: 4, bl: 0, br: 0 });
+      container.add(cardBg);
 
-      this.createItemIcon(container, -(cardWidth / 2) + 26, 0, item.item_type);
+      // Icon
+      this.createItemIcon(container, -cardW / 2 + 28, 0, item.item_type);
 
-      const nameText = this.add.text(-120, -28, item.name, {
-        fontSize: '18px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      });
+      // Name
+      container.add(this.add.text(-cardW / 2 + 58, -cardH / 2 + 12, item.name, {
+        fontSize: '17px', fontStyle: 'bold',
+        color: P.textMain, stroke: '#060814', strokeThickness: 4
+      }));
 
-      const descText = this.add.text(-120, -5, item.description, {
-        fontSize: '13px',
-        color: '#aaaaaa',
-        wordWrap: { width: 165, useAdvancedWrap: true }
-      });
+      // Description
+      container.add(this.add.text(-cardW / 2 + 58, -cardH / 2 + 34, item.description, {
+        fontSize: '12px', color: P.textDesc,
+        wordWrap: { width: 170, useAdvancedWrap: true },
+        stroke: '#060814', strokeThickness: 2
+      }));
 
-      const priceText = this.add.text(-120, 24, `${item.price} gold`, {
-        fontSize: '16px',
-        color: '#f59e0b'
-      });
+      // Price
+      container.add(this.add.text(-cardW / 2 + 58, cardH / 2 - 24, `✦ ${item.price} gold`, {
+        fontSize: '14px', fontStyle: 'bold',
+        color: P.textGold, stroke: '#060814', strokeThickness: 3
+      }));
 
+      // BUY button
       const canAfford = this.gold >= item.price;
-      const buttonX = (cardWidth / 2) - 56;
-      const button = this.add.rectangle(buttonX, 0, 86, 40, canAfford ? 0x22c55e : 0x666666, 1);
-      button.setStrokeStyle(2, canAfford ? 0x4ade80 : 0x888888);
+      const btnX = cardW / 2 - 50;
 
       if (canAfford) {
-        button.setInteractive({ useHandCursor: true });
-
-        button.on('pointerover', () => {
-          button.setFillStyle(0x4ade80);
-        });
-
-        button.on('pointerout', () => {
-          button.setFillStyle(0x22c55e);
-        });
-
-        button.on('pointerdown', () => {
-          this.purchaseItem(item);
-        });
+        const buyBtn = this._makeBtn(
+          x + btnX, y, 84, 36,
+          'BUY',
+          P.btnSuccess, P.btnSuccessHov, 0x22a855,
+          () => this.purchaseItem(item)
+        );
+        // Adjust to local container coords
+        buyBtn.x = btnX - 84 / 2;
+        buyBtn.y = -18;
+        container.add(buyBtn);
+      } else {
+        container.add(this.add.text(btnX - 84 / 2 + 16, -18, 'BUY', {
+          fontSize: '14px', fontStyle: 'bold',
+          color: P.textDim, stroke: '#060814', strokeThickness: 3
+        }));
       }
 
-      const buttonText = this.add.text(buttonX, 0, 'BUY', {
-        fontSize: '16px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
-
-      container.add([bg, nameText, descText, priceText, button, buttonText]);
       this.itemContainers.push(container);
     });
   }
 
-
   createItemIcon(container, x, y, type) {
-    const graphics = this.add.graphics();
-    
-    switch(type) {
+    const g = this.add.graphics();
+
+    switch (type) {
       case 'potion':
-        // Potion bottle
-        graphics.fillStyle(0x3b82f6, 1);
-        graphics.fillRoundedRect(x - 10, y - 10, 20, 25, 3);
-        graphics.fillStyle(0x60a5fa, 1);
-        graphics.fillRect(x - 8, y - 5, 16, 15);
-        graphics.fillStyle(0x1e40af, 1);
-        graphics.fillRect(x - 6, y - 12, 12, 3);
+        g.fillStyle(0x4193d5, 1); g.fillRoundedRect(x - 10, y - 10, 20, 25, 3);
+        g.fillStyle(0x60a5fa, 1); g.fillRect(x - 8, y - 5, 16, 15);
+        g.fillStyle(0x1e40af, 1); g.fillRect(x - 6, y - 12, 12, 3);
         break;
-        
       case 'weapon':
-        // Sword
-        graphics.fillStyle(0xef4444, 1);
-        graphics.fillRect(x - 3, y - 15, 6, 20);
-        graphics.fillTriangle(x - 5, y - 15, x + 5, y - 15, x, y - 20);
-        graphics.fillStyle(0x991b1b, 1);
-        graphics.fillRect(x - 6, y + 5, 12, 6);
-        graphics.fillCircle(x, y + 8, 4);
+        g.fillStyle(0xd04040, 1); g.fillRect(x - 3, y - 15, 6, 20);
+        g.fillTriangle(x - 5, y - 15, x + 5, y - 15, x, y - 22);
+        g.fillStyle(0x880000, 1); g.fillRect(x - 7, y + 5, 14, 5); g.fillCircle(x, y + 8, 4);
         break;
-        
       case 'armor':
-        // Shield
-        graphics.fillStyle(0x8b5cf6, 1);
-        graphics.fillRoundedRect(x - 12, y - 15, 24, 30, 5);
-        graphics.lineStyle(2, 0xffffff);
-        graphics.strokeRoundedRect(x - 10, y - 13, 20, 26, 4);
-        graphics.lineStyle(3, 0xa78bfa);
-        graphics.lineBetween(x, y - 10, x, y + 10);
-        graphics.lineBetween(x - 8, y, x + 8, y);
+        g.fillStyle(0x7040b0, 1); g.fillRoundedRect(x - 12, y - 14, 24, 28, 5);
+        g.lineStyle(2, 0xffffff, 0.4); g.strokeRoundedRect(x - 10, y - 12, 20, 24, 4);
+        g.lineStyle(2, 0xb080f0); g.lineBetween(x, y - 8, x, y + 8); g.lineBetween(x - 7, y, x + 7, y);
         break;
-        
       case 'accessory':
-        // Ring/Gem
-        graphics.lineStyle(3, 0xf59e0b);
-        graphics.strokeCircle(x, y, 12);
-        graphics.fillStyle(0xfbbf24, 1);
-        graphics.fillCircle(x, y - 3, 6);
-        graphics.fillStyle(0xfde047, 1);
-        graphics.fillCircle(x - 2, y - 4, 3);
+        g.lineStyle(3, P.borderGold); g.strokeCircle(x, y, 11);
+        g.fillStyle(0xf4c048, 1); g.fillCircle(x, y - 3, 5);
+        g.fillStyle(0xffe88a, 1); g.fillCircle(x - 2, y - 4, 2.5);
         break;
-        
       case 'consumable':
-        // Apple/food
-        graphics.fillStyle(0x22c55e, 1);
-        graphics.fillCircle(x, y, 12);
-        graphics.fillStyle(0x15803d, 1);
-        graphics.fillRect(x - 2, y - 15, 4, 8);
-        graphics.fillStyle(0x16a34a, 1);
-        graphics.fillCircle(x + 8, y - 8, 5);
+        g.fillStyle(0x22c55e, 1); g.fillCircle(x, y, 11);
+        g.fillStyle(0x15803d, 1); g.fillRect(x - 2, y - 14, 4, 7);
+        g.fillStyle(0x16a34a, 1); g.fillCircle(x + 7, y - 7, 4);
         break;
-        
       default:
-        // Default box
-        graphics.fillStyle(0x6b7280, 1);
-        graphics.fillRoundedRect(x - 12, y - 12, 24, 24, 3);
-        graphics.lineStyle(2, 0x9ca3af);
-        graphics.strokeRoundedRect(x - 12, y - 12, 24, 24, 3);
+        g.fillStyle(0x3a3a5a, 1); g.fillRoundedRect(x - 11, y - 11, 22, 22, 3);
+        g.lineStyle(1, 0x6b7280); g.strokeRoundedRect(x - 11, y - 11, 22, 22, 3);
         break;
     }
-    
-    container.add(graphics);
+
+    container.add(g);
   }
 
   getTypeColor(type) {
-    const colors = {
-      'potion': 0x3b82f6,
-      'weapon': 0xef4444,
-      'armor': 0x8b5cf6,
-      'accessory': 0xf59e0b,
-      'consumable': 0x22c55e
-    };
-    return colors[type] || 0x6b7280;
+    return TYPE_COLOR[type] ?? 0x4a5568;
   }
 
   async purchaseItem(item) {
     if (this.gold < item.price) return;
 
     const learner = gameState.getLearner();
-    const itemId = item.itemId;
+    const itemId  = item.itemId;
 
     this.gold -= item.price;
     this.updateGoldDisplay();
     this.displayItems();
 
     const width = this.cameras.main.width;
-    const confirmText = this.add.text(width / 2, 100, `Purchased ${item.name}!`, {
-      fontSize: '20px',
-      color: '#22c55e',
-      backgroundColor: '#000000',
-      padding: { x: 10, y: 5 }
+    const flash = this.add.text(width / 2, 120, `✦  Purchased ${item.name}!  ✦`, {
+      fontSize:        '18px',
+      fontStyle:       'bold',
+      color:           P.textGreen,
+      stroke:          '#060814',
+      strokeThickness: 5,
+      backgroundColor: 'rgba(8,10,28,0.9)',
+      padding:         { x: 14, y: 6 }
     }).setOrigin(0.5);
 
-    this.time.delayedCall(1500, () => confirmText.destroy());
+    this.time.delayedCall(1500, () => flash.destroy());
+
     try {
       if (learner?.learnerId && itemId) {
         const updatedInventory = await apiService.addInventoryItem(itemId, 1, false);
         gameState.setInventory(updatedInventory);
-        apiService.createPurchase([{ itemId: item.itemId, quantity: 1 }])
+        apiService.createPurchase([{ itemId: item.itemId, quantity: 1 }]);
       } else {
-        // fallback for dev/mock mode
         gameState.addItem(item, 1);
       }
     } catch (error) {
-      this.gold += item.price; // rollback local gold on failure
+      this.gold += item.price;
       this.updateGoldDisplay();
       console.error('Purchase failed:', error);
     }
   }
 
   updateGoldDisplay() {
-    if (this.goldText) {
-      this.goldText.setText(`Gold: ${this.gold}`);
-    }
+    if (this.goldText) this.goldText.setText(`✦  Gold: ${this.gold}`);
   }
 }
-

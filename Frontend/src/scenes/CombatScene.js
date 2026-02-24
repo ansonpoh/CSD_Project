@@ -4,6 +4,34 @@ import { apiService } from '../services/api.js';
 import { monsterRegistry } from "../characters/monsters/MonsterRegistry.js";
 import { soldier } from "../characters/soldier/Soldier.js";
 
+const P = {
+  bgDeep:        0x090f24,
+  bgPanel:       0x0d1530,
+  btnNormal:     0x2a0f42,
+  btnHover:      0x3d1860,
+  btnPress:      0x100520,
+  btnDanger:     0x3a0e0e,
+  btnDangerHov:  0x601818,
+  btnBlue:       0x1a2a52,
+  btnBlueHov:    0x2a4278,
+  btnNeutral:    0x1a1a2e,
+  btnNeutralHov: 0x2a2a48,
+  borderGold:    0xc8870a,
+  borderGlow:    0xf0b030,
+  borderDim:     0x604008,
+  borderRed:     0x8b2020,
+  borderBlue:    0x2a5090,
+  accentGlow:    0xffdd60,
+  textMain:      '#f0ecff',
+  textSub:       '#c0a8e0',
+  textGold:      '#f4c048',
+  textGreen:     '#4ade80',
+  textRed:       '#f87171',
+  hpGreen:       0x22a855,
+  hpRed:         0xc03030,
+  hpTrack:       0x0a1020,
+};
+
 export class CombatScene extends Phaser.Scene {
   constructor() {
     super({ key: 'CombatScene' });
@@ -18,7 +46,7 @@ export class CombatScene extends Phaser.Scene {
     this.monsterSprite = null;
     this.playerAttackAnims = [];
     this.monsterAttackAnims = [];
-    this.attackAnimIndex = 0; 
+    this.attackAnimIndex = 0;
     this.battleOver = false;
     this.attackBtn = null;
     this.defendBtn = null;
@@ -44,57 +72,81 @@ export class CombatScene extends Phaser.Scene {
   }
 
   create() {
-    const width = this.cameras.main.width;
+    const width  = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Background
-    this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
+    // ── Background ──────────────────────────────────────────────────────────
+    this.add.rectangle(width / 2, height / 2, width, height, P.bgDeep);
+    // Dramatic vignette sides
+    for (let i = 0; i < 5; i++) {
+      const a = 0.06 - i * 0.01;
+      this.add.rectangle(0,         height / 2, 60 + i * 30, height, 0x8b0000, a).setOrigin(0, 0.5);
+      this.add.rectangle(width,     height / 2, 60 + i * 30, height, 0x8b0000, a).setOrigin(1, 0.5);
+    }
+    // Subtle ambient glow behind combatants
+    this.add.circle(width * 0.25, 180, 120, 0x4193d5, 0.06);
+    this.add.circle(width * 0.82, 180, 120, 0x8b0000, 0.08);
 
-    // Title
-    this.add.text(width / 2, 40, `BATTLE: ${this.monster}`, {
-      fontSize: '32px',
-      color: '#ef4444',
-      fontStyle: 'bold'
+    // ── Title banner ────────────────────────────────────────────────────────
+    const titleBg = this.add.graphics();
+    titleBg.fillStyle(0x1a0510, 1);
+    titleBg.fillRect(0, 0, width, 62);
+    titleBg.lineStyle(1, P.borderRed, 0.7);
+    titleBg.beginPath();
+    titleBg.moveTo(0, 61);
+    titleBg.lineTo(width, 61);
+    titleBg.strokePath();
+
+    this.add.text(width / 2, 31, `⚔  BATTLE: ${String(this.monster).toUpperCase()}  ⚔`, {
+      fontSize:        '28px',
+      fontStyle:       'bold',
+      color:           P.textRed,
+      stroke:          '#06101a',
+      strokeThickness: 7
     }).setOrigin(0.5);
 
-    // Monster display - replaced emoji with icon
-    this.createMonsterIcon(width / 1.15 , 150);
-    this.createPlayerIcon(width / 7.2, 150);
+    // ── Sprites ─────────────────────────────────────────────────────────────
+    this.createPlayerIcon(width * 0.18, 180);
+    this.createMonsterIcon(width * 0.82, 180);
 
-    this.add.text(width / 2, 220, this.monster.description || 'A fearsome creature!', {
-      fontSize: '18px',
-      color: '#aaaaaa'
-    }).setOrigin(0.5);
+    // ── HP Bars ─────────────────────────────────────────────────────────────
+    this.createHealthBars(width);
 
-    // Health bars
-    this.createHealthBars();
+    // ── Battle log panel ────────────────────────────────────────────────────
+    const logY = height - 160;
+    const logW = width - 100;
+    const logBg = this.add.graphics();
+    logBg.fillStyle(P.bgPanel, 0.92);
+    logBg.fillRoundedRect(50, logY, logW, 130, 5);
+    logBg.lineStyle(1, P.borderGold, 0.4);
+    logBg.strokeRoundedRect(50, logY, logW, 130, 5);
 
-    // Battle log
-    this.logText = this.add.text(50, height - 150, '', {
-      fontSize: '16px',
-      color: '#ffffff',
-      lineSpacing: 5
+    this.logText = this.add.text(66, logY + 12, '', {
+      fontSize:    '15px',
+      color:       P.textMain,
+      lineSpacing: 6,
+      stroke:      '#060814',
+      strokeThickness: 3
     });
 
-    // Action buttons
-    this.createActionButtons();
+    // ── Action buttons ───────────────────────────────────────────────────────
+    this.createActionButtons(width, height);
 
     this.addLog(`A wild ${this.monster} appeared!`);
   }
 
+  // ── Sprite helpers (logic unchanged) ──────────────────────────────────────
+
   createMonsterIcon(x, y) {
-    // Create a stylized monster icon using graphics
     if (this.textures.exists(this.monster_key.key)) {
       this.monsterSprite = this.add.sprite(x, y, this.monster_key.key, 0)
-        .setScale(Math.max(this.monster_key.scale, 2.2)) // smaller for combat UI
+        .setScale(Math.max(this.monster_key.scale, 2.2))
         .setDepth(10);
-
       if (this.anims.exists(`${this.monster}_idle`)) {
         this.monsterSprite.play(`${this.monster}_idle`, true);
-      } else if (this.anims.exists(`orc_idle`)) {
-        this.monsterSprite.play(`orc_idle`, true);
+      } else if (this.anims.exists('orc_idle')) {
+        this.monsterSprite.play('orc_idle', true);
       }
-      return;
     }
   }
 
@@ -108,9 +160,7 @@ export class CombatScene extends Phaser.Scene {
       .setDepth(10)
       .setFlipX(false);
 
-    if (this.anims.exists('idle')) {
-      this.playerSprite.play('idle', true);
-    }
+    if (this.anims.exists('idle')) this.playerSprite.play('idle', true);
   }
 
   createPlayerAnimations() {
@@ -126,71 +176,124 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  createHealthBars() {
-    const width = this.cameras.main.width;
-    
-    // Player HP
-    this.add.text(100, 200, 'Your HP:', {
-      fontSize: '18px',
-      color: '#ffffff'
+  // ── HP bars ────────────────────────────────────────────────────────────────
+
+  createHealthBars(width) {
+    const barW = 260;
+    const barH = 18;
+    const y    = 262;
+
+    // ── Player ──
+    this.add.text(50, y - 26, 'YOUR HP', {
+      fontSize: '13px', fontStyle: 'bold',
+      color: P.textSub, stroke: '#060814', strokeThickness: 3
     });
-    
-    const playerBg = this.add.rectangle(250, 210, 300, 20, 0x333333);
-    this.playerHPBar = this.add.rectangle(250, 210, 300, 20, 0x4ade80);
-    
-    // Monster HP
-    this.add.text(width - 400, 200, 'Enemy HP:', {
-      fontSize: '18px',
-      color: '#ffffff'
+
+    const playerTrack = this.add.graphics();
+    playerTrack.fillStyle(P.hpTrack, 1);
+    playerTrack.fillRoundedRect(50, y, barW, barH, 4);
+    playerTrack.lineStyle(1, P.borderGold, 0.6);
+    playerTrack.strokeRoundedRect(50, y, barW, barH, 4);
+
+    this.playerHPBar = this.add.graphics();
+    this._drawHpBar(this.playerHPBar, 50 + 2, y + 2, barW - 4, barH - 4, 1.0, P.hpGreen);
+
+    // ── Monster ──
+    this.add.text(width - 50 - barW, y - 26, 'ENEMY HP', {
+      fontSize: '13px', fontStyle: 'bold',
+      color: P.textSub, stroke: '#060814', strokeThickness: 3
     });
-    
-    const monsterBg = this.add.rectangle(width - 250, 210, 300, 20, 0x333333);
-    this.monsterHPBar = this.add.rectangle(width - 250, 210, 300, 20, 0xef4444);
+
+    const monTrack = this.add.graphics();
+    monTrack.fillStyle(P.hpTrack, 1);
+    monTrack.fillRoundedRect(width - 50 - barW, y, barW, barH, 4);
+    monTrack.lineStyle(1, P.borderRed, 0.6);
+    monTrack.strokeRoundedRect(width - 50 - barW, y, barW, barH, 4);
+
+    this.monsterHPBar = this.add.graphics();
+    this._drawHpBar(this.monsterHPBar, width - 50 - barW + 2, y + 2, barW - 4, barH - 4, 1.0, P.hpRed);
+
+    // Store bar geometry for updates
+    this._barW  = barW - 4;
+    this._barH  = barH - 4;
+    this._pBarX = 50 + 2;
+    this._pBarY = y + 2;
+    this._mBarX = width - 50 - barW + 2;
+    this._mBarY = y + 2;
   }
 
-  createActionButtons() {
-    const width = this.cameras.main.width;
-    const y = 400;
-    const spacing = 150;
-
-
-
-    // Attack button
-    this.attackBtn = this.add.rectangle(width / 2 - spacing, y, 120, 50, 0xef4444)
-      .setInteractive({ useHandCursor: true });
-    
-    this.add.text(width / 2 - spacing, y, 'ATTACK', {
-      fontSize: '18px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-    
-    this.attackBtn.on('pointerdown', () => {if (!this.battleOver) this.performAttack()});
-
-    // Defend button
-    this.defendBtn = this.add.rectangle(width / 2, y, 120, 50, 0x3b82f6)
-      .setInteractive({ useHandCursor: true });
-    
-    this.add.text(width / 2, y, 'DEFEND', {
-      fontSize: '18px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-    
-    this.defendBtn.on('pointerdown', () => {if (!this.battleOver) this.performDefend()});
-
-    // Run button
-    this.runBtn = this.add.rectangle(width / 2 + spacing, y, 120, 50, 0x666666)
-      .setInteractive({ useHandCursor: true });
-    
-    this.add.text(width / 2 + spacing, y, 'RUN', {
-      fontSize: '18px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-    
-    this.runBtn.on('pointerdown', () => {if (!this.battleOver) this.runAway()});
+  _drawHpBar(gfx, x, y, maxW, h, pct, color) {
+    gfx.clear();
+    const fillW = Math.max(0, Math.floor(maxW * pct));
+    if (fillW <= 0) return;
+    gfx.fillStyle(color, 1);
+    gfx.fillRoundedRect(x, y, fillW, h, 3);
+    gfx.fillStyle(0xffffff, 0.18);
+    gfx.fillRoundedRect(x, y, fillW, Math.floor(h * 0.45), { tl: 3, tr: 3, bl: 0, br: 0 });
   }
+
+  // ── Action buttons ─────────────────────────────────────────────────────────
+
+  createActionButtons(width, height) {
+    const y   = height - 280;
+    const btnW = 130;
+    const btnH = 50;
+    const gap  = 20;
+    const totalW = btnW * 3 + gap * 2;
+    const startX = width / 2 - totalW / 2;
+
+    const mkBtn = (cx, label, fillN, fillH, border) => {
+      const c  = this.add.container(cx, y);
+      const bg = this.add.graphics();
+
+      const draw = (fill, brd) => {
+        bg.clear();
+        bg.fillStyle(fill, 1);
+        bg.fillRoundedRect(0, 0, btnW, btnH, 5);
+        bg.lineStyle(2, brd, 1);
+        bg.strokeRoundedRect(0, 0, btnW, btnH, 5);
+        bg.fillStyle(0xffffff, 0.06);
+        bg.fillRoundedRect(2, 2, btnW - 4, btnH * 0.4, { tl: 4, tr: 4, bl: 0, br: 0 });
+      };
+
+      draw(fillN, border);
+      const lbl = this.add.text(btnW / 2, btnH / 2, label, {
+        fontSize: '18px', fontStyle: 'bold',
+        color: P.textMain, stroke: '#060814', strokeThickness: 5
+      }).setOrigin(0.5);
+
+      const hit = this.add.rectangle(btnW / 2, btnH / 2, btnW, btnH, 0, 0)
+        .setInteractive({ useHandCursor: true });
+
+      c.add([bg, lbl, hit]);
+
+      hit.on('pointerover',  () => draw(fillH,       P.borderGlow));
+      hit.on('pointerout',   () => draw(fillN,       border));
+      hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim));
+      hit.on('pointerup',    () => draw(fillH,       P.borderGlow));
+
+      return { container: c, bg, hit };
+    };
+
+    const atkPos = startX;
+    const defPos = startX + btnW + gap;
+    const runPos = startX + (btnW + gap) * 2;
+
+    const atk = mkBtn(atkPos, 'ATTACK',  P.btnDanger,  P.btnDangerHov, P.borderRed);
+    const def = mkBtn(defPos, 'DEFEND',  P.btnBlue,    P.btnBlueHov,   P.borderBlue);
+    const run = mkBtn(runPos, 'RUN',     P.btnNeutral, P.btnNeutralHov,0x445566);
+
+    atk.hit.on('pointerup', () => { if (!this.battleOver) this.performAttack(); });
+    def.hit.on('pointerup', () => { if (!this.battleOver) this.performDefend(); });
+    run.hit.on('pointerup', () => { if (!this.battleOver) this.runAway(); });
+
+    // Store containers for enable/disable
+    this.attackBtn  = atk;
+    this.defendBtn  = def;
+    this.runBtn     = run;
+  }
+
+  // ── Battle logic (unchanged) ───────────────────────────────────────────────
 
   performAttack() {
     const damage = Math.floor(Math.random() * 20) + 10;
@@ -199,15 +302,12 @@ export class CombatScene extends Phaser.Scene {
       const atk = Phaser.Utils.Array.GetRandom(this.playerAttackAnims);
       this.playerSprite.play(atk, true);
       this.playerSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.monsterHP > 0 && this.anims.exists('idle')) {
-          this.playerSprite.play('idle', true);
-        }
+        if (this.monsterHP > 0 && this.anims.exists('idle')) this.playerSprite.play('idle', true);
       });
     }
-  
+
     if (this.monsterSprite && this.anims.exists(`${this.monster}_hurt`)) {
-      const key = `${this.monster}_hurt`;
-      this.monsterSprite.play(key, true);
+      this.monsterSprite.play(`${this.monster}_hurt`, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
         if (this.monsterHP > 0 && this.anims.exists(`${this.monster}_idle`)) {
           this.monsterSprite.play(`${this.monster}_idle`, true);
@@ -218,12 +318,7 @@ export class CombatScene extends Phaser.Scene {
     this.monsterHP = Math.max(0, this.monsterHP - damage);
     this.updateHealthBars();
     this.addLog(`You dealt ${damage} damage!`);
-
-    if (this.monsterHP <= 0) {
-      this.victory();
-      return;
-    }
-
+    if (this.monsterHP <= 0) { this.victory(); return; }
     this.time.delayedCall(500, () => this.monsterTurn());
   }
 
@@ -233,48 +328,35 @@ export class CombatScene extends Phaser.Scene {
   }
 
   monsterTurn(damageMultiplier = 1) {
-
     const atk = this.getRandomAttackAnim();
-
     if (this.monsterSprite && atk) {
       this.monsterSprite.play(atk, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
         if (this.anims.exists(`${this.monster}_idle`)) this.monsterSprite.play(`${this.monster}_idle`, true);
       });
     }
-
     if (this.playerSprite && this.anims.exists('hurt')) {
       this.playerSprite.play('hurt', true);
       this.playerSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.playerHP > 0 && this.anims.exists('idle')) {
-          this.playerSprite.play('idle', true);
-        }
+        if (this.playerHP > 0 && this.anims.exists('idle')) this.playerSprite.play('idle', true);
       });
     }
-
     const damage = Math.floor((Math.random() * 15 + 5) * damageMultiplier);
     this.playerHP = Math.max(0, this.playerHP - damage);
     this.updateHealthBars();
     this.addLog(`${this.monster} dealt ${damage} damage!`);
-
-    if (this.playerHP <= 0) {
-      this.defeat();
-    }
+    if (this.playerHP <= 0) this.defeat();
   }
 
   getRandomAttackAnim() {
     if (!this.monsterAttackAnims.length) return null;
-    const i = Phaser.Math.Between(0, this.monsterAttackAnims.length - 1);
-    return this.monsterAttackAnims[i];
+    return this.monsterAttackAnims[Phaser.Math.Between(0, this.monsterAttackAnims.length - 1)];
   }
 
   runAway() {
-    const chance = Math.random();
-    if (chance > 0.5) {
+    if (Math.random() > 0.5) {
       this.addLog('You escaped successfully!');
-      this.time.delayedCall(1000, () => {
-        this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
-      });
+      this.time.delayedCall(1000, () => this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() }));
     } else {
       this.addLog('Failed to escape!');
       this.time.delayedCall(500, () => this.monsterTurn());
@@ -282,79 +364,56 @@ export class CombatScene extends Phaser.Scene {
   }
 
   updateHealthBars() {
-    const playerWidth = (this.playerHP / 100) * 300;
-    const monsterWidth = (this.monsterHP / 100) * 300;
-    
-    this.playerHPBar.width = playerWidth;
-    this.monsterHPBar.width = monsterWidth;
+    this._drawHpBar(this.playerHPBar,  this._pBarX, this._pBarY, this._barW, this._barH, this.playerHP  / 100, P.hpGreen);
+    this._drawHpBar(this.monsterHPBar, this._mBarX, this._mBarY, this._barW, this._barH, this.monsterHP / 100, P.hpRed);
   }
 
   addLog(message) {
     this.battleLog.push(message);
-    if (this.battleLog.length > 5) {
-      this.battleLog.shift();
-    }
+    if (this.battleLog.length > 5) this.battleLog.shift();
     this.logText.setText(this.battleLog.join('\n'));
   }
 
   async victory() {
-
     if (this.battleOver) return;
     this.battleOver = true;
     this.setActionButtonsEnabled(false);
 
     if (this.monsterSprite && this.anims.exists(`${this.monster}_dead`)) {
       this.monsterSprite.play(`${this.monster}_dead`, true);
-    } 
+    }
 
     const xpGained = Math.floor(Math.random() * 50) + 25;
     gameState.updateXP(xpGained);
 
     const learner = gameState.getLearner();
-    if(learner?.learnerId) {
-      const savedLearner = await apiService.updateLearner(learner.learnerId, {...learner, updated_at: new Date().toISOString()});
+    if (learner?.learnerId) {
+      const savedLearner = await apiService.updateLearner(learner.learnerId, { ...learner, updated_at: new Date().toISOString() });
       gameState.setLearner(savedLearner);
     }
-    
-    this.addLog(`Victory! Gained ${xpGained} XP!`);
-    
-    const victoryText = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      'VICTORY!',
-      {
-        fontSize: '64px',
-        color: '#4ade80',
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5);
 
-    this.time.delayedCall(2000, () => {
-      this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
-    });
+    this.addLog(`Victory! Gained ${xpGained} XP!`);
+
+    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'VICTORY!', {
+      fontSize: '72px', fontStyle: 'bold',
+      color: P.textGreen, stroke: '#060814', strokeThickness: 10
+    }).setOrigin(0.5);
+
+    this.time.delayedCall(2000, () => this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() }));
   }
 
   defeat() {
     this.addLog('You were defeated...');
-
     if (this.battleOver) return;
     this.battleOver = true;
     this.setActionButtonsEnabled(false);
 
-    if (this.playerSprite && this.anims.exists('dead')) {
-      this.playerSprite.play('dead', true);
-    }
-    
-    const defeatText = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      'DEFEAT',
-      {
-        fontSize: '64px',
-        color: '#ef4444',
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5);
+    if (this.playerSprite && this.anims.exists('dead')) this.playerSprite.play('dead', true);
+
+    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'DEFEAT', {
+      fontSize: '72px', fontStyle: 'bold',
+      color: P.textRed, stroke: '#060814', strokeThickness: 10
+    }).setOrigin(0.5);
 
     this.time.delayedCall(2000, () => {
       this.playerHP = 100;
@@ -363,13 +422,14 @@ export class CombatScene extends Phaser.Scene {
   }
 
   setActionButtonsEnabled(enabled) {
-    const buttons = [this.attackBtn, this.defendBtn, this.runBtn];
-    buttons.forEach((btn) => {
+    [this.attackBtn, this.defendBtn, this.runBtn].forEach((btn) => {
       if (!btn) return;
-      if (enabled) btn.setInteractive({ useHandCursor: true });
-      else btn.disableInteractive();
-      btn.setAlpha(enabled ? 1 : 0.5);
+      if (enabled) {
+        btn.hit?.setInteractive({ useHandCursor: true });
+      } else {
+        btn.hit?.disableInteractive();
+      }
+      btn.container?.setAlpha(enabled ? 1 : 0.4);
     });
   }
-
 }

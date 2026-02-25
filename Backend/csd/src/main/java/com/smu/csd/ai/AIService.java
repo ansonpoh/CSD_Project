@@ -43,14 +43,27 @@ public class AIService {
                         Title: %s
                         Description: %s
 
-                        Write exactly 10 NPC lines that teach this concept one idea at a time.
-                        The NPC is a wise, fun game character who explains Gen Alpha concepts in a relatable way.
-                        Each line must be a complete, informative sentence that genuinely teaches the player something — avoid filler or vague statements.
-                        Cover: what the term means, its origin, how it is used in context, variations or nuances, and a memorable takeaway.
-                        Use real Gen Alpha examples and make every line count — the player should learn something new from each one.
+                        Write exactly 15 NPC dialogue lines that teach this concept progressively, one idea per line.
+                        The NPC is a knowledgeable, witty game character who explains Gen Alpha concepts in an engaging, relatable way.
 
-                        Return ONLY a valid JSON array of strings with no other text, in this exact format:
-                        ["line 1", "line 2", "line 3"]
+                        Requirements for each line:
+                        - Each line must be 2–4 sentences long — never a single short sentence, and never more than 4 sentences.
+                        - Each line must teach something specific and concrete. No filler, no vague statements.
+                        - Use real-world examples, names, dates, or platforms wherever possible.
+                        - Write in a conversational but informative tone — like a cool teacher explaining something interesting.
+
+                        Structure your 15 lines to cover these areas in order:
+                        1–2: Define the concept clearly in plain language with a concrete example.
+                        3–4: Explain the origin — who coined it, when, where, and why it spread.
+                        5–6: Show how it is used in real conversations or social media with examples.
+                        7–8: Explain any variations, related terms, or different ways it can be used.
+                        9–10: Describe the cultural context — what does it say about Gen Alpha values or humour?
+                        11–12: Contrast it with how older generations might misunderstand or misuse it.
+                        13–14: Share an interesting fact, milestone, or pop culture moment tied to this concept.
+                        15: Give a memorable takeaway the player can actually use in real life.
+
+                        Return ONLY a valid JSON array of 15 strings with no other text, in this exact format:
+                        ["line 1", "line 2", ..., "line 15"]
                         """.formatted(topicName, title, description))
                 .call()
                 .content();

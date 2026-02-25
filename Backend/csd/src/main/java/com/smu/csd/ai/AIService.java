@@ -47,12 +47,12 @@ public class AIService {
                         The NPC is a knowledgeable, witty game character who explains Gen Alpha concepts in an engaging, relatable way.
 
                         Requirements for each line:
-                        - Each line must be 2–4 sentences long — never a single short sentence, and never more than 4 sentences.
+                        - Each line must be 2–3 sentences long — never a single short sentence, and never more than 4 sentences.
                         - Each line must teach something specific and concrete. No filler, no vague statements.
                         - Use real-world examples, names, dates, or platforms wherever possible.
                         - Write in a conversational but informative tone — like a cool teacher explaining something interesting.
 
-                        Structure your 15 lines to cover these areas in order:
+                        Structure your 10-15 lines to cover these areas in order:
                         1–2: Define the concept clearly in plain language with a concrete example.
                         3–4: Explain the origin — who coined it, when, where, and why it spread.
                         5–6: Show how it is used in real conversations or social media with examples.
@@ -62,7 +62,7 @@ public class AIService {
                         13–14: Share an interesting fact, milestone, or pop culture moment tied to this concept.
                         15: Give a memorable takeaway the player can actually use in real life.
 
-                        Return ONLY a valid JSON array of 15 strings with no other text, in this exact format:
+                        Return ONLY a valid JSON array of 10-15 strings with no other text, in this exact format:
                         ["line 1", "line 2", ..., "line 15"]
                         """.formatted(topicName, title, description))
                 .call()

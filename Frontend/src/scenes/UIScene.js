@@ -266,8 +266,8 @@ export class UIScene extends Phaser.Scene {
     };
 
     // ── Panel dimensions ─────────────────────────────────────────────────
-    const panelW  = 660;
-    const panelH  = Math.min(560, 120 + Math.max(1, inventory.length) * 80);
+    const panelW  = 780;
+    const panelH  = Math.min(640, 140 + Math.max(1, inventory.length) * 96);
     const panelX  = width  / 2 - panelW / 2;
     const panelY  = height / 2 - panelH / 2;
 
@@ -374,10 +374,10 @@ export class UIScene extends Phaser.Scene {
     }
 
     // ── Item rows ─────────────────────────────────────────────────────────
-    const cardW  = panelW - 48;
-    const cardH  = 64;
-    const cardX  = panelX + 24;
-    let   cardY  = panelY + headerH + 42;
+    const cardW  = panelW - 56;
+    const cardH  = 78;
+    const cardX  = panelX + 28;
+    let   cardY  = panelY + headerH + 50;
 
     inventory.forEach((item) => {
       const qty       = item.quantity ?? 1;
@@ -402,26 +402,26 @@ export class UIScene extends Phaser.Scene {
 
       // Item name
       nodes.push(
-        this.add.text(cardX + 18, cardY + 10, item.name ?? 'Unknown Item', {
-          fontSize: '17px', fontStyle: 'bold',
+        this.add.text(cardX + 20, cardY + 13, item.name ?? 'Unknown Item', {
+          fontSize: '18px', fontStyle: 'bold',
           color: '#f0ecff', stroke: '#060814', strokeThickness: 4
         }).setDepth(D + 3)
       );
 
       // Description + qty
       const desc = item.description
-        ? (item.description.length > 52 ? item.description.slice(0, 51) + '…' : item.description)
+        ? (item.description.length > 60 ? item.description.slice(0, 59) + '…' : item.description)
         : '';
       nodes.push(
-        this.add.text(cardX + 18, cardY + 34, `x${qty}  ${desc}`, {
-          fontSize: '13px', color: '#9e88c0', stroke: '#060814', strokeThickness: 3
+        this.add.text(cardX + 20, cardY + 42, `x${qty}  ${desc}`, {
+          fontSize: '14px', color: '#9e88c0', stroke: '#060814', strokeThickness: 3
         }).setDepth(D + 3)
       );
 
       // USE button
       mkBtn(
-        cardX + cardW - 10, cardY + cardH / 2,
-        72, 34,
+        cardX + cardW - 50, cardY + cardH / 2,
+        80, 40,
         'USE',
         P.btnSuccess, P.btnSuccessHov, 0x22a855,
         async () => {
@@ -438,7 +438,7 @@ export class UIScene extends Phaser.Scene {
         }
       );
 
-      cardY += cardH + 10;
+      cardY += cardH + 12;
     });
 
     // ── Bottom close button ───────────────────────────────────────────────
@@ -452,45 +452,161 @@ export class UIScene extends Phaser.Scene {
   }
 
   async showLeaderboard() {
-    const width = this.cameras.main.width;
+    const width  = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const D      = 1100;
 
-    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.75)
-      .setOrigin(0)
-      .setInteractive()
-      .setDepth(1100);
+    const P = {
+      bgPanel:    0x080e22,
+      bgCard:     0x0d1530,
+      bgCardMe:   0x1a1040,
+      btnNormal:  0x2a0f42,
+      btnHover:   0x3d1860,
+      btnPress:   0x100520,
+      btnDanger:  0x3a0e0e,
+      btnDangHov: 0x601818,
+      borderGold: 0xc8870a,
+      borderGlow: 0xf0b030,
+      borderDim:  0x604008,
+      borderMe:   0xf4c048,
+      accentGlow: 0xffdd60,
+    };
 
-    const panel = this.add.rectangle(width / 2, height / 2, 620, 520, 0x0f172a, 1)
-      .setStrokeStyle(3, 0x3b82f6)
-      .setDepth(1101);
+    const panelW = 680;
+    const panelH = 580;
+    const panelX = width  / 2 - panelW / 2;
+    const panelY = height / 2 - panelH / 2;
 
-    const title = this.add.text(width / 2, height / 2 - 220, 'LEADERBOARD', {
-      fontSize: '30px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(1102);
+    const nodes   = [];
+    const cleanup = () => nodes.forEach((n) => n?.destroy());
 
-    const loading = this.add.text(width / 2, height / 2 - 170, 'Loading...', {
-      fontSize: '18px',
-      color: '#cbd5e1'
-    }).setOrigin(0.5).setDepth(1102);
+    // ── Overlay ───────────────────────────────────────────────────────────
+    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.78)
+      .setOrigin(0).setInteractive().setDepth(D);
+    nodes.push(overlay);
 
-    const nodes = [overlay, panel, title, loading];
-    const cleanup = () => nodes.forEach(n => n?.destroy());
+    // ── Panel background ──────────────────────────────────────────────────
+    const panelBg = this.add.graphics().setDepth(D + 1);
+    panelBg.fillStyle(P.bgPanel, 0.98);
+    panelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 7);
+    panelBg.lineStyle(2, P.borderGold, 0.9);
+    panelBg.strokeRoundedRect(panelX, panelY, panelW, panelH, 7);
+    panelBg.lineStyle(1, P.accentGlow, 0.3);
+    panelBg.beginPath();
+    panelBg.moveTo(panelX + 18, panelY + 2);
+    panelBg.lineTo(panelX + panelW - 18, panelY + 2);
+    panelBg.strokePath();
+    nodes.push(panelBg);
 
-    const closeBtn = this.add.rectangle(width / 2, height / 2 + 220, 120, 40, 0x475569)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(1102);
+    // ── Header bar ────────────────────────────────────────────────────────
+    const headerH  = 58;
+    const headerBg = this.add.graphics().setDepth(D + 2);
+    headerBg.fillStyle(P.btnNormal, 1);
+    headerBg.fillRoundedRect(panelX, panelY, panelW, headerH, { tl: 7, tr: 7, bl: 0, br: 0 });
+    headerBg.lineStyle(1, P.borderGold, 0.5);
+    headerBg.beginPath();
+    headerBg.moveTo(panelX, panelY + headerH);
+    headerBg.lineTo(panelX + panelW, panelY + headerH);
+    headerBg.strokePath();
+    nodes.push(headerBg);
 
-    const closeText = this.add.text(width / 2, height / 2 + 220, 'CLOSE', {
-      fontSize: '16px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(1103);
+    nodes.push(
+      this.add.text(panelX + panelW / 2, panelY + headerH / 2, '✦  LEADERBOARD  ✦', {
+        fontSize: '26px', fontStyle: 'bold',
+        color: '#f4f8ff', stroke: '#13233d', strokeThickness: 7
+      }).setOrigin(0.5).setDepth(D + 3)
+    );
 
-    nodes.push(closeBtn, closeText);
-    closeBtn.on('pointerdown', cleanup);
+    // Diamond close button
+    const closeX = this.add.sprite(panelX + panelW - 30, panelY + 29, 'ui-close-btn', 0)
+      .setScale(1.6).setDepth(D + 4).setInteractive({ useHandCursor: true });
+    closeX.on('pointerover',  () => closeX.setFrame(1));
+    closeX.on('pointerout',   () => closeX.setFrame(0));
+    closeX.on('pointerdown',  cleanup);
+    nodes.push(closeX);
 
+    // ── Column header row ─────────────────────────────────────────────────
+    const colY = panelY + headerH + 16;
+    const col = {
+      rank:     panelX + 32,
+      username: panelX + 90,
+      xp:       panelX + panelW - 36,
+    };
+
+    ['RANK', 'USERNAME', 'XP'].forEach((label, i) => {
+      const x = [col.rank, col.username, col.xp][i];
+      const origin = i === 2 ? 1 : 0;
+      nodes.push(
+        this.add.text(x, colY, label, {
+          fontSize: '12px', fontStyle: 'bold',
+          color: '#c0a8e0', stroke: '#060814', strokeThickness: 3,
+          letterSpacing: 2
+        }).setOrigin(origin, 0).setDepth(D + 3)
+      );
+    });
+
+    // Divider under column headers
+    const divider = this.add.graphics().setDepth(D + 2);
+    divider.lineStyle(1, P.borderGold, 0.3);
+    divider.beginPath();
+    divider.moveTo(panelX + 20, colY + 20);
+    divider.lineTo(panelX + panelW - 20, colY + 20);
+    divider.strokePath();
+    nodes.push(divider);
+
+    // ── Loading state ─────────────────────────────────────────────────────
+    const loading = this.add.text(panelX + panelW / 2, panelY + panelH / 2, 'Loading...', {
+      fontSize: '18px', fontStyle: 'bold',
+      color: '#5a4a72', stroke: '#060814', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(D + 3);
+    nodes.push(loading);
+
+    // ── My rank footer (placeholder) ──────────────────────────────────────
+    const footerY  = panelY + panelH - 52;
+    const footerBg = this.add.graphics().setDepth(D + 2);
+    footerBg.fillStyle(0x100820, 1);
+    footerBg.fillRoundedRect(panelX, footerY, panelW, 52, { tl: 0, tr: 0, bl: 7, br: 7 });
+    footerBg.lineStyle(1, P.borderGold, 0.35);
+    footerBg.beginPath();
+    footerBg.moveTo(panelX, footerY);
+    footerBg.lineTo(panelX + panelW, footerY);
+    footerBg.strokePath();
+    nodes.push(footerBg);
+
+    const myRankText = this.add.text(panelX + 24, footerY + 26, '— your rank —', {
+      fontSize: '15px', color: '#5a4a72', stroke: '#060814', strokeThickness: 3
+    }).setOrigin(0, 0.5).setDepth(D + 3);
+    nodes.push(myRankText);
+
+    // ── Close button ──────────────────────────────────────────────────────
+    const mkBtn = (cx, cy, w, h, label, fillN, fillH, border, onClick) => {
+      const c  = this.add.container(cx - w / 2, cy - h / 2).setDepth(D + 4);
+      const bg = this.add.graphics();
+      const draw = (fill, brd) => {
+        bg.clear();
+        bg.fillStyle(fill, 1);
+        bg.fillRoundedRect(0, 0, w, h, 4);
+        bg.lineStyle(2, brd, 1);
+        bg.strokeRoundedRect(0, 0, w, h, 4);
+        bg.fillStyle(0xffffff, 0.06);
+        bg.fillRoundedRect(2, 2, w - 4, h * 0.42, { tl: 3, tr: 3, bl: 0, br: 0 });
+      };
+      draw(fillN, border);
+      c.add(bg);
+      c.add(this.add.text(w / 2, h / 2, label, {
+        fontSize: '14px', fontStyle: 'bold',
+        color: '#f0ecff', stroke: '#060814', strokeThickness: 4
+      }).setOrigin(0.5));
+      const hit = this.add.rectangle(w / 2, h / 2, w, h, 0, 0).setInteractive({ useHandCursor: true });
+      c.add(hit);
+      hit.on('pointerover',  () => draw(fillH,       P.borderGlow));
+      hit.on('pointerout',   () => draw(fillN,       border));
+      hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim));
+      hit.on('pointerup',    () => { draw(fillH, P.borderGlow); onClick(); });
+      nodes.push(c);
+    };
+
+    // ── Fetch and render rows ─────────────────────────────────────────────
     try {
       const [rows, me] = await Promise.all([
         apiService.getLeaderboard(20),
@@ -499,42 +615,85 @@ export class UIScene extends Phaser.Scene {
 
       loading.destroy();
 
-      const header = this.add.text(width / 2, height / 2 - 180, '#   USERNAME                  XP', {
-        fontSize: '16px',
-        color: '#93c5fd',
-        fontStyle: 'bold'
-      }).setOrigin(0.5).setDepth(1102);
-      nodes.push(header);
+      const rowH      = 34;
+      const rowsAreaH = panelH - headerH - 40 - 52; // leave footer
+      const maxRows   = Math.floor(rowsAreaH / rowH);
+      const visRows   = rows.slice(0, maxRows);
 
-      let y = height / 2 - 145;
-      rows.forEach((entry) => {
-        const isMe = me?.learnerId === entry.learnerId;
-        const color = isMe ? '#fde68a' : '#e2e8f0';
-        const text = `#${entry.rank.toString().padEnd(3)} ${entry.username.padEnd(22)} ${entry.totalXp}`;
-        const rowText = this.add.text(width / 2, y, text, {
-          fontSize: '15px',
-          color
-        }).setOrigin(0.5).setDepth(1102);
-        nodes.push(rowText);
-        y += 26;
+      let rowY = panelY + headerH + 38;
+
+      visRows.forEach((entry) => {
+        const isMe     = me?.learnerId === entry.learnerId;
+        const cardFill = isMe ? P.bgCardMe : P.bgCard;
+        const border   = isMe ? P.borderMe : P.borderGold;
+        const opacity  = isMe ? 0.9 : 0.55;
+
+        // Row card background
+        const rowBg = this.add.graphics().setDepth(D + 2);
+        rowBg.fillStyle(cardFill, 1);
+        rowBg.fillRoundedRect(panelX + 16, rowY, panelW - 32, rowH - 4, 4);
+        rowBg.lineStyle(1, border, opacity);
+        rowBg.strokeRoundedRect(panelX + 16, rowY, panelW - 32, rowH - 4, 4);
+        if (isMe) {
+          // Gold left accent strip
+          rowBg.fillStyle(P.borderMe, 1);
+          rowBg.fillRoundedRect(panelX + 16, rowY + 4, 4, rowH - 12, 2);
+        }
+        nodes.push(rowBg);
+
+        const textY  = rowY + (rowH - 4) / 2;
+        const color  = isMe ? '#f4c048' : '#f0ecff';
+        const stroke = '#060814';
+        const thick  = 3;
+
+        // Rank
+        nodes.push(
+          this.add.text(col.rank, textY, `#${entry.rank}`, {
+            fontSize: '14px', fontStyle: isMe ? 'bold' : 'normal',
+            color, stroke, strokeThickness: thick
+          }).setOrigin(0, 0.5).setDepth(D + 3)
+        );
+
+        // Username (truncated)
+        const uname = (entry.username ?? '').length > 20
+          ? entry.username.slice(0, 19) + '…'
+          : (entry.username ?? '—');
+        nodes.push(
+          this.add.text(col.username, textY, uname, {
+            fontSize: '15px', fontStyle: isMe ? 'bold' : 'normal',
+            color, stroke, strokeThickness: thick
+          }).setOrigin(0, 0.5).setDepth(D + 3)
+        );
+
+        // XP (right-aligned)
+        nodes.push(
+          this.add.text(col.xp, textY, `${entry.totalXp} XP`, {
+            fontSize: '14px', fontStyle: isMe ? 'bold' : 'normal',
+            color, stroke, strokeThickness: thick
+          }).setOrigin(1, 0.5).setDepth(D + 3)
+        );
+
+        rowY += rowH;
       });
 
-      const myRankText = this.add.text(
-        width / 2,
-        height / 2 + 175,
-        `Your Rank: #${me.rank} (${me.totalXp} XP)`,
-        {
-          fontSize: '18px',
-          color: '#facc15',
-          fontStyle: 'bold'
-        }
-      ).setOrigin(0.5).setDepth(1102);
-      nodes.push(myRankText);
+      // Update footer with my real rank
+      myRankText.setText(`Your Rank:  #${me?.rank ?? '?'}   ·   ${me?.totalXp ?? 0} XP`);
+      myRankText.setColor('#f4c048');
+      myRankText.setOrigin(0, 0.5);
 
     } catch (err) {
       loading.setText('Failed to load leaderboard');
       console.error('Leaderboard load failed:', err);
     }
+
+    // Close button sits at right side of footer, rank text on the left
+    mkBtn(
+      panelX + panelW - 72, footerY + 26,
+      120, 34,
+      'CLOSE',
+      P.btnDanger, P.btnDangHov, 0x8b2020,
+      cleanup
+    );
   }
 
   showUserProfile() {

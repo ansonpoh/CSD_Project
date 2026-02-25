@@ -46,6 +46,7 @@ public class ContentService {
                 .title(title)
                 .body(generatedBody)
                 .status(Content.Status.PENDING_REVIEW)
+                .videoKey(null) // Temp null
                 .build();
 
         contentRepository.save(content);

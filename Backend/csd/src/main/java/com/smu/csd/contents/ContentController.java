@@ -23,7 +23,7 @@ public class ContentController {
 
     // Contributor submits content - triggers AI screening immediately
     @PostMapping
-    @PreAuthorize("hasRole('CONTRIBUTOR')")
+    // @PreAuthorize("hasRole('CONTRIBUTOR')")
     public ResponseEntity<Content> submitContent(@RequestBody SubmitContentRequest request)
             throws ResourceNotFoundException {
         Content content = service.submitContent(

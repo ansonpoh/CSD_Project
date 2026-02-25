@@ -5,7 +5,11 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.smu.csd.contents.Content;
+import com.smu.csd.contents.ContentRepository;
+import com.smu.csd.maps.Map;
+import com.smu.csd.maps.MapRepository;
 import com.smu.csd.npcs.npc_map.NPCMap;
+import com.smu.csd.npcs.npc_map.NPCMapAssignRequest;
 import com.smu.csd.npcs.npc_map.NPCMapLessonResponse;
 import com.smu.csd.npcs.npc_map.NPCMapRepository;
 
@@ -17,10 +21,15 @@ public class NPCService {
 
     private final NPCMapRepository NPCMapRepository;
     private final NPCRepository repository;
+    private final MapRepository mapRepository;
+    private final ContentRepository contentRepository;
 
-    public NPCService(NPCRepository repository, NPCMapRepository NPCMapRepository) {
+    public NPCService(NPCRepository repository, NPCMapRepository NPCMapRepository,
+                      MapRepository mapRepository, ContentRepository contentRepository) {
         this.NPCMapRepository = NPCMapRepository;
         this.repository = repository;
+        this.mapRepository = mapRepository;
+        this.contentRepository = contentRepository;
     }
 
     //Get requests
@@ -55,7 +64,23 @@ public class NPCService {
 
     //Post Requests
     public NPC saveNPC(NPC npc) {
-        return repository.save(npc);    
+        return repository.save(npc);
+    }
+
+    public NPCMap assignContent(NPCMapAssignRequest request) {
+        NPC npc = repository.findById(request.npcId())
+            .orElseThrow(() -> new RuntimeException("NPC not found: " + request.npcId()));
+        Map map = mapRepository.findById(request.mapId())
+            .orElseThrow(() -> new RuntimeException("Map not found: " + request.mapId()));
+        Content content = contentRepository.findById(request.contentId())
+            .orElseThrow(() -> new RuntimeException("Content not found: " + request.contentId()));
+
+        NPCMap npcMap = NPCMap.builder()
+            .npc(npc)
+            .map(map)
+            .content(content)
+            .build();
+        return NPCMapRepository.save(npcMap);
     }
 
     //Put Requests

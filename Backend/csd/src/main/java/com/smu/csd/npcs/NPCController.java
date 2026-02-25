@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.csd.npcs.npc_map.NPCMapAssignRequest;
+import com.smu.csd.npcs.npc_map.NPCMap;
 import com.smu.csd.npcs.npc_map.NPCMapLessonResponse;
 
 import jakarta.validation.Valid;
@@ -52,6 +54,11 @@ public class NPCController {
     @PostMapping("/add")
     public NPC addNpc(@Valid @RequestBody NPC npc) {
         return service.saveNPC(npc);
+    }
+
+    @PostMapping("/map/assign")
+    public NPCMap assignContent(@RequestBody NPCMapAssignRequest request) {
+        return service.assignContent(request);
     }
 
     @PutMapping("/{npc_id}")

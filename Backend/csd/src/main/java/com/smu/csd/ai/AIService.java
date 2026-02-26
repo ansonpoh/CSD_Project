@@ -149,4 +149,6 @@ public class AIService {
             @JsonProperty("is_appropriate") boolean isAppropriate,
             @JsonProperty("ai_verdict") AIModerationResult.Verdict aiVerdict,
             @JsonProperty("reasoning") String reasoning) {}
+
+    
 }

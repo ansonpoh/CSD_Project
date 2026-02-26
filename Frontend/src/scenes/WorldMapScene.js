@@ -669,6 +669,8 @@ export class WorldMapScene extends Phaser.Scene {
     if (raw === 'map1' || raw.includes('forest'))   return 'map1';
     if (raw === 'map2' || raw.includes('cave'))     return 'map2';
     if (raw === 'map3' || raw.includes('mountain')) return 'map3';
+    if (raw === 'map4' || raw.includes('test') || raw.includes('terrain')) return 'map4';
+
     return 'map1';
   }
 }

@@ -119,6 +119,7 @@ export class BootScene extends Phaser.Scene {
     this.load.tilemapTiledJSON('map1', 'assets/forest.tiled-project.json');
     this.load.tilemapTiledJSON('map2', 'assets/cave.tiled-project.json');
     this.load.tilemapTiledJSON('map3', 'assets/mountain.tiled-project.json');
+    this.load.tilemapTiledJSON('map4', 'assets/test.tiled-project.json');
 
     this.load.image('stone_tiles_v2.1',           'assets/basic_tileset_and_assets_standard/stone_tiles_v2.1.png');
     this.load.image('tiles-all-32x32',            'assets/basic caves and dungeons 32x32 standard - v1.0/tiles/tiles-all-32x32.png');
@@ -128,6 +129,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('bridges',                     'assets/basic caves and dungeons 32x32 standard - v1.0/assets/bridges.png');
     this.load.image('water_and_island_tiles_v2.1', 'assets/basic_tileset_and_assets_standard/water_and_island_tiles_v2.1.png');
     this.load.image('fence_tiles',                 'assets/basic_tileset_and_assets_standard/fence_tiles.png');
+    
+    this.load.image('1_Terrains_and_Fences_32x32', 'assets/1_Terrains_and_Fences_32x32.png');
+    this.load.image('7_Villas_32x32', 'assets/7_Villas_32x32.png');
 
     this.load.video('test_video', 'assets/videos/test_video.mp4', 'loadeddata', false, true);
   }

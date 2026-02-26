@@ -174,13 +174,21 @@ export class ContributorScene extends Phaser.Scene {
       this.showToast('Submit form is already open.');
       return;
     }
+    if (this.contentListModal) {
+      this.showToast('Please close My Content before opening the submit form.');
+      return;
+    }
 
     let profile;
     let topics;
+    let npcs;
+    let maps;
     try {
-      [profile, topics] = await Promise.all([
+      [profile, topics, npcs, maps] = await Promise.all([
         this.requireContributorProfile(),
-        apiService.getAllTopics()
+        apiService.getAllTopics(),
+        apiService.getAllNPCs(),
+        apiService.getAllMaps()
       ]);
     } catch (e) {
       const message =
@@ -197,13 +205,25 @@ export class ContributorScene extends Phaser.Scene {
       this.showToast('No topics available. Ask admin to create one first.');
       return;
     }
+    if (!Array.isArray(npcs) || npcs.length === 0) {
+      this.showToast('No NPCs available. Ask admin to create one first.');
+      return;
+    }
+    if (!Array.isArray(maps) || maps.length === 0) {
+      this.showToast('No maps available. Ask admin to create one first.');
+      return;
+    }
 
-    this.renderSubmitForm(profile, topics);
+    this.renderSubmitForm(profile, topics, npcs, maps);
   }
 
   async openMyContentWorkflow() {
     if (this.contentListModal) {
       this.showToast('My Content is already open.');
+      return;
+    }
+    if (this.submitForm) {
+      this.showToast('Please close the submit form first.');
       return;
     }
 
@@ -226,7 +246,7 @@ export class ContributorScene extends Phaser.Scene {
     this.renderMyContentModal(rows || []);
   }
 
-  renderSubmitForm(profile, topics) {
+  renderSubmitForm(profile, topics, npcs, maps) {
     const form = document.createElement('div');
     form.style.position = 'absolute';
     form.style.left = '50%';
@@ -245,6 +265,12 @@ export class ContributorScene extends Phaser.Scene {
     const topicOptions = topics
       .map((t) => `<option value="${this.escapeHtml(String(t.topicId || ''))}">${this.escapeHtml(t.topicName || 'Untitled Topic')}</option>`)
       .join('');
+    const npcOptions = npcs
+      .map((n) => `<option value="${this.escapeHtml(String(n.npc_id || ''))}">${this.escapeHtml(n.name || 'Unnamed NPC')}</option>`)
+      .join('');
+    const mapOptions = maps
+      .map((m) => `<option value="${this.escapeHtml(String(m.mapId || ''))}">${this.escapeHtml(m.name || 'Unnamed Map')}</option>`)
+      .join('');
     const contributorLabel = this.escapeHtml(profile.fullName || profile.email || profile.contributorId);
 
     form.innerHTML = `
@@ -254,6 +280,16 @@ export class ContributorScene extends Phaser.Scene {
       <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Topic</label>
       <select id="content-topic" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;">
         ${topicOptions}
+      </select>
+
+      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">NPC</label>
+      <select id="content-npc" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;">
+        ${npcOptions}
+      </select>
+
+      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Map</label>
+      <select id="content-map" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;">
+        ${mapOptions}
       </select>
 
       <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Title</label>
@@ -276,21 +312,26 @@ export class ContributorScene extends Phaser.Scene {
 
     document.body.appendChild(form);
     this.submitForm = form;
+    this.updateSceneInputInteractivity();
     this.submitMessageEl = form.querySelector('#submit-message');
     this.submitButtonEl = form.querySelector('#submit-content-btn');
     this.cancelButtonEl = form.querySelector('#cancel-content-btn');
 
     const titleEl = form.querySelector('#content-title');
     const topicEl = form.querySelector('#content-topic');
+    const npcEl = form.querySelector('#content-npc');
+    const mapEl = form.querySelector('#content-map');
     const descriptionEl = form.querySelector('#content-description');
 
     const submitHandler = async () => {
       const topicId = topicEl?.value?.trim();
+      const npcId = npcEl?.value?.trim();
+      const mapId = mapEl?.value?.trim();
       const title = titleEl?.value?.trim();
       const description = descriptionEl?.value?.trim();
 
-      if (!topicId || !title || !description) {
-        this.setSubmitMessage('Please fill in topic, title, and description.', '#ffc7c7');
+      if (!topicId || !npcId || !mapId || !title || !description) {
+        this.setSubmitMessage('Please fill in topic, NPC, map, title, and description.', '#ffc7c7');
         return;
       }
 
@@ -301,6 +342,8 @@ export class ContributorScene extends Phaser.Scene {
         const result = await apiService.submitContent({
           contributorId: profile.contributorId,
           topicId,
+          npcId,
+          mapId,
           title,
           description
         });
@@ -361,6 +404,7 @@ export class ContributorScene extends Phaser.Scene {
       this.submitForm.parentNode.removeChild(this.submitForm);
     }
     this.submitForm = null;
+    this.updateSceneInputInteractivity();
     this.submitMessageEl = null;
     this.submitButtonEl = null;
     this.cancelButtonEl = null;
@@ -425,6 +469,7 @@ export class ContributorScene extends Phaser.Scene {
 
     document.body.appendChild(modal);
     this.contentListModal = modal;
+    this.updateSceneInputInteractivity();
 
     const closeBtn = modal.querySelector('#close-content-list-btn');
     closeBtn?.addEventListener('click', (event) => {
@@ -439,6 +484,12 @@ export class ContributorScene extends Phaser.Scene {
       this.contentListModal.parentNode.removeChild(this.contentListModal);
     }
     this.contentListModal = null;
+    this.updateSceneInputInteractivity();
+  }
+
+  updateSceneInputInteractivity() {
+    const hasModalOpen = Boolean(this.submitForm || this.contentListModal);
+    this.input.enabled = !hasModalOpen;
   }
 
   escapeHtml(value) {

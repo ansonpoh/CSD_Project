@@ -29,6 +29,8 @@ public class ContentController {
         Content content = service.submitContent(
                 request.contributorId(),
                 request.topicId(),
+                request.npcId(),
+                request.mapId(),
                 request.title(),
                 request.description()
         );
@@ -90,5 +92,12 @@ public class ContentController {
         return ResponseEntity.ok(service.rejectContent(contentId));
     }
 
-    public record SubmitContentRequest(UUID contributorId, UUID topicId, String title, String description) {}
+    public record SubmitContentRequest(
+            UUID contributorId,
+            UUID topicId,
+            UUID npcId,
+            UUID mapId,
+            String title,
+            String description
+    ) {}
 }

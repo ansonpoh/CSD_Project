@@ -32,6 +32,8 @@ class ContentFlowTest {
     // ─── FILL THESE IN BEFORE RUNNING ────────────────────────────
     private static final UUID CONTRIBUTOR_ID = UUID.fromString("6b92ce81-0800-47c3-816f-415dde1f8e57");
     private static final UUID TOPIC_ID       = UUID.fromString("0b2c4978-5bec-4bae-8a3a-4bf5fa92b291");
+    private static final UUID NPC_ID         = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID MAP_ID         = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final String TITLE        = "What is Rizz?";
     private static final String DESCRIPTION  = """
             Rizz means natural charm — the ability to attract others effortlessly.
@@ -58,7 +60,7 @@ class ContentFlowTest {
         System.out.println("  Description: " + DESCRIPTION);
         System.out.println("  Waiting for AI... (may take a few seconds)\n");
 
-        Content content = contentService.submitContent(CONTRIBUTOR_ID, TOPIC_ID, TITLE, DESCRIPTION);
+        Content content = contentService.submitContent(CONTRIBUTOR_ID, TOPIC_ID, NPC_ID, MAP_ID, TITLE, DESCRIPTION);
 
         // Print AI-generated dialogue
         System.out.println("--------------------------------------------");

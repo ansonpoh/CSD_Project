@@ -9,6 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.ai.AIService;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.maps.Map;
+import com.smu.csd.maps.MapRepository;
+import com.smu.csd.npcs.NPC;
+import com.smu.csd.npcs.NPCRepository;
+import com.smu.csd.npcs.npc_map.NPCMap;
+import com.smu.csd.npcs.npc_map.NPCMapRepository;
 import com.smu.csd.roles.contributor.ContributorService;
 
 @Service
@@ -18,13 +24,21 @@ public class ContentService {
     private final TopicService topicService;
     private final ContributorService contributorService;
     private final AIService aiService;
+    private final NPCRepository npcRepository;
+    private final MapRepository mapRepository;
+    private final NPCMapRepository npcMapRepository;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
-            ContributorService contributorService, AIService aiService) {
+            ContributorService contributorService, AIService aiService,
+            NPCRepository npcRepository, MapRepository mapRepository,
+            NPCMapRepository npcMapRepository) {
         this.contentRepository = contentRepository;
         this.topicService = topicService;
         this.contributorService = contributorService;
         this.aiService = aiService;
+        this.npcRepository = npcRepository;
+        this.mapRepository = mapRepository;
+        this.npcMapRepository = npcMapRepository;
     }
 
     /**
@@ -32,10 +46,14 @@ public class ContentService {
      * Content is saved as PENDING_REVIEW and status is updated by AIService after screening.
      */
     @Transactional
-    public Content submitContent(UUID contributorId, UUID topicId, String title, String description)
+    public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId, String title, String description)
             throws ResourceNotFoundException {
         contributorService.getById(contributorId);
         Topic topic = topicService.getById(topicId);
+        NPC npc = npcRepository.findById(npcId)
+                .orElseThrow(() -> new ResourceNotFoundException("NPC", "npcId", npcId));
+        Map map = mapRepository.findById(mapId)
+                .orElseThrow(() -> new ResourceNotFoundException("Map", "mapId", mapId));
 
         // AI drafts the full lesson body from the contributor's short description
         String generatedBody = aiService.generateBody(topic.getTopicName(), title, description);
@@ -50,6 +68,14 @@ public class ContentService {
                 .build();
 
         contentRepository.save(content);
+
+        NPCMap npcMap = NPCMap.builder()
+                .npc(npc)
+                .map(map)
+                .content(content)
+                .build();
+        npcMapRepository.save(npcMap);
+
         aiService.screenContent(content);
 
         // Re-fetch so returned object reflects status set by AIService

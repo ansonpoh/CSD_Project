@@ -130,8 +130,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('water_and_island_tiles_v2.1', 'assets/basic_tileset_and_assets_standard/water_and_island_tiles_v2.1.png');
     this.load.image('fence_tiles',                 'assets/basic_tileset_and_assets_standard/fence_tiles.png');
     
-    this.load.image('1_Terrains_and_Fences_32x32', 'assets/1_Terrains_and_Fences_32x32.png');
-    this.load.image('7_Villas_32x32', 'assets/7_Villas_32x32.png');
+    this.load.image('1_Terrains_and_Fences_32x32', 'assets/map4/1_Terrains_and_Fences_32x32.png');
+    this.load.image('7_Villas_32x32', 'assets/map4/7_Villas_32x32.png');
+    this.load.image('17_Garden_32x32', 'assets/map4/17_Garden_32x32.png');
 
     this.load.video('test_video', 'assets/videos/test_video.mp4', 'loadeddata', false, true);
   }

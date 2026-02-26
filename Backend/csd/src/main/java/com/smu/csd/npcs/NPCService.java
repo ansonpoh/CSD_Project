@@ -42,7 +42,7 @@ public class NPCService {
     }
 
     public List<NPCMapLessonResponse> getNPCsByMapId(UUID map_id) {
-        return NPCMapRepository.findAllByMapMapId(map_id)
+        return NPCMapRepository.findAllByMapMapIdAndContentStatus(map_id, Content.Status.APPROVED)
             .stream()
             .map(npcMap -> {
                 var npc = npcMap.getNpc();

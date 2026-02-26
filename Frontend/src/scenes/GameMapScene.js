@@ -371,42 +371,6 @@ export class GameMapScene extends Phaser.Scene {
     const videoKey = npc.videoKey || null;
 
     const pages = [];
-    // console.log(npc);
-
-    // // Original: plain text / \n split only (does not handle AI JSON array format)
-    // if (!body) {
-    //   pages.push({
-    //     lessonTitle: title,
-    //     lessonBody: 'No lesson content yet.',
-    //     narration: `Today we learn: ${topic}`,
-    //     mediaType: 'text'
-    //   });
-    // } else {
-    //   const normalized = body
-    //     .replace(/\\r\\n/g, '\n')
-    //     .replace(/\\n/g, '\n')
-    //     .replace(/\r\n/g, '\n')
-    //     .replace(/\r/g, '\n')
-    //     .trim();
-    //   const parts = normalized.split(/\n+/).map(s => s.trim()).filter(Boolean);
-    //   const chunks = [];
-    //   const MAX_CHARS = 420;
-    //   const source = parts.length > 1 ? parts : [normalized];
-    //   source.forEach((p) => {
-    //     if (p.length <= MAX_CHARS) { chunks.push(p); return; }
-    //     for (let i = 0; i < p.length; i += MAX_CHARS) {
-    //       chunks.push(p.slice(i, i + MAX_CHARS).trim());
-    //     }
-    //   });
-    //   chunks.forEach((chunk, i) => {
-    //     pages.push({
-    //       lessonTitle: `${title} (${i + 1}/${chunks.length})`,
-    //       lessonBody: chunk,
-    //       narration: `Today we learn: ${topic}`,
-    //       mediaType: 'text'
-    //     });
-    //   });
-    // }
 
     // Try JSON array first (AI-generated), then fall back to \n split (manual)
     let lines = [];

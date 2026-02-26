@@ -219,7 +219,7 @@ export class LoginScene extends Phaser.Scene {
 
       if (actualRole !== selectedRole) {
         await supabase.auth.signOut();
-        this.setMessage(`Account role is "${actualRole}", not "${selectedRole}".`);
+        this.setMessage(`Invalid Credentials`);
         return;
       }
 

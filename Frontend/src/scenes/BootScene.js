@@ -177,24 +177,50 @@ export class BootScene extends Phaser.Scene {
         return;
       }
 
-      const learner = await apiService.getCurrentLearner();
-      if (!learner) {
-        gameState.clearState();
-        this.scene.start('LoginScene');
-        return;
-      }
+      const role   = gameState.getRole() || 'learner';
+      const userId = session.user?.id;
 
-      gameState.setLearner(learner);
-      try {
-        const inventory = await apiService.getMyInventory();
-        gameState.setInventory(inventory || []);
-      } catch (err) {
-        console.error('Failed to load inventory during boot:', err);
-        gameState.setInventory([]);
-      }
+      if (role === 'contributor') {
+        const contributor = await apiService.getContributorBySupabaseId(userId);
+        if (!contributor) {
+          gameState.clearState();
+          this.scene.start('LoginScene');
+          return;
+        }
+        gameState.setContributor(contributor);
+        gameState.setRole('contributor');
+        this.scene.start('ContributorScene');
 
-      this.scene.start('WorldMapScene');
-      this.scene.launch('UIScene');
+      } else if (role === 'administrator') {
+        const admin = await apiService.getAdministratorBySupabaseId(userId);
+        if (!admin) {
+          gameState.clearState();
+          this.scene.start('LoginScene');
+          return;
+        }
+        gameState.setAdministrator(admin);
+        gameState.setRole('administrator');
+        this.scene.start('AdminScene');
+
+      } else {
+        const learner = await apiService.getCurrentLearner();
+        if (!learner) {
+          gameState.clearState();
+          this.scene.start('LoginScene');
+          return;
+        }
+        gameState.setLearner(learner);
+        gameState.setRole('learner');
+        try {
+          const inventory = await apiService.getMyInventory();
+          gameState.setInventory(inventory || []);
+        } catch (err) {
+          console.error('Failed to load inventory during boot:', err);
+          gameState.setInventory([]);
+        }
+        this.scene.start('WorldMapScene');
+        this.scene.launch('UIScene');
+      }
     } catch (error) {
       console.error('Boot auth check failed:', error);
       gameState.clearState();

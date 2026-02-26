@@ -3,15 +3,18 @@ class GameStateManager {
     if (GameStateManager.instance) {
       return GameStateManager.instance;
     }
-    
+
     this.learner = null;
+    this.contributor = null;
+    this.administrator = null;
+    this.role = null;
     this.currentMap = null;
     this.inventory = [];
     this.listeners = new Set();
-    
+
     // Load from localStorage if available
     this.loadFromStorage();
-    
+
     GameStateManager.instance = this;
   }
 
@@ -33,6 +36,16 @@ class GameStateManager {
     this.saveToStorage();
   }
 
+  // Role management
+  setRole(role) {
+    this.role = role;
+    this.notify();
+  }
+
+  getRole() {
+    return this.role;
+  }
+
   // Learner management
   setLearner(learner) {
     this.learner = learner;
@@ -46,16 +59,36 @@ class GameStateManager {
   updateXP(amount) {
     if (this.learner) {
       this.learner.total_xp += amount;
-      
+
       // Simple level calculation: level = floor(sqrt(xp / 100))
       const newLevel = Math.floor(Math.sqrt(this.learner.total_xp / 100)) + 1;
       if (newLevel > this.learner.level) {
         this.learner.level = newLevel;
         console.log(`Level up! Now level ${newLevel}`);
       }
-      
+
       this.notify();
     }
+  }
+
+  // Contributor management
+  setContributor(contributor) {
+    this.contributor = contributor;
+    this.notify();
+  }
+
+  getContributor() {
+    return this.contributor;
+  }
+
+  // Administrator management
+  setAdministrator(administrator) {
+    this.administrator = administrator;
+    this.notify();
+  }
+
+  getAdministrator() {
+    return this.administrator;
   }
 
   // Map management
@@ -105,12 +138,6 @@ class GameStateManager {
       else this.inventory[index] = { ...this.inventory[index], quantity: nextQty };
       this.notify();
     }
-
-    // const index = this.inventory.findIndex(item => item.item_id === itemId);
-    // if (index > -1) {
-    //   this.inventory.splice(index, 1);
-    //   this.notify();
-    // }
   }
 
   getInventory() {
@@ -119,7 +146,6 @@ class GameStateManager {
 
   hasItem(itemId) {
     return this.inventory.some((item) => (item.item_id || item.id) === itemId && (item.quantity ?? 1) > 0);
-    // return this.inventory.some(item => item.item_id === itemId);
   }
 
   // Persistence
@@ -127,6 +153,9 @@ class GameStateManager {
     try {
       const state = {
         learner: this.learner,
+        contributor: this.contributor,
+        administrator: this.administrator,
+        role: this.role,
         currentMap: this.currentMap,
         inventory: this.inventory
       };
@@ -141,8 +170,11 @@ class GameStateManager {
       const saved = localStorage.getItem('gameState');
       if (saved) {
         const state = JSON.parse(saved);
-        this.learner = state.learner;
-        this.currentMap = state.currentMap;
+        this.learner = state.learner || null;
+        this.contributor = state.contributor || null;
+        this.administrator = state.administrator || null;
+        this.role = state.role || null;
+        this.currentMap = state.currentMap || null;
         this.inventory = state.inventory || [];
       }
     } catch (error) {
@@ -152,6 +184,9 @@ class GameStateManager {
 
   clearState() {
     this.learner = null;
+    this.contributor = null;
+    this.administrator = null;
+    this.role = null;
     this.currentMap = null;
     this.inventory = [];
     localStorage.removeItem('gameState');

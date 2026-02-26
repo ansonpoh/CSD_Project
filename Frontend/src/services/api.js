@@ -341,6 +341,10 @@ class ApiService {
     return data;
   }
 
+  async getContentsByContributorId(contributorId) {
+    return this.getContentByContributor(contributorId);
+  }
+
   async getContentByTopic(topicId) {
     const { data } = await this.api.get(`/contents/topic/${topicId}`);
     return data;

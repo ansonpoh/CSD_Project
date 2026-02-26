@@ -170,7 +170,15 @@
       "spacing": 0,
       "tilecount": 2368,
       "tileheight": 32,
-      "tilewidth": 32
+      "tilewidth": 32,
+      "tiles": [
+         {
+            "id": 1153,
+            "properties": [
+               { "name": "collides", "type": "bool", "value": true }
+            ]
+         }
+      ]
    },
    {
       "columns": 32,

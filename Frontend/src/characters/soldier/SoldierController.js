@@ -20,6 +20,11 @@ export class SoldierController {
     this.createAnims();
     this.sprite.play(`idle`);
     this.sprite.setScale(cfg.scale);
+    this.sprite.body.setSize(
+      this.sprite.displayWidth / (cfg.scale*4),
+      this.sprite.displayHeight / (cfg.scale*4),
+      true
+    );
   }
 
   createAnims() {

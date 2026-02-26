@@ -49,6 +49,11 @@ export class GameMapScene extends Phaser.Scene {
 
     // Create player
     this.playerCtrl = new SoldierController(this, width, height);
+    if (this.collisionLayers?.length) {
+      this.collisionLayers.forEach((layer) => {
+        this.physics.add.collider(this.playerCtrl.sprite, layer);
+      });
+    }
     // this.createPlayer();
 
     // ORIGINAL CODE - Uncomment when backend is ready:
@@ -144,7 +149,13 @@ export class GameMapScene extends Phaser.Scene {
         tilesets.push(added);
       }
     }
-    this.map.layers.forEach((ld) => this.map.createLayer(ld.name, tilesets, 0, 0));
+    this.collisionLayers = [];
+    this.map.layers.forEach((ld) => {
+      const layer = this.map.createLayer(ld.name, tilesets, 0, 0);
+      if (!layer) return;
+      layer.setCollisionByProperty({ collides: true });
+      this.collisionLayers.push(layer);
+    });
   }
 
   // Tiled formula for tex coords (uses texture size; Phaser uses different margin formula).

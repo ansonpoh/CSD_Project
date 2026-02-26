@@ -19,6 +19,12 @@ class ApiService {
     })
   }
 
+  // Auth
+  async getMyRole() {
+    const { data } = await this.api.get('/auth/role/me');
+    return data;
+  }
+
   // Animation endpoints
   async getAllAnimations() {
     const { data } = await this.api.get('/animations/all');

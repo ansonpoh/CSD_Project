@@ -120,7 +120,25 @@ export class LoginScene extends Phaser.Scene {
         ${isLogin ? 'Login' : 'Register'}
       </h2>
 
-      ${isLogin ? '' : `
+      ${isLogin ? `
+      <div style="margin-bottom: 15px;">
+        <label style="color: white; display: block; margin-bottom: 5px;">Login as</label>
+        <select id="role" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;">
+          <option value="learner">Learner</option>
+          <option value="contributor">Contributor</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      ` : `
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: white; display: block; margin-bottom: 5px;">Register as</label>
+        <select id="role" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;">
+          <option value="learner">Learner</option>
+          <option value="contributor">Contributor</option>
+        </select>
+      </div>
+
       <div style="margin-bottom: 15px;">
         <label style="color: white; display: block; margin-bottom: 5px;">Username</label>
         <input type="text" id="username" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
@@ -176,6 +194,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   async handleLogin() {
+    const selectedRole = document.getElementById('role')?.value || 'learner';
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
     const messageDiv = document.getElementById('message');
@@ -195,6 +214,15 @@ export class LoginScene extends Phaser.Scene {
       // const token = (await supabase.auth.getSession()).data.session?.access_token;
       // console.log(JSON.parse(atob(token.split('.')[0])));
 
+      const roleInfo = await apiService.getMyRole(); // { role, supabaseUserId }
+      const actualRole = roleInfo?.role;
+
+      if (actualRole !== selectedRole) {
+        await supabase.auth.signOut();
+        this.setMessage(`Account role is "${actualRole}", not "${selectedRole}".`);
+        return;
+      }
+
       if (!data.session?.access_token) {
         this.setMessage('Check your email to confirm account, then login.');
         this.authMode = 'login';
@@ -205,36 +233,42 @@ export class LoginScene extends Phaser.Scene {
       const userId = data.user?.id || data.session?.user?.id;
       if (!userId) throw new Error('No Supabase user id returned');
 
-      const learner = await apiService.getCurrentLearner();
-      if (!learner) {
-        this.setMessage('No learner profile found. Please register first.');
+      if (actualRole === 'learner') {
+        const learner = await apiService.getCurrentLearner();
+        gameState.setLearner(learner);
+        const inventory = await apiService.getMyInventory().catch(() => []);
+        gameState.setInventory(inventory || []);
+        this.startGame(); 
         return;
       }
-      gameState.setLearner(learner);
-      
-      // Loads Inventory
-      try {
-        const inventory = await apiService.getMyInventory();
-        gameState.setInventory(inventory || []);
-      } catch (e) {
-        console.error('Failed to load inventory:', e);
-        gameState.setInventory([]);
+
+      // If you have dedicated scenes:
+      if (actualRole === 'contributor') {
+        this.cleanup();
+        this.scene.start('ContributorScene');
+        return;
       }
 
-      this.startGame();
+      if (actualRole === 'admin') {
+        this.cleanup();
+        this.scene.start('AdminScene');
+        return;
+      }
+
     } catch (error) {
       this.setMessage(error.message || 'Login failed');
     }
   }
 
   async handleRegister() {
+    const role = document.getElementById('role')?.value || 'learner';
     const username = document.getElementById('username')?.value?.trim();
     const fullname = document.getElementById('fullname')?.value?.trim();
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
 
-    if (!username || !fullname || !email || !password) {
-      this.setMessage('Please fill in all fields');
+    if (!fullname || !email || !password || (role === 'learner' && !username)) {
+      this.setMessage('Please fill in all required fields');
       return;
     }
 
@@ -254,23 +288,32 @@ export class LoginScene extends Phaser.Scene {
         return;
       }
 
-      const learnerPayload = {
-        supabaseUserId: userId,
-        username,
-        email,
-        full_name: fullname,
-        total_xp: 0,
-        level: 1,
-        updated_at: new Date().toISOString(),
-        is_active: true
-      };
+      if (role === 'learner') {
+        const learnerPayload = {
+          supabaseUserId: userId,
+          username,
+          email,
+          full_name: fullname,
+          total_xp: 0,
+          level: 1,
+          is_active: true
+        };
+        const learner = await apiService.addLearner(learnerPayload);
+        gameState.setLearner(learner);
+        gameState.setInventory([]);
 
-      const createdLearner = await apiService.addLearner(learnerPayload);
-      gameState.setLearner(createdLearner);
-      gameState.setInventory([]);
+        this.cleanup();
+        this.startGame();
+      } else if (role === 'contributor') {
+        await apiService.createContributor({
+          email,
+          fullName: fullname,
+          bio: ''
+        });
+        this.cleanup();
+        this.scene.start('ContributorScene');
+      }
 
-      this.cleanup();
-      this.startGame();
     } catch (error) {
       this.setMessage(error.message || 'Registration failed');
     }

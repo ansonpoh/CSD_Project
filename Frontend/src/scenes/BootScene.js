@@ -182,24 +182,29 @@ export class BootScene extends Phaser.Scene {
         return;
       }
 
-      const learner = await apiService.getCurrentLearner();
-      if (!learner) {
-        gameState.clearState();
-        this.scene.start('LoginScene');
+      const roleInfo = await apiService.getMyRole();
+      const role = roleInfo?.role;
+
+      if (role === 'learner') {
+        const learner = await apiService.getCurrentLearner();
+        gameState.setLearner(learner);
+        const inventory = await apiService.getMyInventory().catch(() => []);
+        gameState.setInventory(inventory || []);
+        this.scene.start('WorldMapScene');
+        this.scene.launch('UIScene');
         return;
       }
 
-      gameState.setLearner(learner);
-      try {
-        const inventory = await apiService.getMyInventory();
-        gameState.setInventory(inventory || []);
-      } catch (err) {
-        console.error('Failed to load inventory during boot:', err);
-        gameState.setInventory([]);
+      if (role === 'contributor') {
+        this.scene.start('ContributorScene');
+        return;
       }
 
-      this.scene.start('WorldMapScene');
-      this.scene.launch('UIScene');
+      if (role === 'admin') {
+        this.scene.start('AdminScene');
+        return;
+      }
+      
     } catch (error) {
       console.error('Boot auth check failed:', error);
       gameState.clearState();

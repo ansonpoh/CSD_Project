@@ -40,7 +40,6 @@ public class SecurityConfig {
             .formLogin(form -> form.disable())
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints (no authentication required)
-                .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
 
                 // For swagger documentation purposes.
@@ -51,10 +50,10 @@ public class SecurityConfig {
                 .requestMatchers("/webjars/**").permitAll()
 
                 // Admin endpoints - requires ROLE_ADMIN
-                .requestMatchers("/api/administrators/**").hasRole("ADMIN")
+                // .requestMatchers("/api/administrators/**").hasRole("ADMIN")
 
                 // Contributor endpoints - requires ROLE_CONTRIBUTOR or ROLE_ADMIN
-                .requestMatchers("/api/contributors/**").hasAnyRole("CONTRIBUTOR", "ADMIN")
+                // .requestMatchers("/api/contributors/**").hasAnyRole("CONTRIBUTOR", "ADMIN")
 
                 // All other requests require authentication (no unauthenticated access)
                 .anyRequest().authenticated()

@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,10 +30,13 @@ public class ContributorController {
 
     // creates a new contributor when a client sends a POST request 
     @PostMapping("/add")
-    public ResponseEntity<Contributor> createContributor(@RequestBody CreateContributorRequest request)
+    public ResponseEntity<Contributor> createContributor(Authentication authentication, @RequestBody CreateContributorRequest request)
             throws ResourceAlreadyExistsException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+
         Contributor contributor = service.createContributor(
-                request.supabaseUserId(),
+                supabaseUserId,
                 request.email(),
                 request.fullName(),
                 request.bio()
@@ -81,6 +86,6 @@ public class ContributorController {
         return ResponseEntity.ok(service.deactivateContributor(id));
     }
 
-    public record CreateContributorRequest(UUID supabaseUserId, String email, String fullName, String bio) {}
+    public record CreateContributorRequest(String email, String fullName, String bio) {}
     public record UpdateContributorRequest(String fullName, String bio, Boolean isActive) {}
 }

@@ -24,8 +24,9 @@ export class GameMapScene extends Phaser.Scene {
   // mapConfig is passed in from WorldMapScene via scene.start()
   init(data) {
     this.mapConfig = data?.mapConfig || { mapKey: 'map1' };
+    this.editorMapData = this.mapConfig?.editorMapData || null;
 
-    if (!this.mapConfig.mapKey) {
+    if (!this.mapConfig.mapKey && !this.mapConfig.isEditorMap && !this.editorMapData) {
       const raw = String(this.mapConfig.asset || this.mapConfig.name || '').toLowerCase();
       if (raw.includes('forest')) this.mapConfig.mapKey = 'map1';
       else if (raw.includes('cave')) this.mapConfig.mapKey = 'map2';
@@ -43,6 +44,10 @@ export class GameMapScene extends Phaser.Scene {
     
     // // Add grid pattern for visual interest
     // this.createGrid();
+
+    if (!this.editorMapData) {
+      await this.tryLoadEditorMapData();
+    }
 
     // Build the tilemap
     this.createTilemap();
@@ -126,6 +131,11 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   createTilemap() {
+    if (this.editorMapData) {
+      this.createEditorTilemap();
+      return;
+    }
+
     const mapKey = this.mapConfig?.mapKey;
     if (!mapKey) {
       console.error('Missing mapKey in mapConfig:', this.mapConfig);
@@ -155,6 +165,65 @@ export class GameMapScene extends Phaser.Scene {
       if (!layer) return;
       layer.setCollisionByProperty({ collides: true });
       this.collisionLayers.push(layer);
+    });
+  }
+
+  async tryLoadEditorMapData() {
+    const isEditorMap = this.mapConfig?.isEditorMap || String(this.mapConfig?.asset || '').startsWith('editor-draft:');
+    const mapId = this.mapConfig?.mapId || this.mapConfig?.id;
+    if (!isEditorMap || !mapId) return;
+
+    try {
+      const payload = await apiService.getEditorMapData(mapId);
+      if (payload?.layers) {
+        this.editorMapData = payload;
+      }
+    } catch (e) {
+      console.error('Failed to load editor map payload:', e);
+    }
+  }
+
+  createEditorTilemap() {
+    const payload = this.editorMapData || {};
+    const tileSize = Number(payload.tileSize || 32);
+    const width = Number(payload.width || 60);
+    const height = Number(payload.height || 34);
+    const tilesetKey = payload.tilesetKey || 'terrain_tiles_v2.1';
+
+    this.map = this.make.tilemap({
+      tileWidth: tileSize,
+      tileHeight: tileSize,
+      width,
+      height
+    });
+
+    const tileset = this.map.addTilesetImage(tilesetKey, tilesetKey, tileSize, tileSize, 0, 0);
+    this.collisionLayers = [];
+
+    const layerDefs = [
+      ['ground', payload.layers?.ground, 1],
+      ['decor', payload.layers?.decor, 2],
+      ['collision', payload.layers?.collision, 3]
+    ];
+
+    layerDefs.forEach(([name, data, depth]) => {
+      const layer = this.map.createBlankLayer(name, tileset, 0, 0);
+      if (!layer || !Array.isArray(data)) return;
+      layer.setDepth(depth);
+      if (name === 'collision') layer.setAlpha(0.6);
+
+      for (let y = 0; y < data.length; y += 1) {
+        const row = data[y];
+        if (!Array.isArray(row)) continue;
+        for (let x = 0; x < row.length; x += 1) {
+          layer.putTileAt(Number.isInteger(row[x]) ? row[x] : -1, x, y);
+        }
+      }
+
+      if (name === 'collision') {
+        layer.setCollisionByExclusion([-1], true);
+        this.collisionLayers.push(layer);
+      }
     });
   }
 

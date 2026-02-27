@@ -97,6 +97,31 @@ class ApiService {
     return data;
   }
 
+  async getMyMapDrafts() {
+    const { data } = await this.api.get('/maps/editor/drafts/me');
+    return data;
+  }
+
+  async getMapDraft(draftId) {
+    const { data } = await this.api.get(`/maps/editor/drafts/${draftId}`);
+    return data;
+  }
+
+  async saveMapDraft(payload) {
+    const { data } = await this.api.post('/maps/editor/drafts', payload);
+    return data;
+  }
+
+  async publishMapDraft(draftId, payload = {}) {
+    const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/publish`, payload);
+    return data;
+  }
+
+  async getEditorMapData(mapId) {
+    const { data } = await this.api.get(`/maps/editor-data/${mapId}`);
+    return data;
+  }
+
   // Monster endpoints
   async getAllMonsters() {
     const { data } = await this.api.get('/monsters/all');

@@ -47,10 +47,10 @@ export class ContributorScene extends Phaser.Scene {
     panel.lineStyle(2, 0xc8870a, 0.9);
     panel.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
 
-    const cardW = 250;
+    const cardW = 230;
     const cardH = 150;
-    const gap = 28;
-    const totalCards = 2;
+    const gap = 22;
+    const totalCards = 3;
     const startX = width / 2 - ((cardW * totalCards + gap * (totalCards - 1)) / 2) + cardW / 2;
     const y = panelY + 140;
 
@@ -60,6 +60,12 @@ export class ContributorScene extends Phaser.Scene {
 
     this.createActionCard(startX + cardW + gap, y, cardW, cardH, 'Submit Content', 'Open submit workflow', async () => {
       await this.openSubmitWorkflow();
+    });
+
+    this.createActionCard(startX + (cardW + gap) * 2, y, cardW, cardH, 'Map Editor', 'Create and publish maps', async () => {
+      this.destroySubmitForm();
+      this.destroyContentListModal();
+      this.scene.start('MapEditorScene');
     });
 
     this.createButton(width / 2 - 90, panelY + panelH - 64, 180, 42, 'Logout', async () => {

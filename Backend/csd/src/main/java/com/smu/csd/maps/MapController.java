@@ -1,9 +1,14 @@
 package com.smu.csd.maps;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.smu.csd.exception.ResourceNotFoundException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,7 +50,50 @@ public class MapController {
     public Map addMap(@RequestBody Map map) {
         return service.saveMap(map);
     }
-    
-    
-    
+
+    @GetMapping("/editor/drafts/me")
+    public List<MapEditorDraftStore.DraftSummary> getMyDrafts(Authentication authentication) {
+        UUID supabaseUserId = currentUser(authentication);
+        return service.listDrafts(supabaseUserId);
+    }
+
+    @GetMapping("/editor/drafts/{draftId}")
+    public MapEditorDraftStore.DraftRecord getMyDraft(
+            Authentication authentication,
+            @PathVariable UUID draftId
+    ) throws ResourceNotFoundException {
+        UUID supabaseUserId = currentUser(authentication);
+        return service.getDraft(supabaseUserId, draftId);
+    }
+
+    @PostMapping("/editor/drafts")
+    public MapEditorDraftStore.DraftRecord saveDraft(
+            Authentication authentication,
+            @RequestBody MapEditorDraftStore.SaveDraftRequest request
+    ) {
+        UUID supabaseUserId = currentUser(authentication);
+        return service.saveDraft(supabaseUserId, request);
+    }
+
+    @PostMapping("/editor/drafts/{draftId}/publish")
+    public Map publishDraft(
+            Authentication authentication,
+            @PathVariable UUID draftId,
+            @RequestBody(required = false) MapEditorDraftStore.PublishDraftRequest request
+    ) throws ResourceNotFoundException {
+        UUID supabaseUserId = currentUser(authentication);
+        MapEditorDraftStore.PublishDraftRequest payload =
+                request == null ? new MapEditorDraftStore.PublishDraftRequest(null, null) : request;
+        return service.publishDraft(supabaseUserId, draftId, payload);
+    }
+
+    @GetMapping("/editor-data/{mapId}")
+    public ResponseEntity<JsonNode> getEditorRuntimeData(@PathVariable UUID mapId) throws ResourceNotFoundException {
+        return ResponseEntity.ok(service.getEditorRuntimeData(mapId));
+    }
+
+    private UUID currentUser(Authentication authentication) {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        return UUID.fromString(jwt.getSubject());
+    }
 }

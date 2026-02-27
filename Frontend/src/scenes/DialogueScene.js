@@ -285,16 +285,10 @@ export class DialogueScene extends Phaser.Scene {
         this.lessonVideo = this.add.video(this.lessonPanelBox.x, this.lessonPanelBox.y, p.videoKey);
         this.lessonVideo.setDisplaySize(190, 190);
         this.lessonVideo.setDepth(20);
-        this.lessonVideo.setVisible(true);
+        this.lessonVideo.setVisible(false);
         this.lessonVideo.setLoop(false);
         this.lessonVideo.setMute(true);
-        this.lessonVideo.play(false);
-        this.time.delayedCall(50, () => {
-          if (!this.lessonVideo) return;
-          this.lessonVideo.setCurrentTime(0);
-          this.lessonVideo.setPaused(true);
-          this.lessonVideo.setMute(false);
-        });
+        this.primeVideoFrame();
         this.createVideoControls();
       } else {
         this.lessonBodyText.setVisible(true);
@@ -431,5 +425,28 @@ export class DialogueScene extends Phaser.Scene {
         this.videoTimeText.setText(`${this.formatTime(current)} / ${this.formatTime(duration)}`);
       }
     });
+  }
+
+  primeVideoFrame() {
+    const videoObj = this.lessonVideo;
+    if (!videoObj) return;
+
+    const revealFirstFrame = () => {
+      if (this.lessonVideo !== videoObj) return;
+      videoObj.setCurrentTime(0);
+      videoObj.setPaused(true);
+      videoObj.setMute(false);
+      videoObj.setVisible(true);
+    };
+
+    // Wait until Phaser has created the internal texture for this video
+    videoObj.once('created', () => {
+      if (this.lessonVideo !== videoObj) return;
+      videoObj.play(false);
+      this.time.delayedCall(0, revealFirstFrame);
+    });
+
+    // Kick playback so the first frame can be captured
+    videoObj.play(false);
   }
 }

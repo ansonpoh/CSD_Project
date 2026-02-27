@@ -187,6 +187,23 @@ class ApiService {
     await this.api.delete(`/learner/${id}`);
   }
 
+  // Learner Lesson
+  async getMyLessonProgress() {
+    const { data } = await this.api.get('/learner/progress/me');
+    return data;
+  }
+
+  async enrollLessonProgress(progress) {
+    const { data } = await this.api.put('/learner/progress/me/enroll', progress);
+    return data;
+  }
+
+  async completeLessonProgress(progress) {
+    const { data } = await this.api.put('/learner/progress/me/complete', progress);
+    return data;
+  }
+
+
   // Leaderboard endpoints
   async getLeaderboard(limit = 20) {
     const { data } = await this.api.get('/leaderboard', { params: { limit } });

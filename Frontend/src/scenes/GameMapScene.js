@@ -369,8 +369,22 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   interactWithNPC(npc) {
+    const contentId = npc?.contentId || npc?.content_id;
+    const payload = {
+      contentId,
+      topicId: npc?.topicId || npc?.topic_id || null,
+      npcId: npc?.npcId || npc?.npc_id || null
+    };
+
+    if (contentId) {
+      gameState.enrollLesson(contentId, payload);
+      void apiService.enrollLessonProgress(payload)
+        .then((saved) => gameState.upsertLessonProgress(saved))
+        .catch((e) => console.warn('Enroll sync failed:', e));
+    }
+
     const lessonPages = this.buildLessonPages(npc);
-    this.scene.launch('DialogueScene', { npc, lessonPages});
+    this.scene.launch('DialogueScene', { npc, lessonPages });
     this.scene.pause();
   }
 
@@ -431,6 +445,16 @@ export class GameMapScene extends Phaser.Scene {
 
     return pages;
 
+  }
+
+  getLessonKey(npc) {
+    return String(
+      npc?.contentId ||
+      npc?.content_id ||
+      npc?.npcId ||
+      npc?.npc_id ||
+      `${npc?.name || 'npc'}:${npc?.topicName || 'topic'}`
+    );
   }
 
   encounterMonster(monster) {
@@ -494,7 +518,9 @@ export class GameMapScene extends Phaser.Scene {
       }
       
       this.closestNpcSprite = closest;
-      this.interactPrompt.setText(`Press E to talk to ${npc.name}`);
+      const done = gameState.isLessonComplete(this.getLessonKey(npc));
+      this.interactPrompt.setText(`Press E to talk to ${npc.name}${done ? ' (Completed)' : ''}`);
+      // this.interactPrompt.setText(`Press E to talk to ${npc.name}`);
       this.interactPrompt.setVisible(true);
 
       if (Phaser.Input.Keyboard.JustDown(this.interactKey) && !this.scene.isActive('DialogueScene')) {

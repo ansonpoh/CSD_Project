@@ -190,6 +190,8 @@ export class BootScene extends Phaser.Scene {
         gameState.setLearner(learner);
         const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
+        const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
+        gameState.setLessonProgress(lessonProgress || []);
         this.scene.start('WorldMapScene');
         this.scene.launch('UIScene');
         return;

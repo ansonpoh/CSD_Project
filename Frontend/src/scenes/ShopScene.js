@@ -83,7 +83,7 @@ export class ShopScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // ── Close button ──────────────────────────────────────────────────────
-    this._makeBtn(width - 70, 36, 100, 32, 'CLOSE', P.btnDanger, P.btnDangerHov, 0x8b2020, () => {
+    this._makeBtn(100, 100, 100, 50, 'CLOSE', P.btnDanger, P.btnDangerHov, 0x8b2020, () => {
       this.scene.stop();
       this.scene.resume('GameMapScene');
     });
@@ -145,7 +145,7 @@ export class ShopScene extends Phaser.Scene {
 
   displayItems() {
     const width       = this.cameras.main.width;
-    const startY      = 140;
+    const startY      = 200;
     const spacing     = 116;
     const itemsPerRow = 2;
     const colGap      = 390;

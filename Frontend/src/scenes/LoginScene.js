@@ -238,6 +238,8 @@ export class LoginScene extends Phaser.Scene {
         gameState.setLearner(learner);
         const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
+        const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
+        gameState.setLessonProgress(lessonProgress || []);
         this.startGame(); 
         return;
       }
@@ -301,6 +303,7 @@ export class LoginScene extends Phaser.Scene {
         const learner = await apiService.addLearner(learnerPayload);
         gameState.setLearner(learner);
         gameState.setInventory([]);
+        gameState.setLessonProgress([]);
 
         this.cleanup();
         this.startGame();

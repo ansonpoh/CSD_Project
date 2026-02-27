@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry';
+import { apiService } from '../services/api';
+import { gameState } from '../services/gameState';
 
 const P = {
   bgDeep:     0x090f24,
@@ -39,6 +41,8 @@ export class DialogueScene extends Phaser.Scene {
     this.videoUi = [];
     this.videoTimeText = null;
     this.videoTicker = null;
+    this.lessonKey = null;
+    this.visitedPages = new Set();
   }
 
   init(data) {
@@ -46,6 +50,8 @@ export class DialogueScene extends Phaser.Scene {
     this.dialogueIndex = 0;
     this.pageIndex = 0;
     this.lessonPages = data.lessonPages;
+    this.lessonKey = data.lessonKey || null;
+    this.visitedPages = new Set();
   }
 
   create() {
@@ -271,6 +277,7 @@ export class DialogueScene extends Phaser.Scene {
   renderPage() {
     this.clearLessonMedia();
     const p = this.lessonPages[this.pageIndex];
+    this.visitedPages.add(this.pageIndex);
     const dialogue = p.narration || '';
     this.fullCurrentText = dialogue;
     this.dialogueText.setText('');
@@ -325,6 +332,20 @@ export class DialogueScene extends Phaser.Scene {
   }
 
   closeDialogue() {
+    const viewedAllPages = this.lessonPages.length === 0 || this.visitedPages.size >= this.lessonPages.length;
+    const contentId = this.npc?.contentId || this.npc?.content_id;
+    const payload = {
+      contentId,
+      topicId: this.npc?.topicId || this.npc?.topic_id || null,
+      npcId: this.npc?.npcId || this.npc?.npc_id || null
+    };
+
+    if (viewedAllPages && contentId) {
+      gameState.markLessonComplete(contentId, payload);
+      void apiService.completeLessonProgress(payload)
+        .then((saved) => gameState.upsertLessonProgress(saved))
+        .catch((e) => console.warn('Completion sync failed:', e));
+    }
     this.clearLessonMedia();
     this.scene.stop();
     this.scene.resume('GameMapScene');

@@ -7,6 +7,7 @@ class GameStateManager {
     this.learner = null;
     this.currentMap = null;
     this.inventory = [];
+    this.lessonProgress = {};
     this.listeners = new Set();
     
     // Load from localStorage if available
@@ -37,6 +38,58 @@ class GameStateManager {
   setLearner(learner) {
     this.learner = learner;
     this.notify();
+  }
+
+  setLessonProgress(progressList = []) {
+    const next = {};
+    (Array.isArray(progressList) ? progressList : []).forEach((p) => {
+      const contentId = String(p?.contentId || '');
+      if (!contentId) return;
+      next[contentId] = { ...p, contentId };
+    });
+    this.lessonProgress = next;
+    this.notify();
+  }
+
+  upsertLessonProgress(progress) {
+    const contentId = String(progress?.contentId || '');
+    if (!contentId) return null;
+    this.lessonProgress[contentId] = { ...(this.lessonProgress[contentId] || {}), ...progress, contentId };
+    this.notify();
+    return this.lessonProgress[contentId];
+  }
+
+  enrollLesson(contentId, meta = {}) {
+    if (!contentId) return null;
+    const key = String(contentId);
+    const existing = this.lessonProgress[key] || {};
+    if (existing.status === 'COMPLETED') return existing;
+    this.lessonProgress[key] = {
+      ...existing, ...meta, contentId: key, status: 'ENROLLED',
+      enrolledAt: existing.enrolledAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.notify();
+    return this.lessonProgress[key];
+  }
+
+  markLessonComplete(contentId, meta = {}) {
+    if (!contentId) return null;
+    const key = String(contentId);
+    const existing = this.lessonProgress[key] || {};
+    this.lessonProgress[key] = {
+      ...existing, ...meta, contentId: key, status: 'COMPLETED',
+      enrolledAt: existing.enrolledAt || new Date().toISOString(),
+      completedAt: existing.completedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.notify();
+    return this.lessonProgress[key];
+  }
+
+  isLessonComplete(contentId) {
+    if (!contentId) return false;
+    return this.lessonProgress[String(contentId)]?.status === 'COMPLETED';
   }
 
   getLearner() {
@@ -128,7 +181,8 @@ class GameStateManager {
       const state = {
         learner: this.learner,
         currentMap: this.currentMap,
-        inventory: this.inventory
+        inventory: this.inventory,
+        lessonProgress: this.lessonProgress,
       };
       localStorage.setItem('gameState', JSON.stringify(state));
     } catch (error) {
@@ -144,6 +198,7 @@ class GameStateManager {
         this.learner = state.learner;
         this.currentMap = state.currentMap;
         this.inventory = state.inventory || [];
+        this.lessonProgress = state.lessonProgress || {};
       }
     } catch (error) {
       console.error('Failed to load game state:', error);
@@ -154,8 +209,48 @@ class GameStateManager {
     this.learner = null;
     this.currentMap = null;
     this.inventory = [];
+    this.lessonProgress = {};
     localStorage.removeItem('gameState');
     this.notify();
+  }
+
+  getLessonProgress(lessonKey) {
+    return this.lessonProgress?.[lessonKey] || null;
+  }
+
+  enrollLesson(lessonKey, meta = {}) {
+    if (!lessonKey) return null;
+    const existing = this.lessonProgress[lessonKey] || {};
+    if (existing.status === 'completed') return existing;
+
+    this.lessonProgress[lessonKey] = {
+      ...existing,
+      ...meta,
+      status: existing.status || 'enrolled',
+      enrolledAt: existing.enrolledAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.notify();
+    return this.lessonProgress[lessonKey];
+  }
+
+  markLessonComplete(lessonKey, meta = {}) {
+    if (!lessonKey) return null;
+    const existing = this.lessonProgress[lessonKey] || {};
+    this.lessonProgress[lessonKey] = {
+      ...existing,
+      ...meta,
+      status: 'completed',
+      enrolledAt: existing.enrolledAt || new Date().toISOString(),
+      completedAt: meta.completedAt || existing.completedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.notify();
+    return this.lessonProgress[lessonKey];
+  }
+
+  isLessonComplete(lessonKey) {
+    return this.lessonProgress?.[lessonKey]?.status === 'completed';
   }
 }
 

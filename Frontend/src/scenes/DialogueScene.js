@@ -118,7 +118,7 @@ export class DialogueScene extends Phaser.Scene {
     // ── Page indicator ────────────────────────────────────────────────────
     this.pageIndicatorText = this.add.text(
       width / 1.34,
-      lessonY - lessonH / 2 + 470,
+      lessonY - lessonH / 2 + 450,
       '',
       {
         fontSize:        '22px',

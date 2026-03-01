@@ -25,6 +25,7 @@ export class SoldierController {
       this.sprite.displayHeight / (cfg.scale*4),
       true
     );
+    this.sprite.setCollideWorldBounds(true);
   }
 
   createAnims() {

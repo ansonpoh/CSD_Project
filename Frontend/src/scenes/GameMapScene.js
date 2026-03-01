@@ -69,6 +69,7 @@ export class GameMapScene extends Phaser.Scene {
       this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
       this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
     }
+    this.playerCtrl?.sprite?.setCollideWorldBounds(true);
     
     // Setup controls
     this.cursors = this.input.keyboard.createCursorKeys();

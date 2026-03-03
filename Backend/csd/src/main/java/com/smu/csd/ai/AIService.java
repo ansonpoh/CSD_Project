@@ -38,32 +38,29 @@ public class AIService {
     public String generateBody(String topicName, String title, String description) {
         String raw = chatClient.prompt()
                 .user("""
-                        You are writing NPC narration for a Gen Alpha culture learning game.
+                        You are an NPC in a Gen Alpha culture learning game — think witty, direct, and fun.
                         Topic: %s
                         Title: %s
                         Description: %s
 
-                        Write exactly 15 NPC dialogue lines that teach this concept progressively, one idea per line.
-                        The NPC is a knowledgeable, witty game character who explains Gen Alpha concepts in an engaging, relatable way.
+                        Write exactly 10 short NPC dialogue lines that teach this concept progressively.
 
                         Requirements for each line:
-                        - Each line must be 2–3 sentences long — never a single short sentence, and never more than 4 sentences.
-                        - Each line must teach something specific and concrete. No filler, no vague statements.
-                        - Use real-world examples, names, dates, or platforms wherever possible.
-                        - Write in a conversational but informative tone — like a cool teacher explaining something interesting.
+                        - Exactly 1–2 sentences. Short, sharp, no padding.
+                        - Each line teaches one specific thing. No repeating ideas.
+                        - Use real examples — platforms, memes, moments, names — wherever they fit.
+                        - Sound like a cool friend explaining something, not a textbook.
 
-                        Structure your 10-15 lines to cover these areas in order:
-                        1–2: Define the concept clearly in plain language with a concrete example.
-                        3–4: Explain the origin — who coined it, when, where, and why it spread.
-                        5–6: Show how it is used in real conversations or social media with examples.
-                        7–8: Explain any variations, related terms, or different ways it can be used.
-                        9–10: Describe the cultural context — what does it say about Gen Alpha values or humour?
-                        11–12: Contrast it with how older generations might misunderstand or misuse it.
-                        13–14: Share an interesting fact, milestone, or pop culture moment tied to this concept.
-                        15: Give a memorable takeaway the player can actually use in real life.
+                        Cover these areas in order:
+                        1–2: What it means — plain language with a concrete example.
+                        3–4: Where it came from — who, when, where, why it spread.
+                        5–6: How it is used in real conversations or on social media.
+                        7–8: Variations, related terms, or ways it can be misused.
+                        9: An interesting fact or pop culture moment tied to it.
+                        10: One memorable takeaway the player can actually use.
 
-                        Return ONLY a valid JSON array of 10-15 strings with no other text, in this exact format:
-                        ["line 1", "line 2", ..., "line 15"]
+                        Return ONLY a valid JSON array of exactly 10 strings, no other text:
+                        ["line 1", "line 2", ..., "line 10"]
                         """.formatted(topicName, title, description))
                 .call()
                 .content();

@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,6 +18,11 @@ import com.smu.csd.roles.learner.LearnerRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Resolves the role(s) of the currently authenticated user by extracting their
+ * supabase_user_id from the JWT and querying the role tables (admin, contributor, learner).
+ * Used during login to verify the user has the selected role, and on session restore to route them.
+ */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -45,5 +51,23 @@ public class AuthRoleController {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("message", "No role profile found"));
+    }
+
+    @GetMapping("/role/has/{role}")
+    public ResponseEntity<?> hasRole(@PathVariable String role, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+
+        boolean hasRole = switch (role.toLowerCase()) {
+            case "admin" -> administratorRepository.existsBySupabaseUserId(supabaseUserId);
+            case "contributor" -> contributorRepository.existsBySupabaseUserId(supabaseUserId);
+            case "learner" -> learnerRepository.existsBySupabaseUserId(supabaseUserId);
+            default -> false;
+        };
+
+        return ResponseEntity.ok(Map.of("hasRole", hasRole));
     }
 }

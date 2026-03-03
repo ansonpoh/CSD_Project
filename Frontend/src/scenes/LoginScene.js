@@ -139,14 +139,15 @@ export class LoginScene extends Phaser.Scene {
         </select>
       </div>
 
-      <div style="margin-bottom: 15px;">
-        <label style="color: white; display: block; margin-bottom: 5px;">Username</label>
-        <input type="text" id="username" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
-        <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+      <div id="role-fields">
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Username</label>
+          <input type="text" id="username" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
+          <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
       </div>
       `}
 
@@ -174,9 +175,53 @@ export class LoginScene extends Phaser.Scene {
     document.getElementById('submitBtn')?.addEventListener('click', () => this.handleSubmit());
     document.getElementById('toggleModeBtn')?.addEventListener('click', () => this.toggleMode());
 
+    // Prevent Phaser from consuming keystrokes (e.g. 'E' for interact) while typing in inputs
+    this.loginForm.querySelectorAll('input').forEach(input => {
+      input.addEventListener('keydown', (e) => e.stopPropagation());
+    });
+
     const passwordInput = document.getElementById('password');
     passwordInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.handleSubmit();
+    });
+
+    const roleSelect = document.getElementById('role');
+    if (roleSelect && this.authMode === 'register') {
+      roleSelect.addEventListener('change', () => this.updateRegisterFields(roleSelect.value));
+    }
+  }
+
+  updateRegisterFields(role) {
+    const roleFieldsDiv = document.getElementById('role-fields');
+    if (!roleFieldsDiv) return;
+
+    if (role === 'learner') {
+      roleFieldsDiv.innerHTML = `
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Username</label>
+          <input type="text" id="username" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
+          <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
+      `;
+    } else if (role === 'contributor') {
+      roleFieldsDiv.innerHTML = `
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
+          <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Bio <span style="color: #9fc7ff; font-size: 12px;">(optional)</span></label>
+          <input type="text" id="bio" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
+      `;
+    }
+
+    // Re-apply stopPropagation to newly created inputs after innerHTML swap
+    roleFieldsDiv.querySelectorAll('input').forEach(input => {
+      input.addEventListener('keydown', (e) => e.stopPropagation());
     });
   }
 
@@ -214,10 +259,8 @@ export class LoginScene extends Phaser.Scene {
       // const token = (await supabase.auth.getSession()).data.session?.access_token;
       // console.log(JSON.parse(atob(token.split('.')[0])));
 
-      const roleInfo = await apiService.getMyRole(); // { role, supabaseUserId }
-      const actualRole = roleInfo?.role;
-
-      if (actualRole !== selectedRole) {
+      const userHasRole = await apiService.hasRole(selectedRole);
+      if (!userHasRole) {
         await supabase.auth.signOut();
         this.setMessage(`Invalid Credentials`);
         return;
@@ -233,25 +276,24 @@ export class LoginScene extends Phaser.Scene {
       const userId = data.user?.id || data.session?.user?.id;
       if (!userId) throw new Error('No Supabase user id returned');
 
-      if (actualRole === 'learner') {
+      if (selectedRole === 'learner') {
         const learner = await apiService.getCurrentLearner();
         gameState.setLearner(learner);
         const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
         const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
         gameState.setLessonProgress(lessonProgress || []);
-        this.startGame(); 
+        this.startGame();
         return;
       }
 
-      // If you have dedicated scenes:
-      if (actualRole === 'contributor') {
+      if (selectedRole === 'contributor') {
         this.cleanup();
         this.scene.start('ContributorScene');
         return;
       }
 
-      if (actualRole === 'admin') {
+      if (selectedRole === 'admin') {
         this.cleanup();
         this.scene.start('AdminScene');
         return;
@@ -266,6 +308,7 @@ export class LoginScene extends Phaser.Scene {
     const role = document.getElementById('role')?.value || 'learner';
     const username = document.getElementById('username')?.value?.trim();
     const fullname = document.getElementById('fullname')?.value?.trim();
+    const bio = document.getElementById('bio')?.value?.trim() || '';
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
 
@@ -275,14 +318,28 @@ export class LoginScene extends Phaser.Scene {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      let userId;
+
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { name: fullname } }
       });
-      if (error) throw error;
 
-      const userId = data.user?.id || data.session?.user?.id;
+      if (signUpError) {
+        if (signUpError.message.toLowerCase().includes('already registered') ||
+            signUpError.message.toLowerCase().includes('already been registered')) {
+          // Email already exists in Supabase — sign in silently to get the supabase_user_id
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
+          userId = signInData.user?.id;
+        } else {
+          throw signUpError;
+        }
+      } else {
+        userId = signUpData.user?.id || signUpData.session?.user?.id;
+      }
+
       if (!userId) {
         this.setMessage('Check your email to confirm account, then login.');
         this.authMode = 'login';
@@ -304,14 +361,13 @@ export class LoginScene extends Phaser.Scene {
         gameState.setLearner(learner);
         gameState.setInventory([]);
         gameState.setLessonProgress([]);
-
         this.cleanup();
         this.startGame();
       } else if (role === 'contributor') {
         await apiService.createContributor({
           email,
           fullName: fullname,
-          bio: ''
+          bio
         });
         this.cleanup();
         this.scene.start('ContributorScene');

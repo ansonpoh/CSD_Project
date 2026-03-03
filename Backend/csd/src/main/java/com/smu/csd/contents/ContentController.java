@@ -23,7 +23,7 @@ public class ContentController {
 
     // Contributor submits content - triggers AI screening immediately
     @PostMapping
-    // @PreAuthorize("hasRole('CONTRIBUTOR')")
+    @PreAuthorize("hasRole('CONTRIBUTOR')")
     public ResponseEntity<Content> submitContent(@RequestBody SubmitContentRequest request)
             throws ResourceNotFoundException {
         Content content = service.submitContent(
@@ -39,7 +39,7 @@ public class ContentController {
 
     // Moderator views the full review queue (all PENDING_REVIEW content)
     @GetMapping("/queue")
-    // @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Content>> getQueue() {
         return ResponseEntity.ok(service.getByStatus(Content.Status.PENDING_REVIEW));
     }
@@ -52,7 +52,7 @@ public class ContentController {
 
     // Contributor views all their own submissions
     @GetMapping("/contributor/{contributorId}")
-    // @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
     public ResponseEntity<List<Content>> getByContributor(@PathVariable UUID contributorId) {
         return ResponseEntity.ok(service.getByContributorId(contributorId));
     }
@@ -72,7 +72,7 @@ public class ContentController {
 
     // Lets admin look at moderation result of a specific content
     @GetMapping("/{contentId}/moderation")
-    // @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AIModerationResult> getModeration(@PathVariable UUID contentId)
             throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getModerationResult(contentId));
@@ -80,14 +80,14 @@ public class ContentController {
 
     // Moderator approves content that AI flagged as NEEDS_REVIEW
     @PutMapping("/{contentId}/approve")
-    // @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Content> approve(@PathVariable UUID contentId) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.approveContent(contentId));
     }
 
     // Moderator rejects content that AI flagged as NEEDS_REVIEW
     @PutMapping("/{contentId}/reject")
-    // @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Content> reject(@PathVariable UUID contentId) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.rejectContent(contentId));
     }

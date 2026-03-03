@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.roles.learner.Learner;
@@ -40,31 +42,37 @@ public class AdministratorController {
     //     return ResponseEntity.status(HttpStatus.CREATED).body(admin);
     // }
     @PostMapping("add")
+    @PreAuthorize("hasRole('ADMIN')")
     public Administrator addAdministrator(@Valid @RequestBody Administrator administrator) {
         return service.saveAdministrator(administrator);
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Administrator>> getAllAdministrators() {
         return ResponseEntity.ok(service.getAllAdministrators());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Administrator> getById(@PathVariable UUID id) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getById(id));
     }
 
     @GetMapping("/supabase/{supabaseUserId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Administrator> getBySupabaseUserId(@PathVariable UUID supabaseUserId) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getBySupabaseUserId(supabaseUserId));
     }
 
     @GetMapping("/check/{supabaseUserId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Boolean> isAdministrator(@PathVariable UUID supabaseUserId) {
         return ResponseEntity.ok(service.isAdministrator(supabaseUserId));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Administrator> updateAdministrator(
             @PathVariable UUID id,
             @RequestBody UpdateAdminRequest request) throws ResourceNotFoundException {
@@ -73,12 +81,14 @@ public class AdministratorController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteAdministrator(@PathVariable UUID id) throws ResourceNotFoundException {
         service.deleteAdministrator(id);
         return ResponseEntity.noContent().build();  // 204 No Content
     }
 
     @PutMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Administrator> deactivateAdministrator(@PathVariable UUID id) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.deactivateAdministrator(id));
     }

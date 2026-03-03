@@ -12,5 +12,7 @@ public record MonsterEncounterQuizResponse(
     int requiredAccuracyPercent,
     int requiredCorrectAnswers,
     int totalQuestions,
+    int startingMonsterHpPercent,
+    int lossStreak,
     List<EncounterQuizQuestion> questions
 ) {}

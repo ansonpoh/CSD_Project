@@ -36,9 +36,11 @@ export class CombatScene extends Phaser.Scene {
     super({ key: 'CombatScene' });
     this.monsterData = null;
     this.mapId = null;
+    this.npcId = null;
     this.monsterName = 'orc';
     this.monsterKey = monsterRegistry.orc;
     this.bossEncounter = false;
+    this.submittedCombatResult = false;
 
     this.playerHP = 100;
     this.monsterHP = 100;
@@ -71,12 +73,16 @@ export class CombatScene extends Phaser.Scene {
     this.correctAnswers = 0;
     this.wrongAnswers = 0;
     this.remainingLifelines = 0;
+    this.startingMonsterHpPercent = 100;
+    this.lossStreak = 0;
   }
 
   init(data) {
     this.monsterData = data?.monster || {};
     this.mapId = data?.mapId || gameState.getCurrentMap()?.mapId || gameState.getCurrentMap()?.id || null;
+    this.npcId = data?.npcId || this.monsterData?.npcId || null;
     this.bossEncounter = Boolean(this.monsterData?.isBossEncounter);
+    this.submittedCombatResult = false;
 
     this.playerHP = 100;
     this.monsterHP = 100;
@@ -92,6 +98,8 @@ export class CombatScene extends Phaser.Scene {
     this.correctAnswers = 0;
     this.wrongAnswers = 0;
     this.remainingLifelines = this.getInitialLifelineCount();
+    this.startingMonsterHpPercent = 100;
+    this.lossStreak = 0;
 
     this.monsterName = this.resolveMonsterKey(this.monsterData?.name);
     this.monsterKey = monsterRegistry[this.monsterName] || monsterRegistry.orc;
@@ -446,13 +454,19 @@ export class CombatScene extends Phaser.Scene {
     this.totalQuestions = this.quizEncounter.totalQuestions;
     this.requiredCorrectAnswers = this.quizEncounter.requiredCorrectAnswers;
     this.requiredAccuracyPercent = this.quizEncounter.requiredAccuracyPercent;
-    this.damagePerCorrect = Math.max(1, Math.ceil(100 / Math.max(1, this.requiredCorrectAnswers)));
+    this.startingMonsterHpPercent = this.quizEncounter.startingMonsterHpPercent;
+    this.lossStreak = this.quizEncounter.lossStreak;
+    this.monsterHP = Phaser.Math.Clamp(this.startingMonsterHpPercent, 1, 100);
+    this.damagePerCorrect = Math.max(1, Math.ceil(this.monsterHP / Math.max(1, this.requiredCorrectAnswers)));
     this.bossEncounter = Boolean(this.quizEncounter.bossEncounter);
+    this.updateHealthBars();
 
     this.refreshQuizMeta();
     this.addLog(
       `Answer ${this.requiredCorrectAnswers}/${this.totalQuestions} correctly (${this.requiredAccuracyPercent}%) to slay the monster.`
     );
+    if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
+    if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
     if (this.bossEncounter) this.addLog('Boss encounter: perfect score required unless hearts save your mistakes.');
     this.renderCurrentQuestion();
   }
@@ -486,12 +500,20 @@ export class CombatScene extends Phaser.Scene {
     const requiredAccuracyPercent = Number.isInteger(payload?.requiredAccuracyPercent)
       ? payload.requiredAccuracyPercent
       : 90;
+    const startingMonsterHpPercent = Number.isFinite(payload?.startingMonsterHpPercent)
+      ? Phaser.Math.Clamp(Number(payload.startingMonsterHpPercent), 1, 100)
+      : 100;
+    const lossStreak = Number.isInteger(payload?.lossStreak)
+      ? Math.max(0, payload.lossStreak)
+      : 0;
 
     return {
       bossEncounter: Boolean(payload?.bossEncounter),
       totalQuestions: Math.max(1, normalizedQuestions.length),
       requiredCorrectAnswers: Phaser.Math.Clamp(requiredCorrectAnswers, 1, normalizedQuestions.length),
       requiredAccuracyPercent,
+      startingMonsterHpPercent,
+      lossStreak,
       questions: normalizedQuestions
     };
   }
@@ -550,6 +572,8 @@ export class CombatScene extends Phaser.Scene {
       totalQuestions,
       requiredCorrectAnswers,
       requiredAccuracyPercent: passPercent,
+      startingMonsterHpPercent: 100,
+      lossStreak: 0,
       questions
     };
   }
@@ -761,12 +785,33 @@ export class CombatScene extends Phaser.Scene {
     this.logText.setText(this.battleLog.join('\n'));
   }
 
+  async submitCombatResult(won) {
+    if (this.submittedCombatResult) return;
+    const mapId = this.mapId;
+    const monsterId = this.monsterData?.monster_id || this.monsterData?.monsterId || null;
+    if (!mapId || !monsterId) return;
+
+    this.submittedCombatResult = true;
+    try {
+      await apiService.submitEncounterCombatResult({
+        mapId,
+        npcId: this.npcId,
+        monsterId,
+        won: Boolean(won)
+      });
+    } catch (error) {
+      this.submittedCombatResult = false;
+      console.warn('Failed to sync combat result:', error);
+    }
+  }
+
   runAway() {
     if (this.battleOver) return;
     this.battleOver = true;
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     this.addLog('You fled the encounter.');
+    void this.submitCombatResult(false);
     this.time.delayedCall(900, () => {
       this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
     });
@@ -777,28 +822,14 @@ export class CombatScene extends Phaser.Scene {
     this.battleOver = true;
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
+    await this.submitCombatResult(true);
 
     if (this.monsterSprite && this.anims.exists(`${this.monsterName}_dead`)) {
       this.monsterSprite.play(`${this.monsterName}_dead`, true);
     }
 
-    const xpGained = Phaser.Math.Between(25, 74);
-    gameState.updateXP(xpGained);
-
-    const learner = gameState.getLearner();
-    if (learner?.learnerId) {
-      try {
-        const savedLearner = await apiService.updateLearner(learner.learnerId, {
-          ...learner,
-          updated_at: new Date().toISOString()
-        });
-        gameState.setLearner(savedLearner);
-      } catch (error) {
-        console.warn('Failed to sync learner XP to backend.', error);
-      }
-    }
-
-    this.addLog(`Victory! Quiz threshold cleared. +${xpGained} XP.`);
+    this.addLog('Victory! Quiz threshold cleared.');
+    this.addLog('Return to the map and claim your quest reward.');
     this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'VICTORY!', {
       fontSize: '72px',
       fontStyle: 'bold',
@@ -818,6 +849,8 @@ export class CombatScene extends Phaser.Scene {
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     this.addLog(reason);
+    this.addLog('Retry assist will strengthen your next attempt.');
+    void this.submitCombatResult(false);
 
     if (this.playerSprite && this.anims.exists('dead')) this.playerSprite.play('dead', true);
 

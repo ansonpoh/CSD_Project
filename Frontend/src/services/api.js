@@ -123,6 +123,38 @@ class ApiService {
     return data;
   }
 
+  async getEncounterState(mapId) {
+    const { data } = await this.api.get(`/encounters/map/${mapId}/state`);
+    return data;
+  }
+
+  async assignEncounterPair(mapId, npcId, monsterId) {
+    const { data } = await this.api.put(`/encounters/map/${mapId}/pair`, { npcId, monsterId });
+    return data;
+  }
+
+  async markEncounterNpcInteracted(mapId, npcId) {
+    const { data } = await this.api.put(`/encounters/map/${mapId}/npc/${npcId}/interact`);
+    return data;
+  }
+
+  async submitEncounterCombatResult(payload) {
+    const { data } = await this.api.post('/encounters/combat/result', payload);
+    return data;
+  }
+
+  async claimEncounterReward(mapId, monsterId) {
+    const { data } = await this.api.post(`/encounters/map/${mapId}/monster/${monsterId}/claim`);
+    return data;
+  }
+
+  async getEncounterTelemetryDashboard(mapId = null) {
+    const { data } = await this.api.get('/encounters/telemetry/dashboard', {
+      params: mapId ? { mapId } : {}
+    });
+    return data;
+  }
+
   async addMonster(monster) {
     const { data } = await this.api.post('/monsters/add', monster);
     return data;

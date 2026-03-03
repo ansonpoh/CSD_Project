@@ -1,5 +1,9 @@
 package com.smu.csd.quiz;
 
+import java.util.UUID;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,7 +21,12 @@ public class QuizController {
     }
 
     @PostMapping("/monster-encounter")
-    public MonsterEncounterQuizResponse generateMonsterEncounterQuiz(@RequestBody MonsterEncounterQuizRequest request) {
-        return quizService.generateMonsterEncounterQuiz(request);
+    public MonsterEncounterQuizResponse generateMonsterEncounterQuiz(
+        @RequestBody MonsterEncounterQuizRequest request,
+        Authentication authentication
+    ) {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        return quizService.generateMonsterEncounterQuiz(request, supabaseUserId);
     }
 }

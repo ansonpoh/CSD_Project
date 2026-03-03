@@ -39,8 +39,13 @@ export class GameMapScene extends Phaser.Scene {
     this.monsterSpriteByNpcKey = new Map();
     this.revealedMonsterNpcKeys = new Set();
     this.pendingMonsterUnlockNpcKeys = [];
+    this.encounterProgressByNpcKey = new Map();
+    this.encounterState = null;
     this.missionText = null;
     this.lastMissionSnapshot = '';
+    this.questTitleText = null;
+    this.questStepsText = null;
+    this.claimRewardButton = null;
   }
   
   // mapConfig is passed in from WorldMapScene via scene.start()
@@ -54,8 +59,13 @@ export class GameMapScene extends Phaser.Scene {
     this.monsterSpriteByNpcKey = new Map();
     this.revealedMonsterNpcKeys = new Set();
     this.pendingMonsterUnlockNpcKeys = [];
+    this.encounterProgressByNpcKey = new Map();
+    this.encounterState = null;
     this.lastMissionSnapshot = '';
     this.closestNpcSprite = null;
+    this.questTitleText = null;
+    this.questStepsText = null;
+    this.claimRewardButton = null;
 
     if (!this.mapConfig.mapKey) {
       const raw = String(this.mapConfig.asset || this.mapConfig.name || '').toLowerCase();
@@ -111,11 +121,19 @@ export class GameMapScene extends Phaser.Scene {
       const currentMap = gameState.getCurrentMap();
       const mapId = currentMap?.mapId || currentMap?.id;
       if (mapId) {
-        this.monsters = await apiService.getMonstersByMap(mapId);
-        this.npcs = await apiService.getNPCsByMap(mapId);
+        const [monsters, npcs, encounterState] = await Promise.all([
+          apiService.getMonstersByMap(mapId),
+          apiService.getNPCsByMap(mapId),
+          apiService.getEncounterState(mapId).catch(() => null)
+        ]);
+        this.monsters = monsters || [];
+        this.npcs = npcs || [];
+        this.encounterState = encounterState;
+        this.hydrateEncounterProgress();
       } else {
         this.monsters = [];
         this.npcs = [];
+        this.encounterState = null;
       } 
 
       this.createMonsterAnimations();
@@ -124,15 +142,20 @@ export class GameMapScene extends Phaser.Scene {
       this.createNPCs();
       this.createMonsters();
       this.updateAllNpcVisualStates();
+      this.updateMonsterVisualStates();
       this.updateMissionPanel();
+      this.updateQuestPanel();
 
     } catch (e) {
       console.error('Failed to load monsters for map:', e);
       this.monsters = [];
       this.npcs = this.npcs || [];
+      this.encounterState = null;
+      this.encounterProgressByNpcKey.clear();
       this.createNpcMonsterMapping();
       this.updateAllNpcVisualStates();
       this.updateMissionPanel();
+      this.updateQuestPanel();
     }
 
     // Interactions
@@ -338,9 +361,10 @@ export class GameMapScene extends Phaser.Scene {
 
       const encounterMonster = {
         ...monster,
+        npcId: this.getNpcId(mapping.npc),
         encounterIndex: index,
         totalMonsters,
-        isBossEncounter: totalMonsters > 0 && index === totalMonsters - 1
+        isBossEncounter: Boolean(mapping?.pair?.bossEncounter) || (totalMonsters > 0 && index === totalMonsters - 1)
       };
       const x = npcSprite.x + 90;
       const y = npcSprite.y - 20;
@@ -375,6 +399,7 @@ export class GameMapScene extends Phaser.Scene {
       nameText.setVisible(false);
       m_sprite.setData('nameText', nameText);
       m_sprite.setData('labelOffsetY', cfg.labelOffsetY);
+      m_sprite.setData('baseLabel', labelName);
 
       m_sprite.play(`${monsterName}_idle`, true);
       m_sprite.on('pointerdown', () => this.encounterMonster(encounterMonster));
@@ -384,6 +409,7 @@ export class GameMapScene extends Phaser.Scene {
       if (this.shouldMonsterBeUnlockedForNpc(mapping.npc)) {
         this.revealMonsterForNpc(mapping.npc, { animate: false, silent: true });
       }
+      this.updateMonsterVisualState(m_sprite);
     });
   }
 
@@ -460,7 +486,22 @@ export class GameMapScene extends Phaser.Scene {
       hit.on('pointerdown', () => draw(0x120722, 0x604008));
       hit.on('pointerup', () => { draw(fillHover, HUD.borderGlow); onClick(); });
       c.add([bg, txt, hit]);
-      return c;
+      return {
+        container: c,
+        text: txt,
+        hit,
+        setEnabled: (enabled) => {
+          if (enabled) {
+            hit.setInteractive({ useHandCursor: true });
+            c.setAlpha(1);
+            draw(fillNormal, HUD.border);
+          } else {
+            hit.disableInteractive();
+            c.setAlpha(0.45);
+            draw(fillNormal, 0x3c3552);
+          }
+        }
+      };
     };
 
     makeHudBtn(width - 80, 90, 'SHOP', HUD.btnBlue, HUD.btnBlueHover, () => {
@@ -484,10 +525,48 @@ export class GameMapScene extends Phaser.Scene {
       stroke: '#060814',
       strokeThickness: 3
     }).setOrigin(0.5).setScrollFactor(0).setDepth(120);
+
+    const questX = width - 290;
+    const questY = 160;
+    const questW = 250;
+    const questH = 230;
+    const questCard = this.add.graphics().setScrollFactor(0).setDepth(119);
+    questCard.fillStyle(HUD.cardBg, 0.95);
+    questCard.fillRoundedRect(questX, questY, questW, questH, 8);
+    questCard.lineStyle(2, HUD.border, 0.82);
+    questCard.strokeRoundedRect(questX, questY, questW, questH, 8);
+
+    this.questTitleText = this.add.text(questX + 14, questY + 12, 'Quest Chain', {
+      fontSize: '18px',
+      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontStyle: 'bold',
+      color: '#ffeac8',
+      stroke: '#060814',
+      strokeThickness: 3
+    }).setScrollFactor(0).setDepth(120);
+
+    this.questStepsText = this.add.text(questX + 14, questY + 42, 'Loading...', {
+      fontSize: '14px',
+      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      color: HUD.textMain,
+      lineSpacing: 6,
+      wordWrap: { width: questW - 28 }
+    }).setScrollFactor(0).setDepth(120);
+
+    this.claimRewardButton = makeHudBtn(
+      questX + questW / 2,
+      questY + questH - 30,
+      'CLAIM',
+      0x1f6d34,
+      0x2d9150,
+      () => this.claimActiveQuestReward()
+    );
+    this.claimRewardButton.setEnabled(false);
   }
 
   interactWithNPC(npc) {
     this.queueMonsterUnlockForNpc(npc);
+    void this.syncNpcInteraction(npc);
     const contentId = npc?.contentId || npc?.content_id;
     const payload = {
       contentId,
@@ -577,10 +656,19 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   encounterMonster(monster) {
+    const npcId = monster?.npcId || null;
+    if (npcId) {
+      const progress = this.encounterProgressByNpcKey.get(String(npcId));
+      if (progress?.monsterDefeated) {
+        this.showMapToast('Monster already defeated. Claim your reward from the quest panel.');
+        return;
+      }
+    }
+
     console.log('Encountering monster:', monster.name);
     const currentMap = gameState.getCurrentMap();
     const mapId = currentMap?.mapId || currentMap?.id || this.mapConfig?.mapId || null;
-    this.scene.start('CombatScene', { monster, mapId });
+    this.scene.start('CombatScene', { monster, mapId, npcId });
   }
 
   update() {
@@ -643,12 +731,12 @@ export class GameMapScene extends Phaser.Scene {
       }
       
       this.closestNpcSprite = closest;
-      const done = gameState.isLessonComplete(this.getLessonKey(npc));
+      const progressState = this.getProgressState(npc);
       const mapping = this.npcMonsterMap.get(this.getNpcKey(npc));
       const monsterName = mapping?.monster?.name || 'monster';
       const spawned = this.revealedMonsterNpcKeys.has(this.getNpcKey(npc));
       this.interactPrompt.setText(
-        `Press E to talk to ${npc.name}  |  ${done ? 'Lesson complete' : 'Lesson pending'}  |  ${monsterName}: ${spawned ? 'spawned' : 'locked'}`
+        `Press E to talk to ${npc.name}  |  ${progressState.toUpperCase()}  |  ${monsterName}: ${spawned ? 'spawned' : 'locked'}`
       );
       this.interactPromptBg?.setVisible(true);
       this.interactPrompt.setVisible(true);
@@ -667,23 +755,82 @@ export class GameMapScene extends Phaser.Scene {
 
   createNpcMonsterMapping() {
     this.npcMonsterMap.clear();
+    const pairRows = Array.isArray(this.encounterState?.pairs) ? [...this.encounterState.pairs] : [];
+
+    if (pairRows.length) {
+      const npcById = new Map(this.npcs.map((npc) => [String(this.getNpcId(npc) || ''), npc]));
+      const monsterById = new Map(this.monsters.map((monster) => [String(this.getMonsterId(monster) || ''), monster]));
+      let resolvedPairs = 0;
+
+      pairRows
+        .sort((a, b) => (a?.encounterOrder ?? 0) - (b?.encounterOrder ?? 0))
+        .forEach((pair) => {
+          const npc = npcById.get(String(pair?.npcId || ''));
+          const monster = monsterById.get(String(pair?.monsterId || ''));
+          if (!npc || !monster) return;
+          resolvedPairs += 1;
+          this.npcMonsterMap.set(this.getNpcKey(npc), {
+            npc,
+            monster: {
+              ...monster,
+              name: pair?.monsterName || monster?.name
+            },
+            pair
+          });
+        });
+      if (resolvedPairs > 0) return;
+    }
+
     const maxPairs = Math.min(this.npcs.length, this.monsters.length);
     for (let i = 0; i < maxPairs; i += 1) {
       const npc = this.npcs[i];
       const monster = this.monsters[i];
       if (!npc || !monster) continue;
-      this.npcMonsterMap.set(this.getNpcKey(npc), { npc, monster });
+      this.npcMonsterMap.set(this.getNpcKey(npc), { npc, monster, pair: null });
     }
   }
 
   getNpcKey(npc) {
-    return String(npc?.npcId || npc?.npc_id || npc?.name || Math.random());
+    return String(this.getNpcId(npc) || npc?.name || 'npc-unknown');
+  }
+
+  getCurrentMapId() {
+    const currentMap = gameState.getCurrentMap();
+    return currentMap?.mapId || currentMap?.id || this.mapConfig?.mapId || null;
+  }
+
+  getNpcId(npc) {
+    return npc?.npcId || npc?.npc_id || null;
+  }
+
+  getMonsterId(monster) {
+    return monster?.monster_id || monster?.monsterId || null;
+  }
+
+  applyEncounterProgress(progress) {
+    if (!progress?.npcId) return;
+    const npcKey = String(progress.npcId);
+    const existing = this.encounterProgressByNpcKey.get(npcKey) || {};
+    this.encounterProgressByNpcKey.set(npcKey, { ...existing, ...progress });
+  }
+
+  hydrateEncounterProgress() {
+    this.encounterProgressByNpcKey.clear();
+    const rows = Array.isArray(this.encounterState?.progress) ? this.encounterState.progress : [];
+    rows.forEach((progress) => this.applyEncounterProgress(progress));
+  }
+
+  getEncounterProgress(npc) {
+    return this.encounterProgressByNpcKey.get(this.getNpcKey(npc)) || null;
   }
 
   getProgressState(npc) {
+    const encounter = this.getEncounterProgress(npc);
     const lessonKey = this.getLessonKey(npc);
     const progress = gameState.lessonProgress?.[lessonKey];
+    if (encounter?.rewardClaimed || encounter?.monsterDefeated) return 'completed';
     if (gameState.isLessonComplete(lessonKey)) return 'completed';
+    if (encounter?.npcInteracted || encounter?.monsterUnlocked) return 'interacted';
     if (progress) return 'interacted';
     return 'new';
   }
@@ -699,7 +846,13 @@ export class GameMapScene extends Phaser.Scene {
     if (!npc || !badge || !nameText) return;
 
     const state = this.getProgressState(npc);
-    if (state === 'completed') {
+    const encounter = this.getEncounterProgress(npc);
+    if (encounter?.rewardClaimed) {
+      badge.setText('CLAIMED');
+      badge.setColor(HUD.textGood);
+      npcSprite.setTint(0xb8ffd8);
+      nameText.setColor('#d9ffe8');
+    } else if (state === 'completed') {
       badge.setText('DONE');
       badge.setColor(HUD.textGood);
       npcSprite.setTint(0xb8ffd8);
@@ -717,9 +870,44 @@ export class GameMapScene extends Phaser.Scene {
     }
   }
 
+  updateMonsterVisualStates() {
+    this.monsterSprites.forEach((sprite) => this.updateMonsterVisualState(sprite));
+  }
+
+  updateMonsterVisualState(monsterSprite) {
+    const npcKey = monsterSprite?.getData('npcKey');
+    if (!npcKey) return;
+    const progress = this.encounterProgressByNpcKey.get(npcKey);
+    const nameText = monsterSprite.getData('nameText');
+    const baseLabel = monsterSprite.getData('baseLabel') || monsterSprite.getData('monster')?.name || 'Monster';
+
+    if (progress?.monsterDefeated) {
+      monsterSprite.setTint(0x97b59d);
+      monsterSprite.disableInteractive();
+      if (monsterSprite.body) monsterSprite.body.enable = false;
+      if (nameText) {
+        nameText.setText(`${baseLabel} [DEFEATED]`);
+        nameText.setColor('#b8ffd8');
+      }
+      return;
+    }
+
+    monsterSprite.clearTint();
+    if (nameText) {
+      nameText.setText(baseLabel);
+      nameText.setColor('#ffe8cc');
+    }
+    if (monsterSprite.visible) {
+      monsterSprite.setInteractive({ useHandCursor: true });
+      if (monsterSprite.body) monsterSprite.body.enable = true;
+    }
+  }
+
   shouldMonsterBeUnlockedForNpc(npc) {
     const key = this.getNpcKey(npc);
     if (this.revealedMonsterNpcKeys.has(key)) return true;
+    const progress = this.getEncounterProgress(npc);
+    if (progress?.monsterUnlocked || progress?.monsterDefeated || progress?.rewardClaimed) return true;
     const lessonState = this.getProgressState(npc);
     return lessonState === 'interacted' || lessonState === 'completed';
   }
@@ -730,12 +918,67 @@ export class GameMapScene extends Phaser.Scene {
     if (this.pendingMonsterUnlockNpcKeys.includes(key)) return;
     this.pendingMonsterUnlockNpcKeys.push(key);
     this.updateNpcVisualState(this.npcSprites.find((sprite) => sprite.getData('npcKey') === key));
+    this.updateQuestPanel();
   }
 
-  handleSceneResume() {
-    this.processQueuedMonsterSpawns();
+  async syncNpcInteraction(npc) {
+    const mapId = this.getCurrentMapId();
+    const npcId = this.getNpcId(npc);
+    if (!mapId || !npcId) return;
+
+    const npcKey = this.getNpcKey(npc);
+    const existing = this.encounterProgressByNpcKey.get(npcKey) || {};
+    this.encounterProgressByNpcKey.set(npcKey, {
+      ...existing,
+      npcId,
+      monsterId: existing.monsterId || this.getMonsterId(this.npcMonsterMap.get(npcKey)?.monster),
+      npcInteracted: true,
+      monsterUnlocked: true
+    });
     this.updateAllNpcVisualStates();
     this.updateMissionPanel();
+    this.updateQuestPanel();
+
+    try {
+      const saved = await apiService.markEncounterNpcInteracted(mapId, npcId);
+      this.applyEncounterProgress(saved);
+      this.updateAllNpcVisualStates();
+      this.updateMissionPanel();
+      this.updateQuestPanel();
+    } catch (error) {
+      console.warn('Failed to sync NPC interaction:', error);
+    }
+  }
+
+  async refreshEncounterState() {
+    const mapId = this.getCurrentMapId();
+    if (!mapId) return;
+
+    try {
+      const state = await apiService.getEncounterState(mapId);
+      this.encounterState = state;
+      this.hydrateEncounterProgress();
+      this.revealedMonsterNpcKeys.clear();
+      this.npcMonsterMap.forEach((mapping) => {
+        if (this.shouldMonsterBeUnlockedForNpc(mapping?.npc)) {
+          this.revealMonsterForNpc(mapping.npc, { animate: false, silent: true });
+        }
+      });
+    } catch (error) {
+      console.warn('Encounter state refresh failed:', error);
+    }
+  }
+
+  async handleSceneResume() {
+    const hasQueuedSpawns = this.pendingMonsterUnlockNpcKeys.length > 0;
+    if (!hasQueuedSpawns) {
+      await this.refreshEncounterState();
+    }
+    this.processQueuedMonsterSpawns();
+    this.updateAllNpcVisualStates();
+    this.updateMonsterVisualStates();
+    this.updateMissionPanel();
+    this.updateQuestPanel();
   }
 
   processQueuedMonsterSpawns() {
@@ -793,7 +1036,9 @@ export class GameMapScene extends Phaser.Scene {
         }
       });
     }
+    this.updateMonsterVisualState(sprite);
     this.updateMissionPanel();
+    this.updateQuestPanel();
   }
 
   updateMissionPanel() {
@@ -806,6 +1051,136 @@ export class GameMapScene extends Phaser.Scene {
     if (summary === this.lastMissionSnapshot && this.missionText.text === summary) return;
     this.lastMissionSnapshot = summary;
     this.missionText.setText(summary);
+  }
+
+  getOrderedEncounters() {
+    return Array.from(this.npcMonsterMap.entries())
+      .map(([npcKey, mapping], index) => ({
+        npcKey,
+        ...mapping,
+        encounterOrder: mapping?.pair?.encounterOrder ?? index
+      }))
+      .sort((a, b) => a.encounterOrder - b.encounterOrder);
+  }
+
+  getActiveQuest() {
+    const ordered = this.getOrderedEncounters();
+    if (!ordered.length) return null;
+
+    for (let i = 0; i < ordered.length; i += 1) {
+      const encounter = ordered[i];
+      const progress = this.encounterProgressByNpcKey.get(encounter.npcKey);
+      if (!progress?.rewardClaimed) {
+        return {
+          ...encounter,
+          progress: progress || null,
+          index: i,
+          total: ordered.length
+        };
+      }
+    }
+    return null;
+  }
+
+  getRetryAssistSummary(lossStreak) {
+    const streak = Math.max(0, Number(lossStreak || 0));
+    const questionReduction = Math.min(3, streak);
+    if (questionReduction <= 0) return null;
+    const hpPercent = questionReduction === 1 ? 85 : questionReduction === 2 ? 72 : 60;
+    return `Retry assist: -${questionReduction} qns, monster starts ${hpPercent}% HP`;
+  }
+
+  updateQuestPanel() {
+    if (!this.questTitleText || !this.questStepsText || !this.claimRewardButton) return;
+
+    const ordered = this.getOrderedEncounters();
+    if (!ordered.length) {
+      this.questTitleText.setText('Quest Chain');
+      this.questStepsText.setText('No encounter quests on this map.');
+      this.claimRewardButton.setEnabled(false);
+      return;
+    }
+
+    const claimedCount = ordered.filter((encounter) => this.encounterProgressByNpcKey.get(encounter.npcKey)?.rewardClaimed).length;
+    const activeQuest = this.getActiveQuest();
+    if (!activeQuest) {
+      this.questTitleText.setText('Quest Chain Complete');
+      this.questStepsText.setText(`All quests cleared.\nRewards claimed: ${claimedCount}/${ordered.length}`);
+      this.claimRewardButton.setEnabled(false);
+      return;
+    }
+
+    const progress = activeQuest.progress || {
+      npcInteracted: false,
+      monsterDefeated: false,
+      rewardClaimed: false,
+      lossStreak: 0
+    };
+    const npcName = activeQuest.npc?.name || activeQuest.pair?.npcName || 'NPC';
+    const monsterName = activeQuest.monster?.name || activeQuest.pair?.monsterName || 'Monster';
+    const requiredPct = activeQuest.pair?.bossEncounter ? 100 : 90;
+
+    const marker = (done) => (done ? '[x]' : '[ ]');
+    const lines = [
+      `${marker(Boolean(progress.npcInteracted))} Talk to ${npcName}`,
+      `${marker(Boolean(progress.monsterDefeated))} Defeat ${monsterName} (${requiredPct}% quiz)`,
+      `${marker(Boolean(progress.rewardClaimed))} Claim reward`,
+      `Chain progress: ${claimedCount}/${ordered.length} claimed`
+    ];
+    const retryInfo = !progress.monsterDefeated ? this.getRetryAssistSummary(progress.lossStreak) : null;
+    if (retryInfo) lines.push(retryInfo);
+
+    this.questTitleText.setText(
+      `Quest ${activeQuest.index + 1}/${activeQuest.total}${activeQuest.pair?.bossEncounter ? ' [BOSS]' : ''}`
+    );
+    this.questStepsText.setText(lines.join('\n'));
+    this.claimRewardButton.setEnabled(Boolean(progress.monsterDefeated) && !Boolean(progress.rewardClaimed));
+  }
+
+  async claimActiveQuestReward() {
+    const activeQuest = this.getActiveQuest();
+    if (!activeQuest) return;
+
+    const mapId = this.getCurrentMapId();
+    const monsterId = activeQuest?.pair?.monsterId || this.getMonsterId(activeQuest?.monster);
+    if (!mapId || !monsterId) return;
+
+    try {
+      const result = await apiService.claimEncounterReward(mapId, monsterId);
+      if (result?.progress) this.applyEncounterProgress(result.progress);
+
+      const learner = gameState.getLearner();
+      if (learner && Number.isFinite(result?.learnerTotalXp) && Number.isFinite(result?.learnerLevel)) {
+        gameState.setLearner({
+          ...learner,
+          total_xp: result.learnerTotalXp,
+          level: result.learnerLevel
+        });
+      }
+
+      this.updateAllNpcVisualStates();
+      this.updateMonsterVisualStates();
+      this.updateMissionPanel();
+      this.updateQuestPanel();
+      const xp = Number(result?.xpAwarded || 0);
+      this.showMapToast(xp > 0 ? `Reward claimed: +${xp} XP` : 'Reward already claimed');
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || 'Reward claim failed';
+      this.showMapToast(message);
+    }
+  }
+
+  showMapToast(message, duration = 1800) {
+    if (!this.interactPrompt || !this.interactPromptBg) return;
+    this.interactPrompt.setText(String(message));
+    this.interactPromptBg.setVisible(true);
+    this.interactPrompt.setVisible(true);
+    this.time.delayedCall(duration, () => {
+      if (!this.closestNpcSprite) {
+        this.interactPromptBg?.setVisible(false);
+        this.interactPrompt?.setVisible(false);
+      }
+    });
   }
 
 }

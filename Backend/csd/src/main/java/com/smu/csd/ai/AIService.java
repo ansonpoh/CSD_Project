@@ -46,9 +46,10 @@ public class AIService {
                         Write exactly 10 short NPC dialogue lines that teach this concept progressively.
 
                         Requirements for each line:
-                        - Exactly 1–2 sentences. Short, sharp, no padding.
-                        - Each line teaches one specific thing. No repeating ideas.
-                        - Use real examples — platforms, memes, moments, names — wherever they fit.
+                        - Exactly 2 sentences per line — no more, no less.
+                        - First sentence: introduce the idea clearly. Second sentence: make it land with a real example, a twist, or a "so what".
+                        - Each line teaches one specific thing. No repeating ideas across lines.
+                        - Use real examples — platforms, creators, memes, moments — wherever they fit.
                         - Sound like a cool friend explaining something, not a textbook.
 
                         Cover these areas in order:
@@ -65,10 +66,12 @@ public class AIService {
                 .call()
                 .content();
         // AI sometimes wraps the JSON in markdown fences (```json ... ```) despite instructions.
-        // Strip them so the stored body is always clean, parseable JSON.
+        // It also occasionally emits trailing commas before the closing bracket, which is invalid JSON.
+        // Strip both so the stored body is always clean, parseable JSON.
         return raw.strip()
                   .replaceAll("(?s)^```[a-z]*\\s*", "")
                   .replaceAll("(?s)\\s*```$", "")
+                  .replaceAll(",\\s*(]|})", "$1")
                   .strip();
     }
 

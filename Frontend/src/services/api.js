@@ -118,6 +118,11 @@ class ApiService {
     return data;
   }
 
+  async generateMonsterEncounterQuiz(payload) {
+    const { data } = await this.api.post('/quizzes/monster-encounter', payload);
+    return data;
+  }
+
   async addMonster(monster) {
     const { data } = await this.api.post('/monsters/add', monster);
     return data;

@@ -262,23 +262,31 @@ export class GameMapScene extends Phaser.Scene {
   createMonsters() {
     // Create monster sprites at random positions
 
+    const totalMonsters = this.monsters.length;
     this.monsters.forEach((monster, index) => {
+      const encounterMonster = {
+        ...monster,
+        encounterIndex: index,
+        totalMonsters,
+        isBossEncounter: totalMonsters > 0 && index === totalMonsters - 1
+      };
       const x = 300 + index * 180;
       const y = 380 + Math.random() * 150;
 
-      const monsterName = monster.name
+      const monsterName = encounterMonster.name
       const cfg = monsterRegistry[monsterName] || monsterRegistry.orc;
       if (!this.textures.exists(monsterName)) {
-        console.warn(`Missing texture for ${monster.asset}, fallback to orc`);
+        console.warn(`Missing texture for ${encounterMonster.asset}, fallback to orc`);
       }
 
       const m_sprite = this.physics.add.sprite(x, y, monsterName, 0);
       m_sprite.setScale(cfg.scale);
       m_sprite.setDepth(5);
       m_sprite.setInteractive();
-      m_sprite.setData('monster', monster);
+      m_sprite.setData('monster', encounterMonster);
 
-      const nameText = this.add.text(x, y, monsterName, {
+      const labelName = encounterMonster.isBossEncounter ? `${monsterName} [BOSS]` : monsterName;
+      const nameText = this.add.text(x, y, labelName, {
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#000000',
@@ -288,7 +296,7 @@ export class GameMapScene extends Phaser.Scene {
       // m_sprite.setData('nameText', nameText);
 
       m_sprite.play(`${monsterName}_idle`, true)
-      m_sprite.on('pointerdown', () => this.encounterMonster(monster));
+      m_sprite.on('pointerdown', () => this.encounterMonster(encounterMonster));
       this.monsterSprites.push(m_sprite);
     });
   }
@@ -459,7 +467,9 @@ export class GameMapScene extends Phaser.Scene {
 
   encounterMonster(monster) {
     console.log('Encountering monster:', monster.name);
-    this.scene.start('CombatScene', { monster });
+    const currentMap = gameState.getCurrentMap();
+    const mapId = currentMap?.mapId || currentMap?.id || this.mapConfig?.mapId || null;
+    this.scene.start('CombatScene', { monster, mapId });
   }
 
   update() {

@@ -11,6 +11,9 @@ export class ContributorScene extends Phaser.Scene {
     this.submitButtonEl = null;
     this.cancelButtonEl = null;
     this.contentListModal = null;
+    this.narrationsContainer = null;
+    this.aiGenerateBtn = null;
+    this.addLineBtn = null;
   }
 
   create() {
@@ -272,33 +275,31 @@ export class ContributorScene extends Phaser.Scene {
       .map((m) => `<option value="${this.escapeHtml(String(m.mapId || ''))}">${this.escapeHtml(m.name || 'Unnamed Map')}</option>`)
       .join('');
     const contributorLabel = this.escapeHtml(profile.fullName || profile.email || profile.contributorId);
+    const fieldStyle = 'width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff; box-sizing: border-box;';
+    const labelStyle = 'display: block; color: #d5e7ff; margin-bottom: 6px;';
 
     form.innerHTML = `
       <h2 style="margin: 0 0 14px; color: #e6f0ff;">Submit New Content</h2>
       <p style="margin: 0 0 14px; color: #a6c3ec;">Contributor: ${contributorLabel}</p>
 
-      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Topic</label>
-      <select id="content-topic" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;">
-        ${topicOptions}
-      </select>
+      <label style="${labelStyle}">Topic</label>
+      <select id="content-topic" style="${fieldStyle}">${topicOptions}</select>
 
-      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">NPC</label>
-      <select id="content-npc" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;">
-        ${npcOptions}
-      </select>
+      <label style="${labelStyle}">NPC</label>
+      <select id="content-npc" style="${fieldStyle}">${npcOptions}</select>
 
-      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Map</label>
-      <select id="content-map" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;">
-        ${mapOptions}
-      </select>
+      <label style="${labelStyle}">Map</label>
+      <select id="content-map" style="${fieldStyle}">${mapOptions}</select>
 
-      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Title</label>
-      <input id="content-title" type="text" maxlength="120" placeholder="e.g. What Is Rizz?" style="width: 100%; margin-bottom: 12px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff;" />
+      <label style="${labelStyle}">Title</label>
+      <input id="content-title" type="text" maxlength="120" placeholder="e.g. What Is Rizz?" style="${fieldStyle}" />
 
-      <label style="display: block; color: #d5e7ff; margin-bottom: 6px;">Description for AI Drafting</label>
-      <textarea id="content-description" rows="7" placeholder="Describe what this lesson should teach. The AI will turn this into NPC dialogue." style="width: 100%; margin-bottom: 14px; padding: 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff; resize: vertical;"></textarea>
+      <label style="${labelStyle}">Description</label>
+      <textarea id="content-description" rows="3" placeholder="Describe what this lesson should teach." style="${fieldStyle} resize: vertical;"></textarea>
 
-      <div style="display: flex; gap: 10px;">
+      <div id="narrations-section-placeholder"></div>
+
+      <div style="display: flex; gap: 10px; margin-top: 4px;">
         <button type="button" id="submit-content-btn" style="flex: 1; padding: 12px; background: #1f6d34; color: #f5fff8; border: 1px solid #5ec38a; border-radius: 6px; cursor: pointer; font-weight: bold;">
           Submit Content
         </button>
@@ -323,15 +324,69 @@ export class ContributorScene extends Phaser.Scene {
     const mapEl = form.querySelector('#content-map');
     const descriptionEl = form.querySelector('#content-description');
 
+    // Stop Phaser consuming keystrokes in text inputs
+    [titleEl, descriptionEl].forEach(el => {
+      el?.addEventListener('keydown', e => e.stopPropagation());
+    });
+
+    // Build and inject narrations section
+    const narrationsSection = this._buildNarrationsSection();
+    form.querySelector('#narrations-section-placeholder').replaceWith(narrationsSection);
+    this.addNarrationRow(); // start with one empty row
+
+    // AI generate button
+    this.aiGenerateBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const topicId = topicEl?.value?.trim();
+      const title = titleEl?.value?.trim();
+      const description = descriptionEl?.value?.trim();
+
+      if (!topicId || !title || !description) {
+        this.setSubmitMessage('Please fill in Topic, Title, and Description before generating with AI.', '#ffc7c7');
+        return;
+      }
+
+      this.setAiGeneratingState(true);
+      this.setSubmitMessage('Generating AI narrations...', '#ffd4a6');
+
+      try {
+        const result = await apiService.generateNarrations(topicId, title, description);
+        const narrations = result?.narrations || [];
+        if (narrations.length === 0) throw new Error('AI returned no narrations');
+
+        this.narrationsContainer.innerHTML = '';
+        narrations.forEach(line => this.addNarrationRow(line));
+        this.setSubmitMessage(`${narrations.length} lines generated — review and edit as needed.`, '#a8e6c1');
+      } catch (e) {
+        const message = e?.response?.data?.message || e?.message || 'AI generation failed';
+        this.setSubmitMessage(message, '#ffc7c7');
+      } finally {
+        this.setAiGeneratingState(false);
+      }
+    });
+
+    // Add line button
+    this.addLineBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.addNarrationRow();
+    });
+
     const submitHandler = async () => {
       const topicId = topicEl?.value?.trim();
       const npcId = npcEl?.value?.trim();
       const mapId = mapEl?.value?.trim();
       const title = titleEl?.value?.trim();
       const description = descriptionEl?.value?.trim();
+      const narrations = this._collectNarrations();
 
       if (!topicId || !npcId || !mapId || !title || !description) {
-        this.setSubmitMessage('Please fill in topic, NPC, map, title, and description.', '#ffc7c7');
+        this.setSubmitMessage('Please fill in Topic, NPC, Map, Title, and Description.', '#ffc7c7');
+        return;
+      }
+      if (narrations.length === 0) {
+        this.setSubmitMessage('Please add at least one narration line.', '#ffc7c7');
         return;
       }
 
@@ -345,7 +400,8 @@ export class ContributorScene extends Phaser.Scene {
           npcId,
           mapId,
           title,
-          description
+          description,
+          narrations
         });
 
         const status = result?.status || 'UNKNOWN';
@@ -375,10 +431,77 @@ export class ContributorScene extends Phaser.Scene {
       this.destroySubmitForm();
     });
     descriptionEl?.addEventListener('keydown', (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        submitHandler();
-      }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') submitHandler();
     });
+  }
+
+  _buildNarrationsSection() {
+    const section = document.createElement('div');
+    section.style.marginBottom = '14px';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px;';
+
+    const label = document.createElement('label');
+    label.textContent = 'Narration Lines';
+    label.style.cssText = 'color: #d5e7ff; flex: 1; margin: 0;';
+
+    this.aiGenerateBtn = document.createElement('button');
+    this.aiGenerateBtn.type = 'button';
+    this.aiGenerateBtn.textContent = '✦ Generate with AI';
+    this.aiGenerateBtn.style.cssText = 'padding: 6px 12px; background: #1a2f5a; color: #afd4ff; border: 1px solid #4a7ab0; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap;';
+
+    this.addLineBtn = document.createElement('button');
+    this.addLineBtn.type = 'button';
+    this.addLineBtn.textContent = '+ Add Line';
+    this.addLineBtn.style.cssText = 'padding: 6px 12px; background: #183528; color: #90dbb0; border: 1px solid #3a7a5a; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap;';
+
+    header.appendChild(label);
+    header.appendChild(this.aiGenerateBtn);
+    header.appendChild(this.addLineBtn);
+
+    this.narrationsContainer = document.createElement('div');
+
+    section.appendChild(header);
+    section.appendChild(this.narrationsContainer);
+    return section;
+  }
+
+  addNarrationRow(text = '') {
+    if (!this.narrationsContainer) return;
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;';
+
+    const textarea = document.createElement('textarea');
+    textarea.rows = 2;
+    textarea.value = text;
+    textarea.placeholder = 'Enter narration line...';
+    textarea.style.cssText = 'flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #5b7ba7; background: #122647; color: #edf3ff; resize: vertical; font-size: 13px; font-family: inherit; box-sizing: border-box;';
+    textarea.addEventListener('keydown', e => e.stopPropagation());
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove this line';
+    removeBtn.style.cssText = 'width: 30px; height: 30px; padding: 0; background: #4a1111; color: #ffe9e9; border: 1px solid #ab6666; border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1; flex-shrink: 0; margin-top: 2px;';
+    removeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.narrationsContainer.removeChild(row);
+    });
+
+    row.appendChild(textarea);
+    row.appendChild(removeBtn);
+    this.narrationsContainer.appendChild(row);
+    textarea.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  _collectNarrations() {
+    if (!this.narrationsContainer) return [];
+    return Array.from(this.narrationsContainer.querySelectorAll('textarea'))
+      .map(t => t.value.trim())
+      .filter(v => v.length > 0);
   }
 
   setSubmittingState(isSubmitting) {
@@ -390,6 +513,26 @@ export class ContributorScene extends Phaser.Scene {
     if (this.cancelButtonEl) {
       this.cancelButtonEl.disabled = isSubmitting;
       this.cancelButtonEl.style.opacity = isSubmitting ? '0.6' : '1';
+    }
+    if (this.aiGenerateBtn) {
+      this.aiGenerateBtn.disabled = isSubmitting;
+      this.aiGenerateBtn.style.opacity = isSubmitting ? '0.6' : '1';
+    }
+    if (this.addLineBtn) {
+      this.addLineBtn.disabled = isSubmitting;
+      this.addLineBtn.style.opacity = isSubmitting ? '0.6' : '1';
+    }
+  }
+
+  setAiGeneratingState(isGenerating) {
+    if (this.aiGenerateBtn) {
+      this.aiGenerateBtn.disabled = isGenerating;
+      this.aiGenerateBtn.style.opacity = isGenerating ? '0.6' : '1';
+      this.aiGenerateBtn.textContent = isGenerating ? '✦ Generating...' : '✦ Generate with AI';
+    }
+    if (this.addLineBtn) {
+      this.addLineBtn.disabled = isGenerating;
+      this.addLineBtn.style.opacity = isGenerating ? '0.6' : '1';
     }
   }
 
@@ -408,6 +551,9 @@ export class ContributorScene extends Phaser.Scene {
     this.submitMessageEl = null;
     this.submitButtonEl = null;
     this.cancelButtonEl = null;
+    this.narrationsContainer = null;
+    this.aiGenerateBtn = null;
+    this.addLineBtn = null;
   }
 
   renderMyContentModal(rows) {

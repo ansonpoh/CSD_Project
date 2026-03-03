@@ -37,6 +37,9 @@ public class Content {
     @Column(name = "title", nullable = false, columnDefinition = "TEXT")
     private String title;
 
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
     @Column(name = "body", nullable = false, columnDefinition = "TEXT")
     private String body;
 

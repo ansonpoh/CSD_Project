@@ -3,6 +3,9 @@ package com.smu.csd.contents;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,10 +24,10 @@ public class ContentController {
         this.service = service;
     }
 
-    // Contributor submits content - triggers AI screening immediately
+    // Contributor submits content with their narration lines - triggers AI screening
     @PostMapping
     @PreAuthorize("hasRole('CONTRIBUTOR')")
-    public ResponseEntity<Content> submitContent(@RequestBody SubmitContentRequest request)
+    public ResponseEntity<Content> submitContent(@Valid @RequestBody SubmitContentRequest request)
             throws ResourceNotFoundException {
         Content content = service.submitContent(
                 request.contributorId(),
@@ -32,7 +35,8 @@ public class ContentController {
                 request.npcId(),
                 request.mapId(),
                 request.title(),
-                request.description()
+                request.description(),
+                request.narrations()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(content);
     }
@@ -98,6 +102,7 @@ public class ContentController {
             UUID npcId,
             UUID mapId,
             String title,
-            String description
+            String description,
+            @NotEmpty List<String> narrations
     ) {}
 }

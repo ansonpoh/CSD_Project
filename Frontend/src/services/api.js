@@ -385,6 +385,12 @@ class ApiService {
     await this.api.delete(`/topic/${id}`);
   }
 
+  // AI endpoints
+  async generateNarrations(topicId, title, description) {
+    const { data } = await this.api.post('/ai/generate-narrations', { topicId, title, description });
+    return data;
+  }
+
   // Content endpoints
   async submitContent(content) {
     const { data } = await this.api.post('/contents', content);

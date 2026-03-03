@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.ai.AIService;
 import com.smu.csd.exception.ResourceNotFoundException;
@@ -27,11 +28,12 @@ public class ContentService {
     private final NPCRepository npcRepository;
     private final MapRepository mapRepository;
     private final NPCMapRepository npcMapRepository;
+    private final ObjectMapper objectMapper;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
             ContributorService contributorService, AIService aiService,
             NPCRepository npcRepository, MapRepository mapRepository,
-            NPCMapRepository npcMapRepository) {
+            NPCMapRepository npcMapRepository, ObjectMapper objectMapper) {
         this.contentRepository = contentRepository;
         this.topicService = topicService;
         this.contributorService = contributorService;
@@ -39,14 +41,17 @@ public class ContentService {
         this.npcRepository = npcRepository;
         this.mapRepository = mapRepository;
         this.npcMapRepository = npcMapRepository;
+        this.objectMapper = objectMapper;
     }
 
     /**
-     * Contributor provides a short description → AI generates the full body → AI screens it.
-     * Content is saved as PENDING_REVIEW and status is updated by AIService after screening.
+     * Contributor submits their narration lines (written manually or edited from AI preview).
+     * The provided narrations are serialised to JSON and stored as the content body.
+     * AI screening still runs on whatever the contributor submitted.
      */
     @Transactional
-    public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId, String title, String description)
+    public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId,
+            String title, String description, List<String> narrations)
             throws ResourceNotFoundException {
         contributorService.getById(contributorId);
         Topic topic = topicService.getById(topicId);
@@ -55,14 +60,19 @@ public class ContentService {
         Map map = mapRepository.findById(mapId)
                 .orElseThrow(() -> new ResourceNotFoundException("Map", "mapId", mapId));
 
-        // AI drafts the full lesson body from the contributor's short description
-        String generatedBody = aiService.generateBody(topic.getTopicName(), title, description);
+        String body;
+        try {
+            body = objectMapper.writeValueAsString(narrations);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid narrations format: " + e.getMessage());
+        }
 
         Content content = Content.builder()
                 .contributorId(contributorId)
                 .topic(topic)
                 .title(title)
-                .body(generatedBody)
+                .description(description)
+                .body(body)
                 .status(Content.Status.PENDING_REVIEW)
                 .videoKey(null) // Temp null
                 .build();

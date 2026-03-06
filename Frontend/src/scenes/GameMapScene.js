@@ -566,8 +566,11 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   interactWithNPC(npc) {
-    this.queueMonsterUnlockForNpc(npc);
-    void this.syncNpcInteraction(npc);
+    const mapping = this.npcMonsterMap.get(this.getNpcKey(npc));
+    if (mapping) {
+      this.queueMonsterUnlockForNpc(npc);
+      void this.syncNpcInteraction(npc);
+    }
     const contentId = npc?.contentId || npc?.content_id;
     const payload = {
       contentId,
@@ -592,7 +595,7 @@ export class GameMapScene extends Phaser.Scene {
     const topic = npc.topicName || 'Topic';
     // const body = (npc.contentBody || '').trim();
     const rawBody = (npc.contentBody || '').trim();
-    const videoKey = npc.videoKey || null;
+    const videoUrl = npc.videoUrl || null;
 
     const pages = [];
 
@@ -631,14 +634,14 @@ export class GameMapScene extends Phaser.Scene {
     }
 
     // Inject video page for this NPC if configured
-    if (videoKey) {
+    if (videoUrl ) {
       const clampedIndex = Math.max(0, pages.length);
       pages.splice(clampedIndex, 0, {
         lessonTitle: `${title} (Video)`,
         lessonBody: '',
         narration: 'Watch this short lesson clip.',
         mediaType: 'video',
-        videoKey
+        videoUrl 
       });
     }
 

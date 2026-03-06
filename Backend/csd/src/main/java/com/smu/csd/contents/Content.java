@@ -56,6 +56,6 @@ public class Content {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "video_key")
-    private String videoKey;
+    @Column(name = "video_url")
+    private String videoUrl;
 }

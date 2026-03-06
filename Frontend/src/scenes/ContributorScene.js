@@ -297,6 +297,14 @@ export class ContributorScene extends Phaser.Scene {
       <label style="${labelStyle}">Description</label>
       <textarea id="content-description" rows="3" placeholder="Describe what this lesson should teach." style="${fieldStyle} resize: vertical;"></textarea>
 
+      <label style="${labelStyle}">Optional Video</label>
+      <input
+        id="content-video"
+        type="file"
+        accept="video/mp4,video/webm,video/ogg"
+        style="${fieldStyle}"
+      />
+
       <div id="narrations-section-placeholder"></div>
 
       <div style="display: flex; gap: 10px; margin-top: 4px;">
@@ -323,6 +331,7 @@ export class ContributorScene extends Phaser.Scene {
     const npcEl = form.querySelector('#content-npc');
     const mapEl = form.querySelector('#content-map');
     const descriptionEl = form.querySelector('#content-description');
+    const videoEl = form.querySelector('#content-video');
 
     // Stop Phaser consuming keystrokes in text inputs
     [titleEl, descriptionEl].forEach(el => {
@@ -380,6 +389,7 @@ export class ContributorScene extends Phaser.Scene {
       const title = titleEl?.value?.trim();
       const description = descriptionEl?.value?.trim();
       const narrations = this._collectNarrations();
+      const videoFile = videoEl?.files?.[0] || null;
 
       if (!topicId || !npcId || !mapId || !title || !description) {
         this.setSubmitMessage('Please fill in Topic, NPC, Map, Title, and Description.', '#ffc7c7');
@@ -394,6 +404,20 @@ export class ContributorScene extends Phaser.Scene {
       this.setSubmitMessage('Submitting content and running AI checks...', '#ffd4a6');
 
       try {
+        let videoUrl = null;
+
+        if (videoFile) {
+          const maxBytes = 50 * 1024 * 1024;
+          if (videoFile.size > maxBytes) {
+            throw new Error('Video is too large. Max size is 50MB.');
+          }
+
+          this.setSubmitMessage('Uploading video...', '#ffd4a6');
+          videoUrl = await this.uploadContentVideo(videoFile, profile.contributorId);
+        }
+
+        this.setSubmitMessage('Submitting content and running AI checks...', '#ffd4a6');
+
         const result = await apiService.submitContent({
           contributorId: profile.contributorId,
           topicId,
@@ -401,7 +425,8 @@ export class ContributorScene extends Phaser.Scene {
           mapId,
           title,
           description,
-          narrations
+          narrations,
+          videoUrl
         });
 
         const status = result?.status || 'UNKNOWN';
@@ -502,6 +527,27 @@ export class ContributorScene extends Phaser.Scene {
     return Array.from(this.narrationsContainer.querySelectorAll('textarea'))
       .map(t => t.value.trim())
       .filter(v => v.length > 0);
+  }
+
+  async uploadContentVideo(file, contributorId) {
+    const bucket = 'lesson-videos';
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = `contributors/${contributorId}/${Date.now()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      throw new Error(uploadError.message || 'Video upload failed');    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    return data?.publicUrl || null;
   }
 
   setSubmittingState(isSubmitting) {
@@ -677,4 +723,5 @@ export class ContributorScene extends Phaser.Scene {
       onComplete: () => text.destroy()
     });
   }
+
 }

@@ -51,7 +51,7 @@ public class ContentService {
      */
     @Transactional
     public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId,
-            String title, String description, List<String> narrations)
+            String title, String description, List<String> narrations, String videoUrl)
             throws ResourceNotFoundException {
         contributorService.getById(contributorId);
         Topic topic = topicService.getById(topicId);
@@ -74,7 +74,7 @@ public class ContentService {
                 .description(description)
                 .body(body)
                 .status(Content.Status.PENDING_REVIEW)
-                .videoKey(null) // Temp null
+                .videoUrl(videoUrl)
                 .build();
 
         contentRepository.save(content);

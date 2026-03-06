@@ -36,7 +36,8 @@ public class ContentController {
                 request.mapId(),
                 request.title(),
                 request.description(),
-                request.narrations()
+                request.narrations(),
+                request.videoUrl()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(content);
     }
@@ -103,6 +104,7 @@ public class ContentController {
             UUID mapId,
             String title,
             String description,
-            @NotEmpty List<String> narrations
+            @NotEmpty List<String> narrations,
+            String videoUrl
     ) {}
 }

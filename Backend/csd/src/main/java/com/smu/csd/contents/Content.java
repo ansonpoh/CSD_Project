@@ -7,6 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
+import com.smu.csd.contents.topics.Topic;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -58,4 +60,10 @@ public class Content {
 
     @Column(name = "video_url")
     private String videoUrl;
+
+    @Column(name = "content_fingerprint")
+    private String contentFingerprint;
+
+    @Column(name = "embedding_json")
+    private String embeddingJson;
 }

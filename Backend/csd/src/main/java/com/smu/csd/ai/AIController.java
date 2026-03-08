@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smu.csd.contents.TopicService;
+import com.smu.csd.contents.topics.TopicService;
 import com.smu.csd.exception.ResourceNotFoundException;
 
 @RestController

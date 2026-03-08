@@ -1,4 +1,4 @@
-package com.smu.csd.contents;
+package com.smu.csd.contents.topics;
 
 import java.util.Optional;
 import java.util.UUID;

@@ -1,6 +1,7 @@
 package com.smu.csd.contents;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -9,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.ai.AIService;
+import com.smu.csd.contents.topics.Topic;
+import com.smu.csd.contents.topics.TopicService;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.maps.Map;
 import com.smu.csd.maps.MapRepository;
@@ -22,6 +25,8 @@ import com.smu.csd.roles.contributor.ContributorService;
 public class ContentService {
 
     private final ContentRepository contentRepository;
+    private final DuplicateDetectionService duplicateDetectionService;
+    private final SemanticDuplicateService semanticDuplicateService;
     private final TopicService topicService;
     private final ContributorService contributorService;
     private final AIService aiService;
@@ -31,10 +36,13 @@ public class ContentService {
     private final ObjectMapper objectMapper;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
+            DuplicateDetectionService duplicateDetectionService, SemanticDuplicateService semanticDuplicateService,
             ContributorService contributorService, AIService aiService,
             NPCRepository npcRepository, MapRepository mapRepository,
             NPCMapRepository npcMapRepository, ObjectMapper objectMapper) {
         this.contentRepository = contentRepository;
+        this.duplicateDetectionService = duplicateDetectionService;
+        this.semanticDuplicateService = semanticDuplicateService;
         this.topicService = topicService;
         this.contributorService = contributorService;
         this.aiService = aiService;
@@ -67,6 +75,47 @@ public class ContentService {
             throw new IllegalArgumentException("Invalid narrations format: " + e.getMessage());
         }
 
+        String normalized = duplicateDetectionService.normalize(title, narrations);
+        String fingerprint = duplicateDetectionService.fingerprint(normalized);
+
+        Optional<Content> exactMatch = contentRepository
+            .findFirstByContentFingerprintAndTopicAndStatusIn(
+                fingerprint,
+                topic,
+                List.of(Content.Status.PENDING_REVIEW, Content.Status.APPROVED)
+            );
+
+        if (exactMatch.isPresent()) {
+            throw new IllegalStateException("Duplicate submission detected");
+        }
+
+        String textForEmbedding = semanticDuplicateService.buildText(title, narrations);
+        String embeddingJson = semanticDuplicateService.createEmbeddingJson(textForEmbedding);
+        float[] newEmbedding = semanticDuplicateService.readEmbeddingJson(embeddingJson);
+
+        List<Content> candidates = contentRepository.findByTopicAndStatusIn(
+                topic,
+                List.of(Content.Status.PENDING_REVIEW, Content.Status.APPROVED)
+        );
+
+        for (Content candidate : candidates) {
+            if (candidate.getEmbeddingJson() == null || candidate.getEmbeddingJson().isBlank()) {
+                continue;
+            }
+
+            float[] candidateEmbedding = semanticDuplicateService.readEmbeddingJson(candidate.getEmbeddingJson());
+            double score = semanticDuplicateService.cosineSimilarity(newEmbedding, candidateEmbedding);
+
+            if (score >= 0.80) {
+                throw new IllegalStateException(
+                        "Likely semantic duplicate of content "
+                                + candidate.getContentId()
+                                + " with similarity score "
+                                + score
+                );
+            }
+        }
+
         Content content = Content.builder()
                 .contributorId(contributorId)
                 .topic(topic)
@@ -75,6 +124,8 @@ public class ContentService {
                 .body(body)
                 .status(Content.Status.PENDING_REVIEW)
                 .videoUrl(videoUrl)
+                .embeddingJson(embeddingJson)
+                .contentFingerprint(fingerprint)
                 .build();
 
         contentRepository.save(content);

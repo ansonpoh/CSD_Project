@@ -30,6 +30,9 @@ spring:
       chat:
         options:
           model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
 
   security:
     oauth2:

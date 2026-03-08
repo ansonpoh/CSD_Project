@@ -745,7 +745,7 @@ export class GameMapScene extends Phaser.Scene {
       this.interactPromptBg?.setVisible(true);
       this.interactPrompt.setVisible(true);
 
-      if (Phaser.Input.Keyboard.JustDown(this.interactKey) && !this.scene.isActive('DialogueScene')) {
+      if (Phaser.Input.Keyboard.JustDown(this.interactKey) && !this.scene.isActive('DialogueScene') && !this.isDomInputFocused()) {
         this.interactWithNPC(npc);
         this.interactPromptBg?.setVisible(false);
         this.interactPrompt.setVisible(false);
@@ -1185,6 +1185,19 @@ export class GameMapScene extends Phaser.Scene {
         this.interactPrompt?.setVisible(false);
       }
     });
+  }
+
+  isDomInputFocused() {
+    const active = document.activeElement;
+    if (!active) return false;
+
+    const tag = active.tagName;
+    return (
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT' ||
+      active.isContentEditable
+    );
   }
 
 }

@@ -269,6 +269,17 @@ export class DialogueScene extends Phaser.Scene {
     );
   }
 
+  bindDomInputHotkeyShield(root) {
+    if (!root) return;
+
+    const stop = (event) => event.stopPropagation();
+
+    root.querySelectorAll('input, textarea, select').forEach((el) => {
+      el.addEventListener('keydown', stop);
+      el.addEventListener('keyup', stop);
+    });
+  }
+
   suspendDomBlockingKeyCaptures() {
     if (!this.input?.keyboard) return;
     this.input.keyboard.removeCapture(['SPACE', 'LEFT', 'RIGHT', 'UP', 'DOWN']);
@@ -408,6 +419,7 @@ export class DialogueScene extends Phaser.Scene {
     this.input.keyboard.enabled = false;
 
     this.suspendDomBlockingKeyCaptures();
+    this.bindDomInputHotkeyShield(modal);
 
     this.time.delayedCall(0, () => {
       const detailsField = modal.querySelector('#flag-details');
@@ -640,24 +652,121 @@ export class DialogueScene extends Phaser.Scene {
     if (!el) return;
 
     let isMuted = this.lessonVideo.mute ?? false;
-    const videoTop   = this.lessonPanelBox.y - (this.lessonPanelBox.h / 2) + 20;
-    const videoRight = this.lessonPanelBox.x + (this.lessonPanelBox.w / 2) - 30;
+    let volume = Number.isFinite(el.volume) ? el.volume : 0.35;
+    volume = Phaser.Math.Clamp(volume, 0, 1);
 
-    const muteBtnBg = this.add.rectangle(videoRight - 40, videoTop + 20, 80, 32, 0x0d1530, 0.85)
+    const controlsY = this.lessonPanelBox.y + this.lessonPanelBox.h / 2 - 35;
+    const centerX   = this.lessonPanelBox.x;
+    const trackW    = 520;
+
+    const volumeTrackW = 120;
+    const volumeTrackX = centerX - (trackW / 2) - 110;
+    const volumeTrackY = controlsY;
+
+    const muteBtnX  = centerX + (trackW / 2) + 72;
+    const muteBtnY  = controlsY;
+
+    const muteBtnBg = this.add.rectangle(muteBtnX, muteBtnY, 80, 32, 0x0d1530, 0.85)
       .setStrokeStyle(1, P.borderGold)
       .setInteractive({ useHandCursor: true });
 
-    const muteBtnText = this.add.text(videoRight - 40, videoTop + 20, isMuted ? 'Unmute' : 'Mute', {
-      fontSize: '13px', fontStyle: 'bold',
-      color: P.textMain, stroke: '#060814', strokeThickness: 3
+    const muteBtnText = this.add.text(muteBtnX, muteBtnY, 'Mute', {
+      fontSize: '13px',
+      fontStyle: 'bold',
+      color: P.textMain,
+      stroke: '#060814',
+      strokeThickness: 3
     }).setOrigin(0.5);
 
-    const refreshMuteLabel = () => muteBtnText.setText(isMuted ? 'Unmute' : 'Mute');
-    muteBtnBg.on('pointerdown', () => { isMuted = !isMuted; this.lessonVideo.setMute(isMuted); refreshMuteLabel(); });
+    const refreshMuteLabel = () => {
+      muteBtnText.setText(isMuted || volume === 0 ? 'Unmute' : 'Mute');
+    };
+
+    const applyVolume = () => {
+      el.volume = volume;
+      this.lessonVideo.setMute(isMuted || volume === 0);
+      refreshMuteLabel();
+    };
+
+    const volumeLabel = this.add.text(volumeTrackX, volumeTrackY - 18, `Vol ${Math.round(volume * 100)}%`, {
+      fontSize: '12px',
+      color: P.textTitle,
+      stroke: '#060814',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    const volumeTrackBg = this.add.rectangle(volumeTrackX, volumeTrackY, volumeTrackW, 6, 0x0a1020, 1)
+      .setOrigin(0.5)
+      .setStrokeStyle(1, P.borderGold, 0.4)
+      .setInteractive({ useHandCursor: true });
+
+    const volumeTrackFill = this.add.rectangle(
+      volumeTrackX - volumeTrackW / 2,
+      volumeTrackY,
+      volume * volumeTrackW,
+      6,
+      0x4193d5,
+      1
+    ).setOrigin(0, 0.5);
+
+    const volumeKnob = this.add.circle(
+      volumeTrackX - volumeTrackW / 2 + volume * volumeTrackW,
+      volumeTrackY,
+      8,
+      P.borderGlow
+    ).setInteractive({ draggable: true, useHandCursor: true });
+
+    const syncVolumeUi = () => {
+      const knobX = volumeTrackX - volumeTrackW / 2 + volume * volumeTrackW;
+      volumeKnob.x = knobX;
+      volumeTrackFill.width = volume * volumeTrackW;
+      volumeLabel.setText(`Vol ${Math.round(volume * 100)}%`);
+    };
+
+    const setVolumeFromX = (x) => {
+      const left = volumeTrackX - volumeTrackW / 2;
+      const right = volumeTrackX + volumeTrackW / 2;
+      const clampedX = Phaser.Math.Clamp(x, left, right);
+
+      volume = (clampedX - left) / volumeTrackW;
+
+      if (volume > 0 && isMuted) {
+        isMuted = false;
+      }
+
+      applyVolume();
+      syncVolumeUi();
+    };
+
+    volumeTrackBg.on('pointerdown', (pointer) => setVolumeFromX(pointer.x));
+    volumeKnob.on('drag', (_pointer, dragX) => setVolumeFromX(dragX));
+
+    muteBtnBg.on('pointerdown', () => {
+      if (isMuted || volume === 0) {
+        isMuted = false;
+        if (volume === 0) volume = 0.35;
+      } else {
+        isMuted = true;
+      }
+
+      applyVolume();
+      syncVolumeUi();
+    });
+
     muteBtnBg.on('pointerover', () => muteBtnBg.setFillStyle(0x2a1060, 0.9));
     muteBtnBg.on('pointerout',  () => muteBtnBg.setFillStyle(0x0d1530, 0.85));
-    this.videoUi.push(muteBtnBg, muteBtnText);
+    this.videoUi.push(
+      muteBtnBg,
+      muteBtnText,
+      volumeLabel,
+      volumeTrackBg,
+      volumeTrackFill,
+      volumeKnob
+    );
 
+    [muteBtnBg, muteBtnText, volumeLabel, volumeTrackBg, volumeTrackFill].forEach((n) => n.setDepth(40));
+    volumeKnob.setDepth(42);
+    
     this.lessonVideo.setInteractive({ useHandCursor: true });
     this.lessonVideo.on('pointerdown', () => {
       const el = this.lessonVideo?.video;
@@ -666,11 +775,6 @@ export class DialogueScene extends Phaser.Scene {
       if (el.paused) this.lessonVideo.setPaused(false);
       else this.lessonVideo.setPaused(true);
     });
-
-    const controlsY = this.lessonPanelBox.y + this.lessonPanelBox.h / 2 - 35;
-    const centerX   = this.lessonPanelBox.x;
-    const trackW    = 520;
-
     const trackBg   = this.add.rectangle(centerX, controlsY, trackW, 8, 0x0a1020, 1).setOrigin(0.5);
     trackBg.setStrokeStyle(1, P.borderGold, 0.4);
     const trackFill = this.add.rectangle(centerX - trackW / 2, controlsY, 0, 8, P.accentBlue ?? 0x4193d5, 1).setOrigin(0, 0.5);
@@ -700,6 +804,9 @@ export class DialogueScene extends Phaser.Scene {
     knob.setDepth(42);
     this.videoTimeText.setDepth(41);
     muteBtnText.setDepth(41);
+
+    applyVolume();
+    syncVolumeUi();
 
     this.videoTicker = this.time.addEvent({
       delay: 200, loop: true,
@@ -798,3 +905,6 @@ export class DialogueScene extends Phaser.Scene {
   }
 
 }
+
+
+

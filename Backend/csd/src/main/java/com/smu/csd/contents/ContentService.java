@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +29,7 @@ public class ContentService {
 
     private final ContentRepository contentRepository;
     private final DuplicateDetectionService duplicateDetectionService;
-    private final SemanticDuplicateService semanticDuplicateService;
+    private final VectorStore vectorStore;
     private final TopicService topicService;
     private final ContributorService contributorService;
     private final AIService aiService;
@@ -36,13 +39,13 @@ public class ContentService {
     private final ObjectMapper objectMapper;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
-            DuplicateDetectionService duplicateDetectionService, SemanticDuplicateService semanticDuplicateService,
+            DuplicateDetectionService duplicateDetectionService, VectorStore vectorStore,
             ContributorService contributorService, AIService aiService,
             NPCRepository npcRepository, MapRepository mapRepository,
             NPCMapRepository npcMapRepository, ObjectMapper objectMapper) {
         this.contentRepository = contentRepository;
         this.duplicateDetectionService = duplicateDetectionService;
-        this.semanticDuplicateService = semanticDuplicateService;
+        this.vectorStore = vectorStore;
         this.topicService = topicService;
         this.contributorService = contributorService;
         this.aiService = aiService;
@@ -89,31 +92,21 @@ public class ContentService {
             throw new IllegalStateException("Duplicate submission detected");
         }
 
-        String textForEmbedding = semanticDuplicateService.buildText(title, narrations);
-        String embeddingJson = semanticDuplicateService.createEmbeddingJson(textForEmbedding);
-        float[] newEmbedding = semanticDuplicateService.readEmbeddingJson(embeddingJson);
+        String textForEmbedding = (title == null ? "" : title) + "\n" + String.join(" ", narrations == null ? List.of() : narrations);
 
-        List<Content> candidates = contentRepository.findByTopicAndStatusIn(
-                topic,
-                List.of(Content.Status.PENDING_REVIEW, Content.Status.APPROVED)
+        List<Document> similar = vectorStore.similaritySearch(
+                SearchRequest.builder()
+                        .query(textForEmbedding)
+                        .topK(1)
+                        .similarityThreshold(0.80)
+                        .filterExpression("topicId == '" + topicId + "'")
+                        .build()
         );
 
-        for (Content candidate : candidates) {
-            if (candidate.getEmbeddingJson() == null || candidate.getEmbeddingJson().isBlank()) {
-                continue;
-            }
-
-            float[] candidateEmbedding = semanticDuplicateService.readEmbeddingJson(candidate.getEmbeddingJson());
-            double score = semanticDuplicateService.cosineSimilarity(newEmbedding, candidateEmbedding);
-
-            if (score >= 0.80) {
-                throw new IllegalStateException(
-                        "Likely semantic duplicate of content "
-                                + candidate.getContentId()
-                                + " with similarity score "
-                                + score
-                );
-            }
+        if (!similar.isEmpty()) {
+            throw new IllegalStateException(
+                    "Likely semantic duplicate of content " + similar.get(0).getMetadata().get("contentId")
+            );
         }
 
         Content content = Content.builder()
@@ -124,11 +117,18 @@ public class ContentService {
                 .body(body)
                 .status(Content.Status.PENDING_REVIEW)
                 .videoUrl(videoUrl)
-                .embeddingJson(embeddingJson)
                 .contentFingerprint(fingerprint)
                 .build();
 
         contentRepository.save(content);
+
+        vectorStore.add(List.of(new Document(
+                textForEmbedding,
+                java.util.Map.of(
+                        "contentId", content.getContentId().toString(),
+                        "topicId", topicId.toString()
+                )
+        )));
 
         NPCMap npcMap = NPCMap.builder()
                 .npc(npc)

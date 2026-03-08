@@ -35,10 +35,11 @@ spring:
           model: text-embedding-3-small
     vectorstore:
       pgvector:
-        initialize-schema: true
+        initialize-schema: false
         dimensions: 1536
         distance-type: cosine_distance
         index-type: hnsw
+        schema-name: contents
         table-name: content_vectors
 
   security:

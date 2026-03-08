@@ -68,6 +68,7 @@ export class AdminScene extends Phaser.Scene {
       this.destroyReviewQueueModal();
       this.destroyContributorAccountsModal();
       this.destroyTelemetryModal();
+      this.destroyContributorDetailsModal();
       await supabase.auth.signOut();
       gameState.clearState();
       this.scene.start('LoginScene');
@@ -77,11 +78,13 @@ export class AdminScene extends Phaser.Scene {
       this.destroyReviewQueueModal();
       this.destroyContributorAccountsModal();
       this.destroyTelemetryModal();
+      this.destroyContributorDetailsModal();
     });
     this.events.once('destroy', () => {
       this.destroyReviewQueueModal();
       this.destroyContributorAccountsModal();
       this.destroyTelemetryModal();
+      this.destroyContributorDetailsModal();
     });
   }
 
@@ -462,10 +465,10 @@ export class AdminScene extends Phaser.Scene {
       return;
     }
 
-    this.renderReviewQueueModal(rows || []);
+    await this.renderReviewQueueModal(rows || []);
   }
 
-  renderReviewQueueModal(rows) {
+  async renderReviewQueueModal(rows) {
     const modal = document.createElement('div');
     modal.style.position = 'absolute';
     modal.style.left = '50%';
@@ -481,17 +484,57 @@ export class AdminScene extends Phaser.Scene {
     modal.style.boxShadow = '0 16px 38px rgba(0,0,0,0.5)';
     modal.style.zIndex = '1000';
 
+    modal.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <h2 style="margin: 0; color: #ffe8dc;">Pending Review Queue</h2>
+        <button type="button" id="close-review-queue-btn" style="padding: 10px 14px; background: #4a1111; color: #ffe9e9; border: 1px solid #ab6666; border-radius: 6px; cursor: pointer;">
+          Close
+        </button>
+      </div>
+      <div style="color: #efb9a2;">Loading pending content...</div>
+    `;
+
+    document.body.appendChild(modal);
+    this.reviewQueueModal = modal;
+    this.updateSceneInputInteractivity();
+
+    const earlyCloseBtn = modal.querySelector('#close-review-queue-btn');
+    earlyCloseBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.destroyReviewQueueModal();
+    });
+
     const sortedRows = [...rows].sort((a, b) => {
       const at = new Date(a?.submittedAt || 0).getTime();
       const bt = new Date(b?.submittedAt || 0).getTime();
       return bt - at;
     });
 
-    const rowHtml = sortedRows.map((row) => {
+    const contributorMap = {};
+
+    const rowHtmlPromises = sortedRows.map(async (row) => {
       const contentId = this.escapeHtml(row?.contentId || '');
       const title = this.escapeHtml(row?.title || 'Untitled');
       const topicName = this.escapeHtml(row?.topic?.topicName || 'Unknown Topic');
-      const contributorId = this.escapeHtml(row?.contributorId || 'Unknown');
+      const contributorId = row?.contributorId;
+      
+      let contributorName = 'Unknown';
+      
+      if (contributorId) {
+        try {
+          const contributor = await apiService.getContributor(contributorId);
+          if (contributor) {
+            contributorMap[contributorId] = contributor;
+            contributorName = contributor.fullName || 'Unknown';
+          }
+        } catch (e) {
+          console.warn('Unable to load contributor details', e);
+        }
+      }
+      
+      const safeContributorId = this.escapeHtml(contributorId || 'Unknown');
+      const safeContributorName = this.escapeHtml(contributorName);
       const submittedAt = this.escapeHtml(this.formatDate(row?.submittedAt));
       const preview = this.escapeHtml(this.previewText(row?.body, 260));
 
@@ -502,7 +545,11 @@ export class AdminScene extends Phaser.Scene {
             <div style="color: #ffd4a6; font-size: 13px;">PENDING_REVIEW</div>
           </div>
           <div style="margin-top: 4px; color: #f0c1aa; font-size: 13px;">Topic: ${topicName}</div>
-          <div style="margin-top: 4px; color: #dca892; font-size: 12px;">Contributor: ${contributorId}</div>
+          <div style="margin-top: 4px; color: #dca892; font-size: 12px;">Contributor: 
+            <a href="#" data-action="view-contributor" data-contributor-id="${safeContributorId}" style="color: #a7f0c2; text-decoration: underline; font-weight: bold; cursor: pointer;">
+              ${safeContributorName}
+            </a>
+          </div>
           <div style="margin-top: 4px; color: #dca892; font-size: 12px;">Submitted: ${submittedAt}</div>
           <div style="margin-top: 4px; color: #dca892; font-size: 12px;">ID: ${contentId}</div>
           <div style="margin-top: 8px; color: #ffe7dc; font-size: 13px; line-height: 1.4;">${preview}</div>
@@ -516,7 +563,12 @@ export class AdminScene extends Phaser.Scene {
           </div>
         </div>
       `;
-    }).join('');
+    });
+
+    const rowHtmlArray = await Promise.all(rowHtmlPromises);
+    const rowHtml = rowHtmlArray.join('');
+
+    if (!this.reviewQueueModal) return;
 
     modal.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
@@ -532,9 +584,6 @@ export class AdminScene extends Phaser.Scene {
       </div>
     `;
 
-    document.body.appendChild(modal);
-    this.reviewQueueModal = modal;
-    this.updateSceneInputInteractivity();
 
     const closeBtn = modal.querySelector('#close-review-queue-btn');
     closeBtn?.addEventListener('click', (event) => {
@@ -542,6 +591,22 @@ export class AdminScene extends Phaser.Scene {
       event.stopPropagation();
       this.destroyReviewQueueModal();
     });
+
+    const contributorLinks = modal.querySelectorAll('a[data-action="view-contributor"]');
+    contributorLinks.forEach((link) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const cid = link.getAttribute('data-contributor-id');
+        const contributorInfo = contributorMap[cid];
+        if (contributorInfo) {
+          this.renderContributorDetailsModal(contributorInfo);
+        } else {
+          this.showToast('Contributor details not found.');
+        }
+      });
+    });
+
 
     const actionButtons = modal.querySelectorAll('button[data-action]');
     actionButtons.forEach((button) => {
@@ -586,6 +651,71 @@ export class AdminScene extends Phaser.Scene {
       });
     });
   }
+
+  renderContributorDetailsModal(contributor) {
+    if (this.contributorDetailsModal) {
+       this.destroyContributorDetailsModal();
+    }
+
+    const modal = document.createElement('div');
+    modal.style.position = 'absolute';
+    modal.style.left = '50%';
+    modal.style.top = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.width = 'min(500px, calc(100vw - 40px))';
+    modal.style.maxHeight = '80vh';
+    modal.style.overflowY = 'auto';
+    modal.style.padding = '24px';
+    modal.style.background = 'rgba(28, 15, 12, 0.98)';
+    modal.style.border = '2px solid #5ec38a'; 
+    modal.style.borderRadius = '10px';
+    modal.style.boxShadow = '0 16px 38px rgba(0,0,0,0.8)';
+    modal.style.zIndex = '1001'; 
+
+    const fullName = this.escapeHtml(contributor.fullName || 'Unknown');
+    const email = this.escapeHtml(contributor.email || 'Unknown');
+    const bio = this.escapeHtml(contributor.bio || 'No bio provided.');
+    const contributorId = this.escapeHtml(contributor.contributorId || 'Unknown');
+    const supabaseUserId = this.escapeHtml(contributor.supabaseUserId || 'Unknown');
+    const createdAt = this.escapeHtml(this.formatDate(contributor.createdAt));
+    const updatedAt = this.escapeHtml(this.formatDate(contributor.updatedAt));
+    const isActive = Boolean(contributor.isActive);
+    const statusText = isActive ? 'ACTIVE' : 'INACTIVE';
+    const statusColor = isActive ? '#a7f0c2' : '#ffc7c7';
+
+    modal.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <h2 style="margin: 0; color: #ffe8dc;">Contributor Details</h2>
+        <button type="button" id="close-contributor-details-btn" style="padding: 10px 14px; background: #4a1111; color: #ffe9e9; border: 1px solid #ab6666; border-radius: 6px; cursor: pointer;">
+          Close
+        </button>
+      </div>
+      <div style="color: #fff0e8; font-size: 18px; font-weight: bold; margin-bottom: 8px;">
+        ${fullName} <span style="font-size: 12px; color: ${statusColor}; margin-left: 8px; vertical-align: middle;">${statusText}</span>
+      </div>
+      <div style="margin-bottom: 6px; color: #f0c1aa; font-size: 14px;"><strong>Email:</strong> ${email}</div>
+      <div style="margin-bottom: 6px; color: #dca892; font-size: 13px;"><strong>Contributor ID:</strong> ${contributorId}</div>
+      <div style="margin-bottom: 6px; color: #dca892; font-size: 13px;"><strong>Supabase User ID:</strong> ${supabaseUserId}</div>
+      <div style="margin-bottom: 6px; color: #dca892; font-size: 13px;"><strong>Created At:</strong> ${createdAt}</div>
+      <div style="margin-bottom: 12px; color: #dca892; font-size: 13px;"><strong>Updated At:</strong> ${updatedAt}</div>
+      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #845042; color: #ffe7dc; font-size: 14px; line-height: 1.5;">
+        <strong>Bio:</strong><br/>
+        ${bio}
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    this.contributorDetailsModal = modal;
+    this.updateSceneInputInteractivity();
+
+    const closeBtn = modal.querySelector('#close-contributor-details-btn');
+    closeBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.destroyContributorDetailsModal();
+    });
+  }
+
 
   updatePendingCount(count) {
     if (!this.reviewQueueModal) return;
@@ -637,8 +767,19 @@ export class AdminScene extends Phaser.Scene {
     this.updateSceneInputInteractivity();
   }
 
+  destroyContributorDetailsModal() {
+    if (this.contributorDetailsModal && this.contributorDetailsModal.parentNode) {
+      this.contributorDetailsModal.parentNode.removeChild(this.contributorDetailsModal);
+    }
+    this.contributorDetailsModal = null;
+    this.updateSceneInputInteractivity();
+  }
+
   updateSceneInputInteractivity() {
-    this.input.enabled = !this.reviewQueueModal && !this.contributorAccountsModal && !this.telemetryModal;
+    this.input.enabled = !this.reviewQueueModal && 
+                         !this.contributorAccountsModal && 
+                         !this.telemetryModal && 
+                         !this.contributorDetailsModal;
   }
 
   escapeHtml(value) {

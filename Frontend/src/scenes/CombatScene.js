@@ -75,6 +75,7 @@ export class CombatScene extends Phaser.Scene {
     this.remainingLifelines = 0;
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
+    this.eventAssist = null;
   }
 
   init(data) {
@@ -100,6 +101,7 @@ export class CombatScene extends Phaser.Scene {
     this.remainingLifelines = this.getInitialLifelineCount();
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
+    this.eventAssist = data?.eventAssist || null;
 
     this.monsterName = this.resolveMonsterKey(this.monsterData?.name);
     this.monsterKey = monsterRegistry[this.monsterName] || monsterRegistry.orc;
@@ -456,6 +458,7 @@ export class CombatScene extends Phaser.Scene {
     this.requiredAccuracyPercent = this.quizEncounter.requiredAccuracyPercent;
     this.startingMonsterHpPercent = this.quizEncounter.startingMonsterHpPercent;
     this.lossStreak = this.quizEncounter.lossStreak;
+    this.applyEventAssistModifiers();
     this.monsterHP = Phaser.Math.Clamp(this.startingMonsterHpPercent, 1, 100);
     this.damagePerCorrect = Math.max(1, Math.ceil(this.monsterHP / Math.max(1, this.requiredCorrectAnswers)));
     this.bossEncounter = Boolean(this.quizEncounter.bossEncounter);
@@ -466,9 +469,29 @@ export class CombatScene extends Phaser.Scene {
       `Answer ${this.requiredCorrectAnswers}/${this.totalQuestions} correctly (${this.requiredAccuracyPercent}%) to slay the monster.`
     );
     if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
+    if (this.eventAssist) this.addLog(`Map event assist active: ${this.eventAssist.label || 'authored modifier applied'}.`);
     if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
     if (this.bossEncounter) this.addLog('Boss encounter: perfect score required unless hearts save your mistakes.');
     this.renderCurrentQuestion();
+  }
+
+  applyEventAssistModifiers() {
+    if (!this.eventAssist || !this.quizEncounter?.questions?.length) return;
+
+    const questionReduction = Phaser.Math.Clamp(Number(this.eventAssist.questionReduction || 0), 0, 3);
+    if (questionReduction > 0 && this.quizEncounter.questions.length - questionReduction >= 4) {
+      this.quizEncounter.questions = this.quizEncounter.questions.slice(0, this.quizEncounter.questions.length - questionReduction);
+      this.totalQuestions = this.quizEncounter.questions.length;
+      this.quizEncounter.totalQuestions = this.totalQuestions;
+      this.requiredCorrectAnswers = Math.max(1, Math.ceil(this.totalQuestions * (this.requiredAccuracyPercent / 100)));
+      this.quizEncounter.requiredCorrectAnswers = this.requiredCorrectAnswers;
+    }
+
+    const hpOverride = Number(this.eventAssist.startingMonsterHpPercent || 0);
+    if (Number.isFinite(hpOverride) && hpOverride > 0) {
+      this.startingMonsterHpPercent = Phaser.Math.Clamp(hpOverride, 1, this.startingMonsterHpPercent);
+      this.quizEncounter.startingMonsterHpPercent = this.startingMonsterHpPercent;
+    }
   }
 
   normalizeQuizEncounter(payload) {

@@ -63,7 +63,4 @@ public class Content {
 
     @Column(name = "content_fingerprint")
     private String contentFingerprint;
-
-    @Column(name = "embedding_json")
-    private String embeddingJson;
 }

@@ -17,8 +17,6 @@ public interface ContentRepository extends JpaRepository<Content, UUID>{
 
     List<Content> findByContributorId(UUID contributorId);
 
-    List<Content> findByTopicAndStatusIn(Topic topic, List<Content.Status> statuses);
-
     Optional<Content> findFirstByContentFingerprintAndTopicAndStatusIn(
             String contentFingerprint,
             Topic topic,

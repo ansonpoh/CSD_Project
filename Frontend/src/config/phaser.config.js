@@ -5,7 +5,7 @@ import { WorldMapScene } from '../scenes/WorldMapScene.js';
 import { GameMapScene } from '../scenes/GameMapScene.js';
 import { CombatScene } from '../scenes/combat/CombatScene.js';
 import { ShopScene } from '../scenes/ShopScene.js';
-import { DialogueScene } from '../scenes/dialogue/index.js';
+import { DialogueScene } from '../scenes/dialogue/DialogueScene.js';
 import { UIScene } from '../scenes/UIScene.js';
 import { ContributorScene } from '../scenes/contributor/ContributorScene.js';
 import { AdminScene } from '../scenes/admin/AdminScene.js';
@@ -52,5 +52,6 @@ const config = {
 };
 
 export default config;
+
 
 

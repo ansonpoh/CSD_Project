@@ -4,7 +4,7 @@ import { LoginScene } from '../scenes/login/LoginScene.js';
 import { WorldMapScene } from '../scenes/WorldMapScene.js';
 import { GameMapScene } from '../scenes/game_map/GameMapScene.js';
 import { CombatScene } from '../scenes/combat/CombatScene.js';
-import { ShopScene } from '../scenes/ShopScene.js';
+import { ShopScene } from '../scenes/shop/ShopScene.js';
 import { DialogueScene } from '../scenes/dialogue/DialogueScene.js';
 import { UIScene } from '../scenes/UIScene.js';
 import { ContributorScene } from '../scenes/contributor/ContributorScene.js';

@@ -7,7 +7,7 @@ import { CombatScene } from '../scenes/combat_scene/CombatScene.js';
 import { ShopScene } from '../scenes/ShopScene.js';
 import { DialogueScene } from '../scenes/DialogueScene.js';
 import { UIScene } from '../scenes/UIScene.js';
-import { ContributorScene } from '../scenes/ContributorScene.js';
+import { ContributorScene } from '../scenes/contributor/ContributorScene.js';
 import { AdminScene } from '../scenes/admin/AdminScene.js';
 import { MapEditorScene } from '../scenes/MapEditorScene.js';
 import { SideChallengeScene } from '../scenes/SideChallengeScene.js';

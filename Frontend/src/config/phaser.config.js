@@ -9,7 +9,7 @@ import { DialogueScene } from '../scenes/dialogue/DialogueScene.js';
 import { UIScene } from '../scenes/UIScene.js';
 import { ContributorScene } from '../scenes/contributor/ContributorScene.js';
 import { AdminScene } from '../scenes/admin/AdminScene.js';
-import { MapEditorScene } from '../scenes/MapEditorScene.js';
+import { MapEditorScene } from '../scenes/map_editor/MapEditorScene.js';
 import { SideChallengeScene } from '../scenes/SideChallengeScene.js';
 
 const config = {

@@ -1,16 +1,16 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene.js';
 import { LoginScene } from '../scenes/login/LoginScene.js';
-import { WorldMapScene } from '../scenes/WorldMapScene.js';
+import { WorldMapScene } from '../scenes/world_map/WorldMapScene.js';
 import { GameMapScene } from '../scenes/game_map/GameMapScene.js';
 import { CombatScene } from '../scenes/combat/CombatScene.js';
 import { ShopScene } from '../scenes/shop/ShopScene.js';
 import { DialogueScene } from '../scenes/dialogue/DialogueScene.js';
-import { UIScene } from '../scenes/UIScene.js';
+import { UIScene } from '../scenes/ui/UIScene.js';
 import { ContributorScene } from '../scenes/contributor/ContributorScene.js';
 import { AdminScene } from '../scenes/admin/AdminScene.js';
 import { MapEditorScene } from '../scenes/map_editor/MapEditorScene.js';
-import { SideChallengeScene } from '../scenes/SideChallengeScene.js';
+import { SideChallengeScene } from '../scenes/side_challenge/SideChallengeScene.js';
 
 const config = {
   type: Phaser.AUTO,

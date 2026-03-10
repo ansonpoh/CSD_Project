@@ -3,6 +3,8 @@ import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry.js';
 import { soldier } from '../characters/soldier/Soldier.js';
+import { applyPlayerProfileToSprite } from '../services/playerProfile.js';
+import { dailyQuestService } from '../services/dailyQuests.js';
 
 const UI_FONT = 'Trebuchet MS, Verdana, sans-serif';
 
@@ -63,6 +65,7 @@ export class CombatScene extends Phaser.Scene {
     this.optionButtons = [];
     this.runBtn = null;
     this.answerLocked = false;
+    this.answerKeys = [];
 
     this.quizEncounter = null;
     this.totalQuestions = 0;
@@ -76,6 +79,7 @@ export class CombatScene extends Phaser.Scene {
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
     this.eventAssist = null;
+    this.preCombatHpBonus = 0;
   }
 
   init(data) {
@@ -102,6 +106,7 @@ export class CombatScene extends Phaser.Scene {
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
     this.eventAssist = data?.eventAssist || null;
+    this.preCombatHpBonus = Number(gameState.consumeActiveEffect('nextCombatHpBonus') || 0);
 
     this.monsterName = this.resolveMonsterKey(this.monsterData?.name);
     this.monsterKey = monsterRegistry[this.monsterName] || monsterRegistry.orc;
@@ -134,10 +139,20 @@ export class CombatScene extends Phaser.Scene {
     this.createQuizPanel(width, height);
     this.createActionButtons(width, height);
     this.createBattleLog(width, height);
+    this.bindAnswerKeys();
 
     this.addLog(`Encounter started against ${titleMonsterName}.`);
     this.addLog(`Hearts available: ${this.remainingLifelines}/3`);
+    if (this.preCombatHpBonus > 0) {
+      this.playerHP = Phaser.Math.Clamp(this.playerHP + this.preCombatHpBonus, 0, 150);
+      this.updateHealthBars();
+      this.addLog(`Prepared item effect: +${this.preCombatHpBonus} bonus HP this battle.`);
+    }
     await this.loadEncounterQuiz();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.answerKeys.forEach((key) => key?.destroy?.());
+      this.answerKeys = [];
+    });
   }
 
   drawBackdrop(width, height) {
@@ -343,9 +358,9 @@ export class CombatScene extends Phaser.Scene {
       this.monsterSprite = this.add.sprite(x, y, this.monsterKey.key, 0)
         .setScale(Math.max(this.monsterKey.scale, 2.2))
         .setDepth(10);
-      if (this.anims.exists(`${this.monsterName}_idle`)) {
+      if (this.canPlayAnim(`${this.monsterName}_idle`)) {
         this.monsterSprite.play(`${this.monsterName}_idle`, true);
-      } else if (this.anims.exists('orc_idle')) {
+      } else if (this.canPlayAnim('orc_idle')) {
         this.monsterSprite.play('orc_idle', true);
       }
     }
@@ -360,8 +375,9 @@ export class CombatScene extends Phaser.Scene {
       .setScale(Math.max(soldier.scale, 2.2))
       .setDepth(10)
       .setFlipX(false);
+    applyPlayerProfileToSprite(this.playerSprite, gameState.getPlayerProfile());
 
-    if (this.anims.exists('idle')) this.playerSprite.play('idle', true);
+    if (this.canPlayAnim('idle')) this.playerSprite.play('idle', true);
   }
 
   createPlayerAnimations() {
@@ -375,6 +391,11 @@ export class CombatScene extends Phaser.Scene {
         repeat: anim.repeat
       });
     });
+  }
+
+  canPlayAnim(key) {
+    const anim = this.anims.get(key);
+    return Boolean(anim && Array.isArray(anim.frames) && anim.frames.length > 0);
   }
 
   createHealthBars(width) {
@@ -644,6 +665,7 @@ export class CombatScene extends Phaser.Scene {
     this.answerLocked = true;
     this.setQuizOptionsEnabled(false);
     const isCorrect = selectedOptionIndex === question.correctOptionIndex;
+    this.showAnswerFeedback(selectedOptionIndex, isCorrect);
 
     if (isCorrect) {
       this.handleCorrectAnswer();
@@ -701,16 +723,16 @@ export class CombatScene extends Phaser.Scene {
 
     if (this.playerSprite && this.playerAttackAnims.length) {
       const attackAnim = Phaser.Utils.Array.GetRandom(this.playerAttackAnims);
-      this.playerSprite.play(attackAnim, true);
+      if (this.canPlayAnim(attackAnim)) this.playerSprite.play(attackAnim, true);
       this.playerSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.monsterHP > 0 && this.anims.exists('idle')) this.playerSprite.play('idle', true);
+        if (this.monsterHP > 0 && this.canPlayAnim('idle')) this.playerSprite.play('idle', true);
       });
     }
 
-    if (this.monsterSprite && this.anims.exists(`${this.monsterName}_hurt`)) {
+    if (this.monsterSprite && this.canPlayAnim(`${this.monsterName}_hurt`)) {
       this.monsterSprite.play(`${this.monsterName}_hurt`, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.monsterHP > 0 && this.anims.exists(`${this.monsterName}_idle`)) {
+        if (this.monsterHP > 0 && this.canPlayAnim(`${this.monsterName}_idle`)) {
           this.monsterSprite.play(`${this.monsterName}_idle`, true);
         }
       });
@@ -724,16 +746,16 @@ export class CombatScene extends Phaser.Scene {
   playMonsterCounterAttack() {
     const attackAnim = this.getRandomMonsterAttackAnim();
     if (this.monsterSprite && attackAnim) {
-      this.monsterSprite.play(attackAnim, true);
+      if (this.canPlayAnim(attackAnim)) this.monsterSprite.play(attackAnim, true);
       this.monsterSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.anims.exists(`${this.monsterName}_idle`)) this.monsterSprite.play(`${this.monsterName}_idle`, true);
+        if (this.canPlayAnim(`${this.monsterName}_idle`)) this.monsterSprite.play(`${this.monsterName}_idle`, true);
       });
     }
 
-    if (this.playerSprite && this.anims.exists('hurt')) {
+    if (this.playerSprite && this.canPlayAnim('hurt')) {
       this.playerSprite.play('hurt', true);
       this.playerSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-        if (this.playerHP > 0 && this.anims.exists('idle')) this.playerSprite.play('idle', true);
+        if (this.playerHP > 0 && this.canPlayAnim('idle')) this.playerSprite.play('idle', true);
       });
     }
 
@@ -847,12 +869,13 @@ export class CombatScene extends Phaser.Scene {
     this.runBtn?.setEnabled(false);
     await this.submitCombatResult(true);
 
-    if (this.monsterSprite && this.anims.exists(`${this.monsterName}_dead`)) {
+    if (this.monsterSprite && this.canPlayAnim(`${this.monsterName}_dead`)) {
       this.monsterSprite.play(`${this.monsterName}_dead`, true);
     }
 
     this.addLog('Victory! Quiz threshold cleared.');
     this.addLog('Return to the map and claim your quest reward.');
+    dailyQuestService.recordEvent('monster_defeated');
     this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'VICTORY!', {
       fontSize: '72px',
       fontStyle: 'bold',
@@ -860,6 +883,7 @@ export class CombatScene extends Phaser.Scene {
       stroke: '#060814',
       strokeThickness: 10
     }).setOrigin(0.5);
+    this.renderOutcomeSummary(true);
 
     this.time.delayedCall(2000, () => {
       this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
@@ -875,7 +899,7 @@ export class CombatScene extends Phaser.Scene {
     this.addLog('Retry assist will strengthen your next attempt.');
     void this.submitCombatResult(false);
 
-    if (this.playerSprite && this.anims.exists('dead')) this.playerSprite.play('dead', true);
+    if (this.playerSprite && this.canPlayAnim('dead')) this.playerSprite.play('dead', true);
 
     this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'DEFEAT', {
       fontSize: '72px',
@@ -884,6 +908,7 @@ export class CombatScene extends Phaser.Scene {
       stroke: '#060814',
       strokeThickness: 10
     }).setOrigin(0.5);
+    this.renderOutcomeSummary(false, reason);
 
     this.time.delayedCall(2200, () => {
       this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
@@ -929,5 +954,57 @@ export class CombatScene extends Phaser.Scene {
       (key) => key.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized
     );
     return match || 'orc';
+  }
+
+  bindAnswerKeys() {
+    const codes = [
+      Phaser.Input.Keyboard.KeyCodes.ONE,
+      Phaser.Input.Keyboard.KeyCodes.TWO,
+      Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR
+    ];
+
+    this.answerKeys = codes.map((code, index) => {
+      const key = this.input.keyboard.addKey(code);
+      key.on('down', () => {
+        if (this.optionButtons[index]?.container?.visible) {
+          void this.handleAnswerSelection(index);
+        }
+      });
+      return key;
+    });
+  }
+
+  showAnswerFeedback(selectedOptionIndex, isCorrect) {
+    const selected = this.optionButtons[selectedOptionIndex];
+    if (!selected) return;
+
+    const fill = isCorrect ? 0x1f6d34 : 0x7a1f2b;
+    const border = isCorrect ? 0x4ade80 : 0xf87171;
+    selected.draw(fill, border, 1);
+
+    this.time.delayedCall(300, () => {
+      if (!selected.container?.active) return;
+      selected.draw(selected.fillNormal, selected.borderColor, 0.45);
+    });
+  }
+
+  renderOutcomeSummary(won, reason = '') {
+    const answered = Math.max(1, this.currentQuestionIndex);
+    const accuracy = Math.round((this.correctAnswers / answered) * 100);
+    const summary = [
+      `Correct: ${this.correctAnswers}/${this.totalQuestions}`,
+      `Accuracy: ${accuracy}%`,
+      `Hearts left: ${this.remainingLifelines}/3`,
+      won ? 'Reward ready on the map.' : reason
+    ].join('\n');
+
+    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 92, summary, {
+      fontSize: '24px',
+      align: 'center',
+      color: P.textMain,
+      stroke: '#060814',
+      strokeThickness: 5
+    }).setOrigin(0.5);
   }
 }

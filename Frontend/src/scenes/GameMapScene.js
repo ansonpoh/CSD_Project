@@ -5,6 +5,8 @@ import { apiService } from "../services/api.js";
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry.js';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry.js';
 import { mapDiscoveryService } from '../services/mapDiscovery.js';
+import { dailyQuestService } from '../services/dailyQuests.js';
+import { getChallengeSnapshot } from '../services/sideChallenges.js';
 
 const HUD = {
   panelBg: 0x0d1530,
@@ -37,6 +39,7 @@ export class GameMapScene extends Phaser.Scene {
     this.closestNpcSprite = null;
     this.npcInteractDistance = 120;
     this.map = null;
+    this.collisionBodies = [];
     this.npcMonsterMap = new Map();
     this.monsterSpriteByNpcKey = new Map();
     this.revealedMonsterNpcKeys = new Set();
@@ -51,6 +54,7 @@ export class GameMapScene extends Phaser.Scene {
     this.mapBannerText = null;
     this.mapSignalText = null;
     this.mapEventButton = null;
+    this.sideChallengeButton = null;
     this.eventOverlay = null;
     this.eventPanel = null;
     this.mapCompletionRecorded = false;
@@ -64,6 +68,7 @@ export class GameMapScene extends Phaser.Scene {
     this.monsters = [];
     this.npcSprites = [];
     this.monsterSprites = [];
+    this.collisionBodies = [];
     this.npcMonsterMap = new Map();
     this.monsterSpriteByNpcKey = new Map();
     this.revealedMonsterNpcKeys = new Set();
@@ -78,6 +83,7 @@ export class GameMapScene extends Phaser.Scene {
     this.mapBannerText = null;
     this.mapSignalText = null;
     this.mapEventButton = null;
+    this.sideChallengeButton = null;
     this.eventOverlay = null;
     this.eventPanel = null;
     this.mapCompletionRecorded = false;
@@ -113,6 +119,11 @@ export class GameMapScene extends Phaser.Scene {
     if (this.collisionLayers?.length) {
       this.collisionLayers.forEach((layer) => {
         this.physics.add.collider(this.playerCtrl.sprite, layer);
+      });
+    }
+    if (this.collisionBodies?.length) {
+      this.collisionBodies.forEach((body) => {
+        this.physics.add.collider(this.playerCtrl.sprite, body);
       });
     }
     // this.createPlayer();
@@ -223,6 +234,7 @@ export class GameMapScene extends Phaser.Scene {
     const mapKey = this.mapConfig?.mapKey;
     if (!mapKey) {
       console.error('Missing mapKey in mapConfig:', this.mapConfig);
+      this.createFallbackArena();
       return;
     }
 
@@ -230,9 +242,13 @@ export class GameMapScene extends Phaser.Scene {
       this.map = this.make.tilemap({ key: mapKey });
     } catch (e) {
       console.error('Failed to load tilemap:', mapKey, e);
+      this.createFallbackArena();
       return;
     }
-    if (!this.map?.tilesets?.length) return;
+    if (!this.map?.tilesets?.length) {
+      this.createFallbackArena();
+      return;
+    }
     const jsonSets = this.cache.tilemap.get(mapKey)?.data?.tilesets || [];
     const tilesets = [];
     for (const ts of this.map.tilesets) {
@@ -244,11 +260,46 @@ export class GameMapScene extends Phaser.Scene {
       }
     }
     this.collisionLayers = [];
+    this.collisionBodies = [];
     this.map.layers.forEach((ld) => {
       const layer = this.map.createLayer(ld.name, tilesets, 0, 0);
       if (!layer) return;
+      const shouldCollideByName = /collision|collide|wall|blocked|barrier/i.test(String(ld.name || ''));
       layer.setCollisionByProperty({ collides: true });
-      this.collisionLayers.push(layer);
+      if (shouldCollideByName) {
+        layer.setCollisionByExclusion([-1]);
+      }
+      if (shouldCollideByName || layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true)) {
+        this.collisionLayers.push(layer);
+      }
+    });
+  }
+
+  createFallbackArena() {
+    const arenaWidth = 2200;
+    const arenaHeight = 1400;
+    this.map = {
+      widthInPixels: arenaWidth,
+      heightInPixels: arenaHeight
+    };
+    this.collisionLayers = [];
+    this.collisionBodies = [];
+
+    this.add.rectangle(arenaWidth / 2, arenaHeight / 2, arenaWidth, arenaHeight, 0x213a24).setDepth(-20);
+
+    const wallDefs = [
+      { x: arenaWidth / 2, y: 20, w: arenaWidth, h: 40 },
+      { x: arenaWidth / 2, y: arenaHeight - 20, w: arenaWidth, h: 40 },
+      { x: 20, y: arenaHeight / 2, w: 40, h: arenaHeight },
+      { x: arenaWidth - 20, y: arenaHeight / 2, w: 40, h: arenaHeight },
+      { x: arenaWidth / 2, y: arenaHeight / 2, w: 180, h: 220 },
+      { x: arenaWidth / 2 + 380, y: arenaHeight / 2 - 180, w: 160, h: 160 }
+    ];
+
+    wallDefs.forEach((wall) => {
+      const rect = this.add.rectangle(wall.x, wall.y, wall.w, wall.h, 0x314d38, 1).setDepth(-10);
+      this.physics.add.existing(rect, true);
+      this.collisionBodies.push(rect);
     });
   }
 
@@ -580,6 +631,15 @@ export class GameMapScene extends Phaser.Scene {
       () => this.openMapEventPanel()
     );
 
+    this.sideChallengeButton = makeHudBtn(
+      172,
+      340,
+      'DUEL',
+      0x28491f,
+      0x3c6d2c,
+      () => this.openSideChallenge()
+    );
+
     const questX = width - 290;
     const questY = 160;
     const questW = 250;
@@ -715,6 +775,11 @@ export class GameMapScene extends Phaser.Scene {
 
   encounterMonster(monster) {
     const npcId = monster?.npcId || null;
+    const npcKey = npcId ? String(npcId) : null;
+    if (npcKey && !this.isMonsterInteractableForNpcKey(npcKey)) {
+      this.showMapToast('Clear the current quest step before facing this monster.');
+      return;
+    }
     if (npcId) {
       const progress = this.encounterProgressByNpcKey.get(String(npcId));
       if (progress?.monsterDefeated) {
@@ -742,7 +807,7 @@ export class GameMapScene extends Phaser.Scene {
   }
 
   update() {
-    this.playerCtrl.update();
+    this.playerCtrl?.update?.();
     this.updateNpcInteraction();
 
     // Update NPC name positions
@@ -950,6 +1015,7 @@ export class GameMapScene extends Phaser.Scene {
     const progress = this.encounterProgressByNpcKey.get(npcKey);
     const nameText = monsterSprite.getData('nameText');
     const baseLabel = monsterSprite.getData('baseLabel') || monsterSprite.getData('monster')?.name || 'Monster';
+    const interactable = this.isMonsterInteractableForNpcKey(npcKey);
 
     if (progress?.monsterDefeated) {
       monsterSprite.setTint(0x97b59d);
@@ -964,13 +1030,25 @@ export class GameMapScene extends Phaser.Scene {
 
     monsterSprite.clearTint();
     if (nameText) {
-      nameText.setText(baseLabel);
-      nameText.setColor('#ffe8cc');
+      nameText.setText(interactable ? baseLabel : `${baseLabel} [LOCKED]`);
+      nameText.setColor(interactable ? '#ffe8cc' : '#c0a8e0');
     }
-    if (monsterSprite.visible) {
+    if (monsterSprite.visible && interactable) {
       monsterSprite.setInteractive({ useHandCursor: true });
       if (monsterSprite.body) monsterSprite.body.enable = true;
+    } else {
+      monsterSprite.disableInteractive();
+      if (monsterSprite.body) monsterSprite.body.enable = false;
+      monsterSprite.setTint(0x6f7392);
     }
+  }
+
+  isMonsterInteractableForNpcKey(npcKey) {
+    const activeQuest = this.getActiveQuest();
+    if (!activeQuest) return true;
+    const progress = this.encounterProgressByNpcKey.get(npcKey);
+    if (progress?.monsterDefeated || progress?.rewardClaimed) return true;
+    return activeQuest.npcKey === npcKey;
   }
 
   shouldMonsterBeUnlockedForNpc(npc) {
@@ -1050,6 +1128,14 @@ export class GameMapScene extends Phaser.Scene {
     this.updateMissionPanel();
     this.updateQuestPanel();
     this.refreshMapSignalPanel();
+  }
+
+  openSideChallenge() {
+    const snapshot = getChallengeSnapshot(this.mapConfig);
+    const suffix = snapshot.completed ? ' Practice mode only.' : '';
+    this.showMapToast(`${snapshot.challenge.title} ready.${suffix}`, 1200);
+    this.scene.launch('SideChallengeScene', { mapConfig: this.mapConfig });
+    this.scene.pause();
   }
 
   processQueuedMonsterSpawns() {
@@ -1238,6 +1324,7 @@ export class GameMapScene extends Phaser.Scene {
       this.updateQuestPanel();
       this.refreshMapSignalPanel();
       const xp = Number(result?.xpAwarded || 0);
+      dailyQuestService.recordEvent('reward_claimed');
       this.showMapToast(xp > 0 ? `Reward claimed: +${xp} XP` : 'Reward already claimed');
     } catch (error) {
       const message = error?.response?.data?.message || error?.message || 'Reward claim failed';
@@ -1275,6 +1362,7 @@ export class GameMapScene extends Phaser.Scene {
     if (!this.mapBannerText || !this.mapSignalText) return;
     const event = this.mapConfig?.event;
     const lastChoice = this.mapConfig?.playerState?.lastChoice;
+    const challenge = getChallengeSnapshot(this.mapConfig);
     const lines = [
       `${this.mapConfig?.theme || this.mapConfig?.name || 'Map'}  |  ${this.mapConfig?.difficulty || 'Adaptive'}`,
       `${this.mapConfig?.creatorName || 'Unknown creator'} [${this.mapConfig?.creatorBadge || 'Builder'}]`,
@@ -1289,9 +1377,12 @@ export class GameMapScene extends Phaser.Scene {
       lines.push('No special event on this route.');
     }
 
+    lines.push(`Side challenge: ${challenge.challenge.title}${challenge.completed ? ' [CLEARED]' : ' [READY]'}`);
+
     this.mapBannerText.setText(this.mapConfig?.name || 'Current Gate');
     this.mapSignalText.setText(lines.join('\n'));
     this.mapEventButton?.setEnabled(Boolean(event) && !Boolean(lastChoice?.optionId));
+    this.sideChallengeButton?.setEnabled(true);
   }
 
   openMapEventPanel() {

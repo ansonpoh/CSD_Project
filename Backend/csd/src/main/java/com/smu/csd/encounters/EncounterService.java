@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -16,6 +15,7 @@ import com.smu.csd.monsters.Monster;
 import com.smu.csd.monsters.MonsterService;
 import com.smu.csd.npcs.NPCService;
 import com.smu.csd.npcs.npc_map.NPCMapLessonResponse;
+import com.smu.csd.redis.RedisExecutor;
 import com.smu.csd.roles.learner.Learner;
 import com.smu.csd.roles.learner.LearnerRepository;
 
@@ -42,19 +42,22 @@ public class EncounterService {
     private final MonsterService monsterService;
     private final LearnerRepository learnerRepository;
     private final LeaderboardService leaderboardService;
+    private final RedisExecutor redisExecutor;
 
     public EncounterService(
         StringRedisTemplate redisTemplate,
         NPCService npcService,
         MonsterService monsterService,
         LearnerRepository learnerRepository,
-        LeaderboardService leaderboardService
+        LeaderboardService leaderboardService,
+        RedisExecutor redisExecutor
     ) {
         this.redisTemplate = redisTemplate;
         this.npcService = npcService;
         this.monsterService = monsterService;
         this.learnerRepository = learnerRepository;
         this.leaderboardService = leaderboardService;
+        this.redisExecutor = redisExecutor;
     }
 
     public EncounterStateResponse getEncounterState(UUID mapId, UUID supabaseUserId) {
@@ -84,7 +87,11 @@ public class EncounterService {
         Map<UUID, Monster> monsterLookup = new HashMap<>();
         monsters.forEach(monster -> monsterLookup.put(monster.getMonster_id(), monster));
 
-        Map<Object, Object> overrides = redisTemplate.opsForHash().entries(pairKey(mapId));
+        Map<Object, Object> overrides = redisExecutor.execute(
+            "encounter pair lookup",
+            () -> redisTemplate.opsForHash().entries(pairKey(mapId)),
+            HashMap::new
+        );
         List<EncounterPairResponse> pairs = new ArrayList<>();
 
         for (int i = 0; i < npcs.size(); i++) {
@@ -127,6 +134,7 @@ public class EncounterService {
         if (mapId == null || npcId == null || monsterId == null) {
             throw new IllegalArgumentException("mapId, npcId and monsterId are required.");
         }
+        requireEncounterStoreAvailability("encounter pair updates", mapId);
 
         boolean npcExists = npcService.getNPCsByMapId(mapId).stream()
             .anyMatch(npc -> npcId.equals(npc.npcId()));
@@ -136,7 +144,10 @@ public class EncounterService {
         if (!npcExists) throw new IllegalArgumentException("NPC does not belong to this map.");
         if (!monsterExists) throw new IllegalArgumentException("Monster does not belong to this map.");
 
-        redisTemplate.opsForHash().put(pairKey(mapId), npcId.toString(), monsterId.toString());
+        boolean assigned = redisExecutor.tryRun("encounter pair updates", () ->
+            redisTemplate.opsForHash().put(pairKey(mapId), npcId.toString(), monsterId.toString())
+        );
+        if (!assigned) throw redisExecutor.unavailable("encounter pair updates");
         return getPairs(mapId).stream()
             .filter(pair -> npcId.equals(pair.npcId()))
             .findFirst()
@@ -144,6 +155,7 @@ public class EncounterService {
     }
 
     public EncounterProgressResponse markNpcInteracted(UUID mapId, UUID npcId, UUID supabaseUserId) {
+        requireEncounterStoreAvailability("encounter progress writes", mapId);
         Learner learner = requireLearner(supabaseUserId);
         EncounterPairResponse pair = requirePair(mapId, npcId, null);
         EncounterProgressResponse current = readProgress(learner.getLearnerId(), mapId, pair.npcId(), pair.monsterId());
@@ -172,6 +184,7 @@ public class EncounterService {
         if (request == null || request.mapId() == null) {
             throw new IllegalArgumentException("mapId is required for combat result.");
         }
+        requireEncounterStoreAvailability("encounter progress writes", request.mapId());
         Learner learner = requireLearner(supabaseUserId);
         boolean won = Boolean.TRUE.equals(request.won());
         EncounterPairResponse pair = requirePair(request.mapId(), request.npcId(), request.monsterId());
@@ -207,6 +220,7 @@ public class EncounterService {
     }
 
     public EncounterRewardClaimResponse claimReward(UUID mapId, UUID monsterId, UUID supabaseUserId) {
+        requireEncounterStoreAvailability("encounter reward claims", mapId);
         Learner learner = requireLearner(supabaseUserId);
         EncounterPairResponse pair = requirePair(mapId, null, monsterId);
         EncounterProgressResponse current = readProgress(
@@ -285,7 +299,11 @@ public class EncounterService {
 
     public EncounterTelemetryDashboardResponse getTelemetryDashboard(UUID mapId) {
         String key = mapId == null ? TELEMETRY_GLOBAL_KEY : telemetryMapKey(mapId);
-        Map<Object, Object> raw = redisTemplate.opsForHash().entries(key);
+        Map<Object, Object> raw = redisExecutor.execute(
+            "encounter telemetry read",
+            () -> redisTemplate.opsForHash().entries(key),
+            HashMap::new
+        );
 
         long mapEntered = readLong(raw, "map_entered");
         long npcInteracted = readLong(raw, "npc_interacted");
@@ -321,20 +339,13 @@ public class EncounterService {
 
     private EncounterProgressResponse readProgress(UUID learnerId, UUID mapId, UUID npcId, UUID fallbackMonsterId) {
         String key = progressKey(learnerId, mapId, npcId);
-        Map<Object, Object> values = redisTemplate.opsForHash().entries(key);
+        Map<Object, Object> values = redisExecutor.execute(
+            "encounter progress read",
+            () -> redisTemplate.opsForHash().entries(key),
+            HashMap::new
+        );
         if (values == null || values.isEmpty()) {
-            return new EncounterProgressResponse(
-                npcId,
-                fallbackMonsterId,
-                false,
-                false,
-                false,
-                false,
-                0,
-                0,
-                0,
-                0
-            );
+            return defaultProgress(npcId, fallbackMonsterId);
         }
 
         UUID monsterId = parseUUID(values.get(FIELD_MONSTER_ID));
@@ -356,23 +367,28 @@ public class EncounterService {
 
     private void saveProgress(UUID learnerId, UUID mapId, EncounterProgressResponse progress) {
         String key = progressKey(learnerId, mapId, progress.npcId());
-        redisTemplate.opsForHash().put(key, FIELD_MONSTER_ID, asString(progress.monsterId()));
-        redisTemplate.opsForHash().put(key, FIELD_NPC_INTERACTED, String.valueOf(progress.npcInteracted()));
-        redisTemplate.opsForHash().put(key, FIELD_MONSTER_UNLOCKED, String.valueOf(progress.monsterUnlocked()));
-        redisTemplate.opsForHash().put(key, FIELD_MONSTER_DEFEATED, String.valueOf(progress.monsterDefeated()));
-        redisTemplate.opsForHash().put(key, FIELD_REWARD_CLAIMED, String.valueOf(progress.rewardClaimed()));
-        redisTemplate.opsForHash().put(key, FIELD_ATTEMPTS, String.valueOf(progress.attempts()));
-        redisTemplate.opsForHash().put(key, FIELD_WINS, String.valueOf(progress.wins()));
-        redisTemplate.opsForHash().put(key, FIELD_LOSSES, String.valueOf(progress.losses()));
-        redisTemplate.opsForHash().put(key, FIELD_LOSS_STREAK, String.valueOf(progress.lossStreak()));
-        redisTemplate.opsForSet().add(progressIndexKey(learnerId, mapId), progress.npcId().toString());
+        boolean saved = redisExecutor.tryRun("encounter progress writes", () -> {
+            redisTemplate.opsForHash().put(key, FIELD_MONSTER_ID, asString(progress.monsterId()));
+            redisTemplate.opsForHash().put(key, FIELD_NPC_INTERACTED, String.valueOf(progress.npcInteracted()));
+            redisTemplate.opsForHash().put(key, FIELD_MONSTER_UNLOCKED, String.valueOf(progress.monsterUnlocked()));
+            redisTemplate.opsForHash().put(key, FIELD_MONSTER_DEFEATED, String.valueOf(progress.monsterDefeated()));
+            redisTemplate.opsForHash().put(key, FIELD_REWARD_CLAIMED, String.valueOf(progress.rewardClaimed()));
+            redisTemplate.opsForHash().put(key, FIELD_ATTEMPTS, String.valueOf(progress.attempts()));
+            redisTemplate.opsForHash().put(key, FIELD_WINS, String.valueOf(progress.wins()));
+            redisTemplate.opsForHash().put(key, FIELD_LOSSES, String.valueOf(progress.losses()));
+            redisTemplate.opsForHash().put(key, FIELD_LOSS_STREAK, String.valueOf(progress.lossStreak()));
+            redisTemplate.opsForSet().add(progressIndexKey(learnerId, mapId), progress.npcId().toString());
+        });
+        if (!saved) throw redisExecutor.unavailable("encounter progress writes");
     }
 
     private void incrementTelemetry(UUID mapId, String field) {
-        redisTemplate.opsForHash().increment(TELEMETRY_GLOBAL_KEY, field, 1);
-        if (mapId != null) {
-            redisTemplate.opsForHash().increment(telemetryMapKey(mapId), field, 1);
-        }
+        redisExecutor.run("encounter telemetry updates", () -> {
+            redisTemplate.opsForHash().increment(TELEMETRY_GLOBAL_KEY, field, 1);
+            if (mapId != null) {
+                redisTemplate.opsForHash().increment(telemetryMapKey(mapId), field, 1);
+            }
+        });
     }
 
     private String pairKey(UUID mapId) {
@@ -395,6 +411,25 @@ public class EncounterService {
         Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
         if (learner == null) throw new IllegalArgumentException("Learner profile not found for current user.");
         return learner;
+    }
+
+    private void requireEncounterStoreAvailability(String operation, UUID mapId) {
+        redisExecutor.requireAvailable(operation, () -> redisTemplate.hasKey(pairKey(mapId)));
+    }
+
+    private EncounterProgressResponse defaultProgress(UUID npcId, UUID fallbackMonsterId) {
+        return new EncounterProgressResponse(
+            npcId,
+            fallbackMonsterId,
+            false,
+            false,
+            false,
+            false,
+            0,
+            0,
+            0,
+            0
+        );
     }
 
     private boolean readBoolean(Map<Object, Object> values, String field) {

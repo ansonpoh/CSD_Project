@@ -3,6 +3,9 @@ import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
 import { soldier } from '../characters/soldier/Soldier.js';
 import { mapDiscoveryService } from '../services/mapDiscovery.js';
+import { applyPlayerProfileToSprite, getDefaultPlayerProfile } from '../services/playerProfile.js';
+import { dailyQuestService } from '../services/dailyQuests.js';
+import { loadSharedUiAssets } from '../services/uiAssets.js';
 
 const P = {
   btnNormal: 0x2a0f42,
@@ -43,26 +46,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   preload() {
-    if (!this.textures.exists('ui-panel-a')) {
-      this.load.spritesheet('ui-panel-a', 'assets/ui_set/20250420manaSoul9SlicesA-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-header-a')) {
-      this.load.spritesheet('ui-header-a', 'assets/ui_set/20250420manaSoulHeaderA-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-arrow-r')) {
-      this.load.spritesheet('ui-arrow-r', 'assets/ui_set/20250425rightArrow-Sheet.png', {
-        frameWidth: 28,
-        frameHeight: 14
-      });
-    }
+    loadSharedUiAssets(this, { includeArrow: true });
 
     const { cloudSet, cloudLayerCount } = this.getCloudConfigForCurrentTime();
     this.cloudSet = cloudSet;
@@ -275,11 +259,15 @@ export class WorldMapScene extends Phaser.Scene {
     const joined = joinedRaw ? new Date(joinedRaw).toLocaleDateString() : 'Unknown';
     const totalCompletions = this.catalog.reduce((sum, map) => sum + (map.playerState?.completions || 0), 0);
     const likedCount = this.catalog.filter((map) => map.playerState?.liked).length;
+    const profile = gameState.getPlayerProfile() || getDefaultPlayerProfile();
+    const dailySnapshot = dailyQuestService.getSnapshot();
     const stats = [
       { label: 'Name', value: learner.username ?? 'Unknown' },
+      { label: 'Style', value: profile.label },
       { label: 'Level', value: learner.level ?? 1 },
       { label: 'Total XP', value: learner.total_xp ?? learner.totalXp ?? 0 },
       { label: 'Runs Cleared', value: totalCompletions },
+      { label: 'Daily Streak', value: `${dailySnapshot.streak || 0} day(s)` },
       { label: 'Liked Maps', value: likedCount },
       { label: 'Joined', value: joined }
     ];
@@ -359,6 +347,7 @@ export class WorldMapScene extends Phaser.Scene {
     const avatarY = panel.height - 110;
     const avatar = this.add.sprite(panel.width / 2, avatarY, soldier.sheetKey, 0).setScale(3.2);
     avatar.play('wm_soldier_idle');
+    applyPlayerProfileToSprite(avatar, profile);
     c.add(avatar);
 
     this.tweens.add({
@@ -371,7 +360,7 @@ export class WorldMapScene extends Phaser.Scene {
     });
 
     const glow = this.add.graphics();
-    glow.fillStyle(0x4193d5, 0.12);
+    glow.fillStyle(profile.tint, 0.18);
     glow.fillEllipse(panel.width / 2, avatarY + 28, 80, 20);
     c.add(glow);
   }
@@ -502,6 +491,7 @@ export class WorldMapScene extends Phaser.Scene {
       { label: 'Topic', value: map.recommendedTopic },
       { label: 'Unlock', value: map.unlockText }
     ];
+    const dailySnapshot = dailyQuestService.getSnapshot();
 
     let y = 18;
     c.add(this.add.text(pad, y, map.name, {
@@ -575,6 +565,18 @@ export class WorldMapScene extends Phaser.Scene {
       }));
       recY += 28;
     });
+
+    const questLines = dailySnapshot.quests.map((quest) => {
+      const marker = quest.completed ? '[x]' : '[ ]';
+      return `${marker} ${quest.label} (${Math.min(quest.progress, quest.goal)}/${quest.goal})`;
+    });
+    c.add(this.add.text(panel.width - pad, panel.height - 112, `Daily Quests\n${questLines.join('\n')}`, {
+      fontSize: '12px',
+      align: 'right',
+      color: P.textMain,
+      stroke: '#060814',
+      strokeThickness: 3
+    }).setOrigin(1, 0));
   }
 
   populateCommunityPanel(panel) {

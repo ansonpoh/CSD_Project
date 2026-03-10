@@ -3,6 +3,9 @@ import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
 import { supabase } from '../config/supabaseClient.js';
 import { soldier } from '../characters/soldier/Soldier.js';
+import { applyPlayerProfileToSprite, getDefaultPlayerProfile } from '../services/playerProfile.js';
+import { resolveItemEffect } from '../services/itemEffects.js';
+import { loadSharedUiAssets } from '../services/uiAssets.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -18,31 +21,10 @@ export class UIScene extends Phaser.Scene {
   }
 
   preload() {
-    if (!this.textures.exists('ui-panel-a')) {
-      this.load.spritesheet('ui-panel-a', 'assets/ui_set/20250420manaSoul9SlicesA-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-header-a')) {
-      this.load.spritesheet('ui-header-a', 'assets/ui_set/20250420manaSoulHeaderA-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-close-btn')) {
-      this.load.spritesheet('ui-close-btn', 'assets/ui_set/20250425closeButton-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-portrait-frame')) {
-      this.load.image('ui-portrait-frame', 'assets/ui_set/20250425portraitFrame-Sheet.png');
-    }
-
+    loadSharedUiAssets(this, {
+      includeClose: true,
+      includePortrait: true
+    });
   }
 
   create() {
@@ -137,6 +119,7 @@ export class UIScene extends Phaser.Scene {
     // ── Leaderboard button ──────────────────────────────────────────────────
     const lbX = this.usernameText.x + this.usernameText.width + 80;
     makeHudBtn(lbX + 56, 29, 112, 30, 'Leaderboard', 0x1a2a52, 0x2a4278, () => this.showLeaderboard());
+    makeHudBtn(lbX + 178, 29, 92, 30, 'Profile', 0x17324f, 0x24507b, () => this.showUserProfile());
 
     // ── INV button ──────────────────────────────────────────────────────────
     makeHudBtn(width - 52, 29, 56, 30, 'INV', 0x1e1040, 0x2d1860, () => this.showInventory());
@@ -426,10 +409,8 @@ export class UIScene extends Phaser.Scene {
         P.btnSuccess, P.btnSuccessHov, 0x22a855,
         async () => {
           try {
-            const itemId = item.itemId || item.item_id;
-            if (!itemId) return;
-            const updated = await apiService.removeInventoryItem(itemId, 1);
-            gameState.setInventory(updated);
+            const result = await this.consumeInventoryItem(item);
+            if (!result) return;
             cleanup();
             this.showInventory();
           } catch (e) {
@@ -747,6 +728,7 @@ export class UIScene extends Phaser.Scene {
       .setScale(2.85)
       .setDepth(depth + 3);
     character.play('idle');
+    applyPlayerProfileToSprite(character, gameState.getPlayerProfile() || getDefaultPlayerProfile());
     nodes.push(character);
 
     const glow = this.add.circle(width / 2, height / 2 + 96, 58, 0x6cc0ff, 0.24)
@@ -872,6 +854,71 @@ export class UIScene extends Phaser.Scene {
     nodes.push(headerLeft, headerRight);
   }
 
+  async consumeInventoryItem(item) {
+    const itemId = item?.itemId || item?.item_id;
+    if (!itemId) return false;
+
+    const effect = this.resolveItemEffect(item);
+    if (!effect.usable) {
+      this.showQuickToast(effect.message || 'This item activates automatically during encounters.');
+      return false;
+    }
+
+    const updated = await apiService.removeInventoryItem(itemId, 1);
+    gameState.setInventory(updated);
+
+    if (effect.xpGain > 0) {
+      gameState.updateXP(effect.xpGain);
+    }
+
+    if (effect.nextCombatHpBonus > 0) {
+      const current = gameState.getActiveEffects();
+      const existing = Number(current.nextCombatHpBonus || 0);
+      gameState.setActiveEffects({
+        ...current,
+        nextCombatHpBonus: existing + effect.nextCombatHpBonus
+      });
+    }
+
+    if (effect.assistCharges > 0) {
+      const currentMap = gameState.getCurrentMap();
+      if (currentMap) {
+        const playerState = {
+          ...(currentMap.playerState || {}),
+          assistCharges: Math.max(0, Number(currentMap.playerState?.assistCharges || 0) + effect.assistCharges)
+        };
+        gameState.setCurrentMap({
+          ...currentMap,
+          playerState
+        });
+      }
+    }
+
+    this.showQuickToast(effect.message);
+    return true;
+  }
+
+  resolveItemEffect(item) {
+    return resolveItemEffect(item);
+  }
+
+  showQuickToast(message) {
+    const toast = this.add.text(this.cameras.main.width / 2, 84, message, {
+      fontSize: '14px',
+      color: '#fff3ed',
+      backgroundColor: '#2b1835',
+      padding: { x: 12, y: 8 }
+    }).setOrigin(0.5).setDepth(1400);
+
+    this.tweens.add({
+      targets: toast,
+      alpha: 0,
+      y: toast.y - 10,
+      duration: 1600,
+      onComplete: () => toast.destroy()
+    });
+  }
+
   ensureProfileIdleAnimation() {
     if (this.anims.exists('idle')) return;
 
@@ -886,9 +933,11 @@ export class UIScene extends Phaser.Scene {
   }
 
   getPrimaryLeftStats(learner) {
+    const profile = gameState.getPlayerProfile() || getDefaultPlayerProfile();
     return [
       ['Username', learner.username ?? 'Unknown'],
       ['Full Name', learner.full_name ?? learner.fullName ?? 'Unknown'],
+      ['Style', profile.label],
       ['Email', learner.email ?? 'Unknown'],
       ['User ID', learner.learnerId ?? learner.id ?? 'N/A']
     ];

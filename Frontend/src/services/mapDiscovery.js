@@ -1,3 +1,5 @@
+import { loadJsonFromStorage, saveJsonToStorage } from './storage.js';
+
 const STORAGE_KEY = 'mapDiscoveryState';
 
 const DEFAULT_THEMES = [
@@ -172,22 +174,11 @@ const DEFAULT_THEMES = [
 ];
 
 function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) || {};
-  } catch (error) {
-    console.error('Failed to load map discovery state:', error);
-    return {};
-  }
+  return loadJsonFromStorage(STORAGE_KEY, {}, 'map discovery state');
 }
 
 function saveState(state) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.error('Failed to save map discovery state:', error);
-  }
+  return saveJsonToStorage(STORAGE_KEY, state, 'map discovery state');
 }
 
 function toNumber(value, fallback = 0) {

@@ -656,9 +656,11 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   enterMap(map) {
+    const isEditorMap = String(map?.asset || '').startsWith('editor-draft:');
     const normalizedMap = {
       ...map,
-      mapKey: map.mapKey || this.resolveMapKey(map)
+      mapKey: isEditorMap ? null : (map.mapKey || this.resolveMapKey(map)),
+      isEditorMap
     };
     gameState.setCurrentMap(normalizedMap);
     this.scene.start('GameMapScene', { mapConfig: normalizedMap });
@@ -666,6 +668,7 @@ export class WorldMapScene extends Phaser.Scene {
 
   resolveMapKey(map) {
     const raw = String(map?.mapKey || map?.asset || map?.name || '').toLowerCase();
+    if (raw.startsWith('editor-draft:')) return null;
     if (raw === 'map1' || raw.includes('forest'))   return 'map1';
     if (raw === 'map2' || raw.includes('cave'))     return 'map2';
     if (raw === 'map3' || raw.includes('mountain')) return 'map3';

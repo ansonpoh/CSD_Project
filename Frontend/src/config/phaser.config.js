@@ -3,7 +3,7 @@ import { BootScene } from '../scenes/BootScene.js';
 import { LoginScene } from '../scenes/LoginScene.js';
 import { WorldMapScene } from '../scenes/WorldMapScene.js';
 import { GameMapScene } from '../scenes/GameMapScene.js';
-import { CombatScene } from '../scenes/CombatScene.js';
+import { CombatScene } from '../scenes/combat_scene/CombatScene.js';
 import { ShopScene } from '../scenes/ShopScene.js';
 import { DialogueScene } from '../scenes/DialogueScene.js';
 import { UIScene } from '../scenes/UIScene.js';

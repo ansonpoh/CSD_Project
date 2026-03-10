@@ -1,0 +1,255 @@
+import Phaser from 'phaser';
+import { gameState } from '../../services/gameState.js';
+import { apiService } from '../../services/api.js';
+import { dailyQuestService } from '../../services/dailyQuests.js';
+import { monsterRegistry } from '../../characters/monsters/MonsterRegistry.js';
+import { combatSceneEntityMethods } from './entities.js';
+import { MAX_LIFELINES, P, UI_FONT } from './constants.js';
+import { combatSceneQuizMethods } from './quiz/index.js';
+import { combatSceneUiMethods } from './ui/index.js';
+
+export class CombatScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'CombatScene' });
+    this.monsterData = null;
+    this.mapId = null;
+    this.npcId = null;
+    this.monsterName = 'orc';
+    this.monsterKey = monsterRegistry.orc;
+    this.bossEncounter = false;
+    this.submittedCombatResult = false;
+
+    this.playerHP = 100;
+    this.monsterHP = 100;
+    this.playerHPBar = null;
+    this.monsterHPBar = null;
+
+    this.playerSprite = null;
+    this.monsterSprite = null;
+    this.playerAttackAnims = [];
+    this.monsterAttackAnims = [];
+
+    this.battleLog = [];
+    this.logText = null;
+    this.battleOver = false;
+
+    this.questionText = null;
+    this.questionMetaText = null;
+    this.questionTargetText = null;
+    this.lifelineText = null;
+    this.optionButtons = [];
+    this.runBtn = null;
+    this.exitBtn = null;
+    this.answerLocked = false;
+    this.answerKeys = [];
+
+    this.quizEncounter = null;
+    this.totalQuestions = 0;
+    this.requiredCorrectAnswers = 0;
+    this.requiredAccuracyPercent = 90;
+    this.damagePerCorrect = 10;
+    this.currentQuestionIndex = 0;
+    this.correctAnswers = 0;
+    this.wrongAnswers = 0;
+    this.remainingLifelines = 0;
+    this.startingMonsterHpPercent = 100;
+    this.lossStreak = 0;
+    this.eventAssist = null;
+    this.preCombatHpBonus = 0;
+  }
+
+  init(data) {
+    this.monsterData = data?.monster || {};
+    this.mapId = data?.mapId || gameState.getCurrentMap()?.mapId || gameState.getCurrentMap()?.id || null;
+    this.npcId = data?.npcId || this.monsterData?.npcId || null;
+    this.bossEncounter = Boolean(this.monsterData?.isBossEncounter);
+    this.submittedCombatResult = false;
+
+    this.playerHP = 100;
+    this.monsterHP = 100;
+    this.battleLog = [];
+    this.battleOver = false;
+    this.answerLocked = false;
+    this.quizEncounter = null;
+    this.totalQuestions = 0;
+    this.requiredCorrectAnswers = 0;
+    this.requiredAccuracyPercent = this.bossEncounter ? 100 : 90;
+    this.damagePerCorrect = 10;
+    this.currentQuestionIndex = 0;
+    this.correctAnswers = 0;
+    this.wrongAnswers = 0;
+    this.remainingLifelines = this.getInitialLifelineCount();
+    this.startingMonsterHpPercent = 100;
+    this.lossStreak = 0;
+    this.eventAssist = data?.eventAssist || null;
+    this.preCombatHpBonus = Number(gameState.consumeActiveEffect('nextCombatHpBonus') || 0);
+
+    this.monsterName = this.resolveMonsterKey(this.monsterData?.name);
+    this.monsterKey = monsterRegistry[this.monsterName] || monsterRegistry.orc;
+    this.monsterAttackAnims = Object.keys(this.monsterKey.anims || {})
+      .filter((key) => key.startsWith('attack'))
+      .map((key) => `${this.monsterName}_${key}`)
+      .filter((fullKey) => this.anims.exists(fullKey));
+  }
+
+  async create() {
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+
+    this.drawBackdrop(width, height);
+
+    const titleMonsterName = this.monsterData?.name || this.monsterName;
+    const titleSuffix = this.bossEncounter ? ' [BOSS]' : '';
+    this.add.text(width / 2, 31, `BATTLE: ${String(titleMonsterName).toUpperCase()}${titleSuffix}`, {
+      fontFamily: UI_FONT,
+      fontSize: '34px',
+      fontStyle: 'bold',
+      color: P.textRed,
+      stroke: '#06101a',
+      strokeThickness: 6
+    }).setOrigin(0.5);
+
+    this.createPlayerIcon(width * 0.18, 180);
+    this.createMonsterIcon(width * 0.82, 180);
+    this.createHealthBars(width);
+    this.createQuizPanel(width, height);
+    this.createActionButtons(width);
+    this.createBattleLog(width, height);
+    this.bindAnswerKeys();
+
+    this.addLog(`Encounter started against ${titleMonsterName}.`);
+    this.addLog(`Hearts available: ${this.remainingLifelines}/${MAX_LIFELINES}`);
+    if (this.preCombatHpBonus > 0) {
+      this.playerHP = Phaser.Math.Clamp(this.playerHP + this.preCombatHpBonus, 0, 150);
+      this.updateHealthBars();
+      this.addLog(`Prepared item effect: +${this.preCombatHpBonus} bonus HP this battle.`);
+    }
+
+    await this.loadEncounterQuiz();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.answerKeys.forEach((key) => key?.destroy?.());
+      this.answerKeys = [];
+    });
+  }
+
+  bindAnswerKeys() {
+    const codes = [
+      Phaser.Input.Keyboard.KeyCodes.ONE,
+      Phaser.Input.Keyboard.KeyCodes.TWO,
+      Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR
+    ];
+
+    this.answerKeys = codes.map((code, index) => {
+      const key = this.input.keyboard.addKey(code);
+      key.on('down', () => {
+        if (this.optionButtons[index]?.container?.visible) {
+          void this.handleAnswerSelection(index);
+        }
+      });
+      return key;
+    });
+  }
+
+  async submitCombatResult(won) {
+    if (this.submittedCombatResult) return;
+
+    const mapId = this.mapId;
+    const monsterId = this.monsterData?.monster_id || this.monsterData?.monsterId || null;
+    if (!mapId || !monsterId) return;
+
+    this.submittedCombatResult = true;
+    try {
+      await apiService.submitEncounterCombatResult({
+        mapId,
+        npcId: this.npcId,
+        monsterId,
+        won: Boolean(won)
+      });
+    } catch (error) {
+      this.submittedCombatResult = false;
+      console.warn('Failed to sync combat result:', error);
+    }
+  }
+
+  runAway() {
+    if (this.battleOver) return;
+
+    this.battleOver = true;
+    this.setQuizOptionsEnabled(false);
+    this.runBtn?.setEnabled(false);
+    this.addLog('You fled the encounter.');
+    void this.submitCombatResult(false);
+    this.time.delayedCall(900, () => {
+      this.exitBattle();
+    });
+  }
+
+  async victory() {
+    if (this.battleOver) return;
+
+    this.battleOver = true;
+    this.setQuizOptionsEnabled(false);
+    this.runBtn?.setEnabled(false);
+    await this.submitCombatResult(true);
+
+    if (this.monsterSprite && this.canPlayAnim(`${this.monsterName}_dead`)) {
+      this.monsterSprite.play(`${this.monsterName}_dead`, true);
+    }
+
+    this.addLog('Victory! Quiz threshold cleared.');
+    this.addLog('Return to the map and claim your quest reward.');
+    dailyQuestService.recordEvent('monster_defeated');
+    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'VICTORY!', {
+      fontSize: '72px',
+      fontStyle: 'bold',
+      color: P.textGreen,
+      stroke: '#060814',
+      strokeThickness: 10
+    }).setOrigin(0.5);
+    this.renderOutcomeSummary(true);
+    this.showExitButton();
+  }
+
+  defeat(reason = 'You were defeated...') {
+    if (this.battleOver) return;
+
+    this.battleOver = true;
+    this.setQuizOptionsEnabled(false);
+    this.runBtn?.setEnabled(false);
+    this.addLog(reason);
+    this.addLog('Retry assist will strengthen your next attempt.');
+    void this.submitCombatResult(false);
+
+    if (this.playerSprite && this.canPlayAnim('dead')) this.playerSprite.play('dead', true);
+
+    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'DEFEAT', {
+      fontSize: '72px',
+      fontStyle: 'bold',
+      color: P.textRed,
+      stroke: '#060814',
+      strokeThickness: 10
+    }).setOrigin(0.5);
+    this.renderOutcomeSummary(false, reason);
+    this.showExitButton();
+  }
+
+  showExitButton() {
+    this.runBtn?.container?.setVisible(false);
+    this.runBtn?.setEnabled(false);
+    this.exitBtn?.container?.setVisible(true);
+    this.exitBtn?.setEnabled(true);
+  }
+
+  exitBattle() {
+    this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
+  }
+}
+
+Object.assign(
+  CombatScene.prototype,
+  combatSceneUiMethods,
+  combatSceneEntityMethods,
+  combatSceneQuizMethods
+);
+

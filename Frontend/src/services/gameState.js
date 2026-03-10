@@ -1,3 +1,41 @@
+import { loadJsonFromStorage, removeStorageKey, saveJsonToStorage } from './storage.js';
+
+const STORAGE_KEY = 'gameState';
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function resolveItemId(item) {
+  return item?.item_id || item?.id || null;
+}
+
+function normalizeLessonStatus(status) {
+  return String(status || '').toUpperCase();
+}
+
+function normalizeLessonEntry(progress = {}, fallbackStatus = 'ENROLLED') {
+  const contentId = String(progress?.contentId || progress?.content_id || '');
+  if (!contentId) return null;
+
+  return {
+    ...progress,
+    contentId,
+    status: normalizeLessonStatus(progress?.status) || fallbackStatus
+  };
+}
+
+function normalizeInventoryEntry(item, fallbackQuantity = 1) {
+  const itemId = resolveItemId(item);
+  if (!itemId) return null;
+
+  return {
+    ...item,
+    item_id: itemId,
+    quantity: item?.quantity ?? fallbackQuantity
+  };
+}
+
 class GameStateManager {
   constructor() {
     if (GameStateManager.instance) {
@@ -11,11 +49,10 @@ class GameStateManager {
     this.currentMap = null;
     this.inventory = [];
     this.lessonProgress = {};
+    this.playerProfile = null;
+    this.activeEffects = {};
     this.listeners = new Set();
-
-    // Load from localStorage if available
     this.loadFromStorage();
-
     GameStateManager.instance = this;
   }
 
@@ -26,18 +63,19 @@ class GameStateManager {
     return GameStateManager.instance;
   }
 
-  // Subscribe to state changes
   subscribe(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
   }
 
-  notify() {
-    this.listeners.forEach(callback => callback());
-    this.saveToStorage();
+  notify(options = {}) {
+    const { persist = true } = options;
+    if (persist) {
+      this.saveToStorage();
+    }
+    this.listeners.forEach((callback) => callback());
   }
 
-  // Role management
   setRole(role) {
     this.role = role;
     this.notify();
@@ -47,39 +85,60 @@ class GameStateManager {
     return this.role;
   }
 
-  // Learner management
   setLearner(learner) {
     this.learner = learner;
     this.notify();
   }
 
-  normalizeLessonStatus(status) {
-    return String(status || '').toUpperCase();
+  setPlayerProfile(profile) {
+    this.playerProfile = profile;
+    this.notify();
   }
+
+  getPlayerProfile() {
+    return this.playerProfile;
+  }
+
+  setActiveEffects(effects = {}) {
+    this.activeEffects = { ...(effects || {}) };
+    this.notify();
+  }
+
+  getActiveEffects() {
+    return { ...this.activeEffects };
+  }
+
+  consumeActiveEffect(key) {
+    if (!key || !(key in this.activeEffects)) return null;
+    const value = this.activeEffects[key];
+    delete this.activeEffects[key];
+    this.notify();
+    return value;
+  }
+
+  normalizeLessonStatus(status) {
+    return normalizeLessonStatus(status);
+  }
+
   setLessonProgress(progressList = []) {
     const next = {};
     (Array.isArray(progressList) ? progressList : []).forEach((p) => {
-      const contentId = String(p?.contentId || p?.content_id || '');
-      if (!contentId) return;
-      next[contentId] = {
-        ...p,
-        contentId,
-        status: this.normalizeLessonStatus(p?.status) || 'ENROLLED'
-      };
+      const normalized = normalizeLessonEntry(p);
+      if (!normalized) return;
+      next[normalized.contentId] = normalized;
     });
     this.lessonProgress = next;
     this.notify();
   }
 
   upsertLessonProgress(progress) {
-    const contentId = String(progress?.contentId || progress?.content_id || '');
-    if (!contentId) return null;
+    const normalized = normalizeLessonEntry(progress);
+    if (!normalized) return null;
+    const { contentId } = normalized;
 
     this.lessonProgress[contentId] = {
       ...(this.lessonProgress[contentId] || {}),
-      ...progress,
-      contentId,
-      status: this.normalizeLessonStatus(progress?.status) || 'ENROLLED'
+      ...normalized
     };
     this.notify();
     return this.lessonProgress[contentId];
@@ -90,14 +149,15 @@ class GameStateManager {
     const key = String(contentId);
     const existing = this.lessonProgress[key] || {};
     if (this.normalizeLessonStatus(existing.status) === 'COMPLETED') return existing;
+    const timestamp = nowIso();
 
     this.lessonProgress[key] = {
       ...existing,
       ...meta,
       contentId: key,
       status: 'ENROLLED',
-      enrolledAt: existing.enrolledAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      enrolledAt: existing.enrolledAt || timestamp,
+      updatedAt: timestamp
     };
     this.notify();
     return this.lessonProgress[key];
@@ -107,15 +167,16 @@ class GameStateManager {
     if (!contentId) return null;
     const key = String(contentId);
     const existing = this.lessonProgress[key] || {};
+    const timestamp = nowIso();
 
     this.lessonProgress[key] = {
       ...existing,
       ...meta,
       contentId: key,
       status: 'COMPLETED',
-      enrolledAt: existing.enrolledAt || new Date().toISOString(),
-      completedAt: existing.completedAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      enrolledAt: existing.enrolledAt || timestamp,
+      completedAt: existing.completedAt || timestamp,
+      updatedAt: timestamp
     };
     this.notify();
     return this.lessonProgress[key];
@@ -133,8 +194,6 @@ class GameStateManager {
   updateXP(amount) {
     if (this.learner) {
       this.learner.total_xp += amount;
-
-      // Simple level calculation: level = floor(sqrt(xp / 100))
       const newLevel = Math.floor(Math.sqrt(this.learner.total_xp / 100)) + 1;
       if (newLevel > this.learner.level) {
         this.learner.level = newLevel;
@@ -145,7 +204,6 @@ class GameStateManager {
     }
   }
 
-  // Contributor management
   setContributor(contributor) {
     this.contributor = contributor;
     this.notify();
@@ -155,7 +213,6 @@ class GameStateManager {
     return this.contributor;
   }
 
-  // Administrator management
   setAdministrator(administrator) {
     this.administrator = administrator;
     this.notify();
@@ -165,7 +222,6 @@ class GameStateManager {
     return this.administrator;
   }
 
-  // Map management
   setCurrentMap(map) {
     this.currentMap = map;
     this.notify();
@@ -175,15 +231,16 @@ class GameStateManager {
     return this.currentMap;
   }
 
-  // Inventory management
   setInventory(inventory = []) {
-    this.inventory = Array.isArray(inventory) ? inventory : [];
+    this.inventory = (Array.isArray(inventory) ? inventory : [])
+      .map((item) => normalizeInventoryEntry(item))
+      .filter(Boolean);
     this.notify();
   }
 
   addItem(item, quantity = 1) {
-    if (!item) return;
-    const itemId = item.item_id || item.id;
+    const normalizedItem = normalizeInventoryEntry(item, quantity);
+    const itemId = resolveItemId(normalizedItem);
     if (!itemId) return;
 
     const index = this.inventory.findIndex((x) => (x.item_id || x.id) === itemId);
@@ -194,11 +251,7 @@ class GameStateManager {
         quantity: currentQty + quantity
       };
     } else {
-      this.inventory.push({
-        ...item,
-        item_id: item.item_id || item.id,
-        quantity: item.quantity ?? quantity
-      });
+      this.inventory.push(normalizedItem);
     }
     this.notify();
   }
@@ -222,10 +275,10 @@ class GameStateManager {
     return this.inventory.some((item) => (item.item_id || item.id) === itemId && (item.quantity ?? 1) > 0);
   }
 
-  // Persistence
   saveToStorage() {
-    try {
-      const state = {
+    saveJsonToStorage(
+      STORAGE_KEY,
+      {
         learner: this.learner,
         contributor: this.contributor,
         administrator: this.administrator,
@@ -233,29 +286,31 @@ class GameStateManager {
         currentMap: this.currentMap,
         inventory: this.inventory,
         lessonProgress: this.lessonProgress,
-      };
-      localStorage.setItem('gameState', JSON.stringify(state));
-    } catch (error) {
-      console.error('Failed to save game state:', error);
-    }
+        playerProfile: this.playerProfile,
+        activeEffects: this.activeEffects
+      },
+      'game state'
+    );
   }
 
   loadFromStorage() {
-    try {
-      const saved = localStorage.getItem('gameState');
-      if (saved) {
-        const state = JSON.parse(saved);
-        this.learner = state.learner || null;
-        this.contributor = state.contributor || null;
-        this.administrator = state.administrator || null;
-        this.role = state.role || null;
-        this.currentMap = state.currentMap || null;
-        this.inventory = state.inventory || [];
-        this.lessonProgress = state.lessonProgress || {};
-      }
-    } catch (error) {
-      console.error('Failed to load game state:', error);
-    }
+    const state = loadJsonFromStorage(STORAGE_KEY, null, 'game state');
+    if (!state) return;
+
+    this.learner = state.learner || null;
+    this.contributor = state.contributor || null;
+    this.administrator = state.administrator || null;
+    this.role = state.role || null;
+    this.currentMap = state.currentMap || null;
+    this.inventory = (state.inventory || []).map((item) => normalizeInventoryEntry(item)).filter(Boolean);
+    this.lessonProgress = Object.fromEntries(
+      Object.values(state.lessonProgress || {})
+        .map((entry) => normalizeLessonEntry(entry))
+        .filter(Boolean)
+        .map((entry) => [entry.contentId, entry])
+    );
+    this.playerProfile = state.playerProfile || null;
+    this.activeEffects = state.activeEffects || {};
   }
 
   clearState() {
@@ -266,10 +321,11 @@ class GameStateManager {
     this.currentMap = null;
     this.inventory = [];
     this.lessonProgress = {};
-    localStorage.removeItem('gameState');
-    this.notify();
+    this.playerProfile = null;
+    this.activeEffects = {};
+    removeStorageKey(STORAGE_KEY, 'game state');
+    this.notify({ persist: false });
   }
-
 }
 
 export const gameState = GameStateManager.getInstance();

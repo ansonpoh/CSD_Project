@@ -9,9 +9,14 @@ import jakarta.validation.constraints.NotEmpty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import com.smu.csd.ai.AIModerationResult;
+import com.smu.csd.contents.flags.ContentFlag;
+import com.smu.csd.contents.flags.ContentFlagService;
 import com.smu.csd.exception.ResourceNotFoundException;
 
 @RestController
@@ -19,9 +24,11 @@ import com.smu.csd.exception.ResourceNotFoundException;
 public class ContentController {
 
     private final ContentService service;
+    private final ContentFlagService contentFlagService;
 
-    public ContentController(ContentService service) {
+    public ContentController(ContentService service, ContentFlagService contentFlagService) {
         this.service = service;
+        this.contentFlagService = contentFlagService;
     }
 
     // Contributor submits content with their narration lines - triggers AI screening
@@ -97,6 +104,59 @@ public class ContentController {
         return ResponseEntity.ok(service.rejectContent(contentId));
     }
 
+    @PostMapping("/{contentId}/flags")
+    @PreAuthorize("hasRole('LEARNER')")
+    public ResponseEntity<ContentFlag> flagContent(
+            @PathVariable UUID contentId,
+            @Valid @RequestBody CreateContentFlagRequest request,
+            Authentication authentication
+    ) throws ResourceNotFoundException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID reportedBy = UUID.fromString(jwt.getSubject());
+
+        ContentFlag flag = contentFlagService.createFlag(
+                contentId,
+                reportedBy,
+                request.reason(),
+                request.details()
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(flag);
+    }
+
+    @GetMapping("/flags")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ContentFlag>> getOpenFlags() {
+        return ResponseEntity.ok(contentFlagService.getOpenFlags());
+    }
+
+    @GetMapping("/{contentId}/flags")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ContentFlag>> getFlagsForContent(@PathVariable UUID contentId)
+            throws ResourceNotFoundException {
+        return ResponseEntity.ok(contentFlagService.getFlagsForContent(contentId));
+    }
+
+    @PutMapping("/flags/{contentFlagId}/review")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ContentFlag> reviewFlag(
+            @PathVariable UUID contentFlagId,
+            @Valid @RequestBody ReviewContentFlagRequest request,
+            Authentication authentication
+    ) throws ResourceNotFoundException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID reviewedBySupabaseUserId = UUID.fromString(jwt.getSubject());
+
+        ContentFlag flag = contentFlagService.reviewFlag(
+                contentFlagId,
+                reviewedBySupabaseUserId,
+                request.status(),
+                request.resolutionNotes()
+        );
+
+        return ResponseEntity.ok(flag);
+    }
+
     public record SubmitContentRequest(
             UUID contributorId,
             UUID topicId,
@@ -106,5 +166,15 @@ public class ContentController {
             String description,
             @NotEmpty List<String> narrations,
             String videoUrl
+    ) {}
+
+    public record CreateContentFlagRequest(
+            ContentFlag.FlagReason reason,
+            String details
+    ) {}
+    
+    public record ReviewContentFlagRequest(
+            ContentFlag.FlagStatus status,
+            String resolutionNotes
     ) {}
 }

@@ -1,12 +1,16 @@
 import Phaser from 'phaser';
 import { soldier as cfg } from './Soldier.js';
+import { gameState } from '../../services/gameState.js';
+import { applyPlayerProfileToSprite } from '../../services/playerProfile.js';
 // import {slime as cfg} from "../monsters/slime/Slime.js";
 // import {lancer as cfg} from "../npcs/lancer/Lancer.js";
 
 export class SoldierController {
   constructor(scene, x, y) {
     this.scene = scene;
-    this.sprite = scene.physics.add.sprite(x/2, y/2, cfg.sheetKey, 0);
+    this.ensureFallbackTexture();
+    const textureKey = scene.textures.exists(cfg.sheetKey) ? cfg.sheetKey : 'soldier-fallback';
+    this.sprite = scene.physics.add.sprite(x / 2, y / 2, textureKey, 0);
     this.speed = 200;
     this.isAttacking = false;
 
@@ -18,17 +22,36 @@ export class SoldierController {
     });
 
     this.createAnims();
-    this.sprite.play(`idle`);
+    if (this.canPlayAnim('idle')) {
+      this.sprite.play('idle');
+    }
     this.sprite.setScale(cfg.scale);
     this.sprite.body.setSize(
-      this.sprite.displayWidth / (cfg.scale*4),
-      this.sprite.displayHeight / (cfg.scale*4),
+      this.sprite.displayWidth / (cfg.scale * 4),
+      this.sprite.displayHeight / (cfg.scale * 4),
       true
     );
     this.sprite.setCollideWorldBounds(true);
+    applyPlayerProfileToSprite(this.sprite, gameState.getPlayerProfile());
+  }
+
+  ensureFallbackTexture() {
+    if (this.scene.textures.exists('soldier-fallback')) return;
+
+    const graphics = this.scene.make.graphics({ x: 0, y: 0, add: false });
+    graphics.fillStyle(0x4a90e2, 1);
+    graphics.fillRoundedRect(12, 8, 76, 84, 18);
+    graphics.fillStyle(0xe8f3ff, 1);
+    graphics.fillCircle(50, 28, 14);
+    graphics.fillStyle(0x17345c, 1);
+    graphics.fillRoundedRect(28, 46, 44, 34, 8);
+    graphics.generateTexture('soldier-fallback', cfg.frameWidth, cfg.frameHeight);
+    graphics.destroy();
   }
 
   createAnims() {
+    if (!this.scene.textures.exists(cfg.sheetKey)) return;
+
     Object.entries(cfg.anims).forEach(([name, a]) => {
       const key = name;
       if (this.scene.anims.exists(key)) return;
@@ -42,8 +65,13 @@ export class SoldierController {
     });
   }
 
+  canPlayAnim(name) {
+    const anim = this.scene.anims.get(name);
+    return Boolean(anim && Array.isArray(anim.frames) && anim.frames.length > 0);
+  }
+
   playAttack(name) {
-    if (this.isAttacking) return;
+    if (this.isAttacking || !this.canPlayAnim(name)) return;
     this.isAttacking = true;
     this.sprite.setVelocity(0, 0);
     this.sprite.play(name, true);
@@ -51,7 +79,9 @@ export class SoldierController {
       Phaser.Animations.Events.ANIMATION_COMPLETE_KEY + name,
       () => {
         this.isAttacking = false;
-        this.sprite.play('idle', true);
+        if (this.canPlayAnim('idle')) {
+          this.sprite.play('idle', true);
+        }
       }
     );
   }
@@ -69,6 +99,9 @@ export class SoldierController {
     else if (this.cursors.down.isDown) vy = this.speed;
 
     this.sprite.setVelocity(vx, vy);
-    this.sprite.play(`${vx || vy ? 'move' : 'idle'}`, true);
+    const nextAnim = vx || vy ? 'move' : 'idle';
+    if (this.canPlayAnim(nextAnim)) {
+      this.sprite.play(nextAnim, true);
+    }
   }
 }

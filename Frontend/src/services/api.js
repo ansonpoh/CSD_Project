@@ -465,6 +465,26 @@ class ApiService {
     const { data } = await this.api.get(`/contents/${id}/moderation`);
     return data;
   }
+
+  async flagContent(contentId, payload) {
+    const { data } = await this.api.post(`/contents/${contentId}/flags`, payload);
+    return data;
+  }
+
+  async getOpenContentFlags() {
+    const { data } = await this.api.get('/contents/flags');
+    return data;
+  }
+
+  async getFlagsForContent(contentId) {
+    const { data } = await this.api.get(`/contents/${contentId}/flags`);
+    return data;
+  }
+
+  async reviewContentFlag(contentFlagId, payload) {
+    const { data } = await this.api.put(`/contents/flags/${contentFlagId}/review`, payload);
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

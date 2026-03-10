@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene.js';
 import { LoginScene } from '../scenes/LoginScene.js';
 import { WorldMapScene } from '../scenes/WorldMapScene.js';
-import { GameMapScene } from '../scenes/GameMapScene.js';
+import { GameMapScene } from '../scenes/game_map/GameMapScene.js';
 import { CombatScene } from '../scenes/combat/CombatScene.js';
 import { ShopScene } from '../scenes/ShopScene.js';
 import { DialogueScene } from '../scenes/dialogue/DialogueScene.js';
@@ -52,6 +52,3 @@ const config = {
 };
 
 export default config;
-
-
-

@@ -5,14 +5,30 @@ import { apiService } from '../../services/api.js';
 import { HUD } from './constants.js';
 
 export async function createGameMapScene() {
+  const loadToken = Symbol('game-map-load');
+  this.activeLoadToken = loadToken;
+  const isStaleLoad = () => this.activeLoadToken !== loadToken;
+
+  this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    if (this.activeLoadToken === loadToken) {
+      this.activeLoadToken = null;
+    }
+    this.events.off('resume', this.handleSceneResume, this);
+    this.playerCtrl?.destroy?.();
+    this.playerCtrl = null;
+    this.destroyEventPanel();
+  });
+
   const width = this.cameras.main.width;
   const height = this.cameras.main.height;
 
   if (!this.editorMapData) {
     await this.tryLoadEditorMapData();
+    if (isStaleLoad()) return;
   }
 
   this.createTilemap();
+  if (isStaleLoad()) return;
 
   this.playerCtrl = new SoldierController(this, width, height);
   if (this.collisionLayers?.length) {
@@ -45,6 +61,8 @@ export async function createGameMapScene() {
         apiService.getNPCsByMap(mapId),
         apiService.getEncounterState(mapId).catch(() => null)
       ]);
+      if (isStaleLoad()) return;
+
       this.monsters = monsters || [];
       this.npcs = npcs || [];
       this.encounterState = encounterState;
@@ -66,6 +84,8 @@ export async function createGameMapScene() {
     this.updateMissionPanel();
     this.updateQuestPanel();
   } catch (error) {
+    if (isStaleLoad()) return;
+
     console.error('Failed to load monsters for map:', error);
     this.monsters = [];
     this.npcs = this.npcs || [];
@@ -77,6 +97,8 @@ export async function createGameMapScene() {
     this.updateMissionPanel();
     this.updateQuestPanel();
   }
+
+  if (isStaleLoad()) return;
 
   this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
   this.interactPromptBg = this.add.rectangle(
@@ -97,10 +119,6 @@ export async function createGameMapScene() {
   }).setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
 
   this.events.on('resume', this.handleSceneResume, this);
-  this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-    this.events.off('resume', this.handleSceneResume, this);
-    this.destroyEventPanel();
-  });
 }
 
 export function updateGameMapScene() {

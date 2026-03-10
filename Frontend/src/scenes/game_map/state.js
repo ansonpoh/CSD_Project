@@ -3,6 +3,7 @@ import { mapDiscoveryService } from '../../services/mapDiscovery.js';
 
 export function initializeSceneState(scene) {
   scene.player = null;
+  scene.playerCtrl = null;
   scene.cursors = null;
   scene.npcs = [];
   scene.monsters = [];
@@ -34,16 +35,23 @@ export function initializeSceneState(scene) {
   scene.eventPanel = null;
   scene.mapCompletionRecorded = false;
   scene.mapStartedCompleted = false;
+  scene.activeLoadToken = null;
 }
 
 export function resetSceneState(scene, data) {
   scene.mapConfig = data?.mapConfig || { mapKey: 'map1' };
   scene.editorMapData = scene.mapConfig?.editorMapData || null;
 
+  scene.player = null;
+  scene.playerCtrl = null;
+  scene.cursors = null;
   scene.npcs = [];
   scene.monsters = [];
   scene.npcSprites = [];
   scene.monsterSprites = [];
+  scene.interactKey = null;
+  scene.interactPrompt = null;
+  scene.interactPromptBg = null;
   scene.collisionBodies = [];
   scene.npcMonsterMap = new Map();
   scene.monsterSpriteByNpcKey = new Map();
@@ -64,6 +72,7 @@ export function resetSceneState(scene, data) {
   scene.eventPanel = null;
   scene.mapCompletionRecorded = false;
   scene.mapStartedCompleted = false;
+  scene.activeLoadToken = null;
 
   if (!scene.mapConfig.mapKey && !scene.mapConfig.isEditorMap && !scene.editorMapData) {
     const raw = String(scene.mapConfig.asset || scene.mapConfig.name || '').toLowerCase();

@@ -5,6 +5,8 @@ import { monsterRegistry } from '../characters/monsters/MonsterRegistry';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry';
 import { apiService } from '../services/api';
 import { gameState } from '../services/gameState';
+import { getDefaultPlayerProfile } from '../services/playerProfile.js';
+import { loadSharedUiAssets } from '../services/uiAssets.js';
 
 const P = {
   bgDeep:     0x090f24,
@@ -135,6 +137,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('17_Garden_32x32', 'assets/map4/17_Garden_32x32.png');
 
     this.load.video('test_video', 'assets/videos/test_video.mp4', 'loadeddata', false, true);
+    loadSharedUiAssets(this, {
+      includeClose: true,
+      includePortrait: true,
+      includeArrow: true
+    });
   }
 
   // ── Tilemap sanity (unchanged) ────────────────────────────────────────────
@@ -188,6 +195,7 @@ export class BootScene extends Phaser.Scene {
       if (role === 'learner') {
         const learner = await apiService.getCurrentLearner();
         gameState.setLearner(learner);
+        gameState.setPlayerProfile(gameState.getPlayerProfile() || getDefaultPlayerProfile());
         const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
         const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);

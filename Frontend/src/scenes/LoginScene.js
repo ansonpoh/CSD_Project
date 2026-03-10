@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { apiService } from '../services/api.js';
 import { gameState } from '../services/gameState.js';
 import { supabase } from '../config/supabaseClient.js';
+import { PLAYER_PRESETS, buildPlayerProfile, getDefaultPlayerProfile, getPresetById } from '../services/playerProfile.js';
 
 export class LoginScene extends Phaser.Scene {
   constructor() {
@@ -29,6 +30,11 @@ export class LoginScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanup, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanup, this);
+    this.events.on(Phaser.Scenes.Events.SLEEP, this.cleanup, this);
+    this.events.on(Phaser.Scenes.Events.PAUSE, this.cleanup, this);
+
     this.createTimeBasedBackground(width, height);
 
     // Add title
@@ -44,6 +50,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   createAuthFormContainer() {
+    this.cleanup();
     this.loginForm = document.createElement('div');
     this.loginForm.style.position = 'absolute';
     this.loginForm.style.left = '50%';
@@ -148,6 +155,15 @@ export class LoginScene extends Phaser.Scene {
           <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
           <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
         </div>
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Character Style</label>
+          <select id="avatarPreset" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;">
+            ${PLAYER_PRESETS.map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join('')}
+          </select>
+          <div id="avatarPresetHint" style="margin-top: 8px; color: #9fc7ff; font-size: 12px;">
+            ${PLAYER_PRESETS[0].summary}
+          </div>
+        </div>
       </div>
       `}
 
@@ -189,6 +205,15 @@ export class LoginScene extends Phaser.Scene {
     if (roleSelect && this.authMode === 'register') {
       roleSelect.addEventListener('change', () => this.updateRegisterFields(roleSelect.value));
     }
+
+    const avatarPresetSelect = document.getElementById('avatarPreset');
+    if (avatarPresetSelect) {
+      avatarPresetSelect.addEventListener('change', () => {
+        const preset = getPresetById(avatarPresetSelect.value);
+        const hint = document.getElementById('avatarPresetHint');
+        if (hint) hint.textContent = preset.summary;
+      });
+    }
   }
 
   updateRegisterFields(role) {
@@ -204,6 +229,15 @@ export class LoginScene extends Phaser.Scene {
         <div style="margin-bottom: 15px;">
           <label style="color: white; display: block; margin-bottom: 5px;">Full Name</label>
           <input type="text" id="fullname" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;" />
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="color: white; display: block; margin-bottom: 5px;">Character Style</label>
+          <select id="avatarPreset" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;">
+            ${PLAYER_PRESETS.map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join('')}
+          </select>
+          <div id="avatarPresetHint" style="margin-top: 8px; color: #9fc7ff; font-size: 12px;">
+            ${PLAYER_PRESETS[0].summary}
+          </div>
         </div>
       `;
     } else if (role === 'contributor') {
@@ -223,6 +257,15 @@ export class LoginScene extends Phaser.Scene {
     roleFieldsDiv.querySelectorAll('input').forEach(input => {
       input.addEventListener('keydown', (e) => e.stopPropagation());
     });
+
+    const avatarPresetSelect = roleFieldsDiv.querySelector('#avatarPreset');
+    if (avatarPresetSelect) {
+      avatarPresetSelect.addEventListener('change', () => {
+        const preset = getPresetById(avatarPresetSelect.value);
+        const hint = document.getElementById('avatarPresetHint');
+        if (hint) hint.textContent = preset.summary;
+      });
+    }
   }
 
   toggleMode() {
@@ -279,6 +322,7 @@ export class LoginScene extends Phaser.Scene {
       if (selectedRole === 'learner') {
         const learner = await apiService.getCurrentLearner();
         gameState.setLearner(learner);
+        gameState.setPlayerProfile(gameState.getPlayerProfile() || getDefaultPlayerProfile());
         const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
         const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
@@ -309,6 +353,7 @@ export class LoginScene extends Phaser.Scene {
     const username = document.getElementById('username')?.value?.trim();
     const fullname = document.getElementById('fullname')?.value?.trim();
     const bio = document.getElementById('bio')?.value?.trim() || '';
+    const avatarPreset = document.getElementById('avatarPreset')?.value || 'azure-knight';
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
 
@@ -359,6 +404,7 @@ export class LoginScene extends Phaser.Scene {
         };
         const learner = await apiService.addLearner(learnerPayload);
         gameState.setLearner(learner);
+        gameState.setPlayerProfile(buildPlayerProfile({ presetId: avatarPreset }));
         gameState.setInventory([]);
         gameState.setLessonProgress([]);
         this.cleanup();
@@ -393,6 +439,7 @@ export class LoginScene extends Phaser.Scene {
     if (this.loginForm && this.loginForm.parentNode) {
       this.loginForm.parentNode.removeChild(this.loginForm);
     }
+    this.loginForm = null;
   }
 
   shutdown() {

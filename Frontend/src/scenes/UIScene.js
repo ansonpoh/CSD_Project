@@ -3,6 +3,9 @@ import { gameState } from '../services/gameState.js';
 import { apiService } from '../services/api.js';
 import { supabase } from '../config/supabaseClient.js';
 import { soldier } from '../characters/soldier/Soldier.js';
+import { applyPlayerProfileToSprite, getDefaultPlayerProfile } from '../services/playerProfile.js';
+import { resolveItemEffect } from '../services/itemEffects.js';
+import { loadSharedUiAssets } from '../services/uiAssets.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -18,38 +21,16 @@ export class UIScene extends Phaser.Scene {
   }
 
   preload() {
-    if (!this.textures.exists('ui-panel-a')) {
-      this.load.spritesheet('ui-panel-a', 'assets/ui_set/20250420manaSoul9SlicesA-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-header-a')) {
-      this.load.spritesheet('ui-header-a', 'assets/ui_set/20250420manaSoulHeaderA-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-close-btn')) {
-      this.load.spritesheet('ui-close-btn', 'assets/ui_set/20250425closeButton-Sheet.png', {
-        frameWidth: 32,
-        frameHeight: 32
-      });
-    }
-
-    if (!this.textures.exists('ui-portrait-frame')) {
-      this.load.image('ui-portrait-frame', 'assets/ui_set/20250425portraitFrame-Sheet.png');
-    }
-
+    loadSharedUiAssets(this, {
+      includeClose: true,
+      includePortrait: true
+    });
   }
 
   create() {
     const width = this.cameras.main.width;
 
     // ── HUD bar background ──────────────────────────────────────────────────
-    // Solid dark bar with a thin gold bottom border
     const hudBg = this.add.graphics();
     hudBg.fillStyle(0x0d1530, 0.97);
     hudBg.fillRect(0, 0, width, 58);
@@ -75,6 +56,40 @@ export class UIScene extends Phaser.Scene {
       strokeThickness: 4
     });
 
+    // Make username clickable and add hover tooltip
+    this.usernameText.setInteractive({ useHandCursor: true });
+    
+    const tooltipText = this.add.text(0, 0, 'User profile', {
+      fontSize: '12px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    });
+    
+    const tooltipBg = this.add.graphics();
+    tooltipBg.fillStyle(0x000000, 0.85);
+    tooltipBg.fillRoundedRect(-6, -4, tooltipText.width + 12, tooltipText.height + 8, 4);
+    
+    const tooltipCont = this.add.container(
+      this.usernameText.x + 10, 
+      this.usernameText.y + 26, 
+      [tooltipBg, tooltipText]
+    ).setDepth(100).setVisible(false);
+
+    this.usernameText.on('pointerover', () => {
+      this.usernameText.setTint(0xf4c048);
+      tooltipCont.setVisible(true);
+    });
+    
+    this.usernameText.on('pointerout', () => {
+      this.usernameText.clearTint();
+      tooltipCont.setVisible(false);
+    });
+
+    this.usernameText.on('pointerdown', () => {
+      tooltipCont.setVisible(false);
+      this.showUserProfile();
+    });
+
     this.levelText = this.add.text(16, 32, `Level: ${learner.level}`, {
       fontSize:        '13px',
       color:           '#4ade80',
@@ -93,7 +108,6 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
 
     // ── Helper: build a small Graphics HUD button ───────────────────────────
-    //   Returns { container } — text label floats inside.
     const makeHudBtn = (cx, cy, btnW, btnH, label, colorNormal, colorHover, onPress) => {
       const container = this.add.container(cx - btnW / 2, cy - btnH / 2);
       const bg = this.add.graphics();
@@ -104,7 +118,6 @@ export class UIScene extends Phaser.Scene {
         bg.fillRoundedRect(0, 0, btnW, btnH, 4);
         bg.lineStyle(1, border, 0.85);
         bg.strokeRoundedRect(0, 0, btnW, btnH, 4);
-        // inner highlight
         bg.fillStyle(0xffffff, 0.07);
         bg.fillRoundedRect(1, 1, btnW - 2, btnH * 0.45, { tl: 3, tr: 3, bl: 0, br: 0 });
       };
@@ -137,6 +150,7 @@ export class UIScene extends Phaser.Scene {
     // ── Leaderboard button ──────────────────────────────────────────────────
     const lbX = this.usernameText.x + this.usernameText.width + 80;
     makeHudBtn(lbX + 56, 29, 112, 30, 'Leaderboard', 0x1a2a52, 0x2a4278, () => this.showLeaderboard());
+    makeHudBtn(lbX + 178, 29, 92, 30, 'Profile', 0x17324f, 0x24507b, () => this.showUserProfile());
 
     // ── INV button ──────────────────────────────────────────────────────────
     makeHudBtn(width - 52, 29, 56, 30, 'INV', 0x1e1040, 0x2d1860, () => this.showInventory());
@@ -175,13 +189,11 @@ export class UIScene extends Phaser.Scene {
       this.levelText.setText(`Level: ${learner.level}`);
       this.xpText.setText(`XP: ${learner.total_xp}`);
       
-      // Show level up animation if needed
       if (this.lastKnownLevel !== null && learner.level > this.lastKnownLevel) {
         this.showLevelUp(learner.level);
       }
 
       this.lastKnownLevel = learner.level;
-      
       this.levelText.setData('lastLevel', learner.level);
     }
   }
@@ -190,7 +202,6 @@ export class UIScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Level up notification
     const levelUpText = this.add.text(
       width / 2,
       height / 2,
@@ -205,7 +216,6 @@ export class UIScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // Fade out animation
     this.tweens.add({
       targets: levelUpText,
       alpha: 0,
@@ -217,7 +227,6 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    // Particle effect
     const particles = this.add.particles(width / 2, height / 2, 'player', {
       speed: { min: 100, max: 200 },
       scale: { start: 0.5, end: 0 },
@@ -236,9 +245,8 @@ export class UIScene extends Phaser.Scene {
     const inventory = gameState.getInventory();
     const width  = this.cameras.main.width;
     const height = this.cameras.main.height;
-    const D      = 1000; // base depth
+    const D      = 1000; 
 
-    // ── Palette (inline so UIScene has no external dep) ──────────────────
     const P = {
       bgDeep:        0x090f24,
       bgPanel:       0x080e22,
@@ -256,7 +264,6 @@ export class UIScene extends Phaser.Scene {
       accentGlow:    0xffdd60,
     };
 
-    // Item type accent colours
     const TYPE_COLOR = {
       potion:     0x4193d5,
       weapon:     0xc03030,
@@ -265,18 +272,14 @@ export class UIScene extends Phaser.Scene {
       consumable: 0x22a855,
     };
 
-    // ── Panel dimensions ─────────────────────────────────────────────────
     const panelW  = 780;
     const panelH  = Math.min(640, 140 + Math.max(1, inventory.length) * 96);
     const panelX  = width  / 2 - panelW / 2;
     const panelY  = height / 2 - panelH / 2;
 
-    // All nodes for cleanup
     const nodes = [];
-
     const cleanup = () => nodes.forEach((n) => n?.destroy());
 
-    // ── Helper: make a Graphics button ──────────────────────────────────
     const mkBtn = (cx, cy, w, h, label, fillN, fillH, border, onClick) => {
       const c  = this.add.container(cx - w / 2, cy - h / 2).setDepth(D + 4);
       const bg = this.add.graphics();
@@ -303,25 +306,26 @@ export class UIScene extends Phaser.Scene {
       c.add(hit);
       hit.on('pointerover',  () => draw(fillH,       P.borderGlow));
       hit.on('pointerout',   () => draw(fillN,       border));
-      hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim));
+      hit.on('pointerdown',  (p, x, y, e) => { e.stopPropagation(); draw(P.btnPress,  P.borderDim); });
       hit.on('pointerup',    () => { draw(fillH, P.borderGlow); onClick(); });
 
       nodes.push(c);
       return c;
     };
 
-    // ── Overlay ──────────────────────────────────────────────────────────
     const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.78)
       .setOrigin(0).setInteractive().setDepth(D);
+    
+    // Stop overlay clicks from hitting the map
+    overlay.on('pointerdown', (p, x, y, e) => e.stopPropagation());
+    overlay.on('pointerup', (p, x, y, e) => e.stopPropagation());
     nodes.push(overlay);
 
-    // ── Panel background ─────────────────────────────────────────────────
     const panelBg = this.add.graphics().setDepth(D + 1);
     panelBg.fillStyle(P.bgPanel, 0.98);
     panelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 7);
     panelBg.lineStyle(2, P.borderGold, 0.9);
     panelBg.strokeRoundedRect(panelX, panelY, panelW, panelH, 7);
-    // inner top accent line
     panelBg.lineStyle(1, P.accentGlow, 0.3);
     panelBg.beginPath();
     panelBg.moveTo(panelX + 18, panelY + 2);
@@ -329,7 +333,6 @@ export class UIScene extends Phaser.Scene {
     panelBg.strokePath();
     nodes.push(panelBg);
 
-    // ── Header bar (reuses ui-panel-a header sprite row) ─────────────────
     const headerH  = 52;
     const headerBg = this.add.graphics().setDepth(D + 2);
     headerBg.fillStyle(P.btnNormal, 1);
@@ -348,22 +351,21 @@ export class UIScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(D + 3)
     );
 
-    // ── Close X button (diamond sprite) ──────────────────────────────────
     const closeX = this.add.sprite(panelX + panelW - 28, panelY + 26, 'ui-close-btn', 0)
       .setScale(1.6).setDepth(D + 4).setInteractive({ useHandCursor: true });
     closeX.on('pointerover',  () => closeX.setFrame(1));
     closeX.on('pointerout',   () => closeX.setFrame(0));
-    closeX.on('pointerdown',  cleanup);
+    // Fixed: Close on pointerup to prevent map clicks
+    closeX.on('pointerdown',  (p, x, y, e) => e.stopPropagation());
+    closeX.on('pointerup',    cleanup);
     nodes.push(closeX);
 
-    // ── Item count sub-header ─────────────────────────────────────────────
     nodes.push(
       this.add.text(panelX + 24, panelY + headerH + 14, `${inventory.length} item${inventory.length !== 1 ? 's' : ''}`, {
         fontSize: '13px', color: '#c0a8e0', stroke: '#060814', strokeThickness: 3
       }).setDepth(D + 3)
     );
 
-    // ── Empty state ───────────────────────────────────────────────────────
     if (inventory.length === 0) {
       nodes.push(
         this.add.text(panelX + panelW / 2, panelY + panelH / 2 + 10, 'Your inventory is empty', {
@@ -373,7 +375,6 @@ export class UIScene extends Phaser.Scene {
       );
     }
 
-    // ── Item rows ─────────────────────────────────────────────────────────
     const cardW  = panelW - 56;
     const cardH  = 78;
     const cardX  = panelX + 28;
@@ -383,24 +384,20 @@ export class UIScene extends Phaser.Scene {
       const qty       = item.quantity ?? 1;
       const typeColor = TYPE_COLOR[item.item_type] ?? 0x4a5568;
 
-      // Card bg
       const card = this.add.graphics().setDepth(D + 2);
       card.fillStyle(P.bgCard, 1);
       card.fillRoundedRect(cardX, cardY, cardW, cardH, 5);
       card.lineStyle(2, typeColor, 0.55);
       card.strokeRoundedRect(cardX, cardY, cardW, cardH, 5);
-      // top shine
       card.fillStyle(0xffffff, 0.025);
       card.fillRoundedRect(cardX + 2, cardY + 2, cardW - 4, cardH * 0.38, { tl: 4, tr: 4, bl: 0, br: 0 });
       nodes.push(card);
 
-      // Colour accent strip on left edge
       const strip = this.add.graphics().setDepth(D + 3);
       strip.fillStyle(typeColor, 0.7);
       strip.fillRoundedRect(cardX, cardY + 4, 4, cardH - 8, 2);
       nodes.push(strip);
 
-      // Item name
       nodes.push(
         this.add.text(cardX + 20, cardY + 13, item.name ?? 'Unknown Item', {
           fontSize: '18px', fontStyle: 'bold',
@@ -408,7 +405,6 @@ export class UIScene extends Phaser.Scene {
         }).setDepth(D + 3)
       );
 
-      // Description + qty
       const desc = item.description
         ? (item.description.length > 60 ? item.description.slice(0, 59) + '…' : item.description)
         : '';
@@ -418,7 +414,6 @@ export class UIScene extends Phaser.Scene {
         }).setDepth(D + 3)
       );
 
-      // USE button
       mkBtn(
         cardX + cardW - 50, cardY + cardH / 2,
         80, 40,
@@ -426,10 +421,8 @@ export class UIScene extends Phaser.Scene {
         P.btnSuccess, P.btnSuccessHov, 0x22a855,
         async () => {
           try {
-            const itemId = item.itemId || item.item_id;
-            if (!itemId) return;
-            const updated = await apiService.removeInventoryItem(itemId, 1);
-            gameState.setInventory(updated);
+            const result = await this.consumeInventoryItem(item);
+            if (!result) return;
             cleanup();
             this.showInventory();
           } catch (e) {
@@ -441,7 +434,6 @@ export class UIScene extends Phaser.Scene {
       cardY += cardH + 12;
     });
 
-    // ── Bottom close button ───────────────────────────────────────────────
     mkBtn(
       panelX + panelW / 2, panelY + panelH - 28,
       120, 34,
@@ -480,12 +472,14 @@ export class UIScene extends Phaser.Scene {
     const nodes   = [];
     const cleanup = () => nodes.forEach((n) => n?.destroy());
 
-    // ── Overlay ───────────────────────────────────────────────────────────
     const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.78)
       .setOrigin(0).setInteractive().setDepth(D);
+    
+    // Stop overlay clicks from hitting the map
+    overlay.on('pointerdown', (p, x, y, e) => e.stopPropagation());
+    overlay.on('pointerup', (p, x, y, e) => e.stopPropagation());
     nodes.push(overlay);
 
-    // ── Panel background ──────────────────────────────────────────────────
     const panelBg = this.add.graphics().setDepth(D + 1);
     panelBg.fillStyle(P.bgPanel, 0.98);
     panelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 7);
@@ -498,7 +492,6 @@ export class UIScene extends Phaser.Scene {
     panelBg.strokePath();
     nodes.push(panelBg);
 
-    // ── Header bar ────────────────────────────────────────────────────────
     const headerH  = 58;
     const headerBg = this.add.graphics().setDepth(D + 2);
     headerBg.fillStyle(P.btnNormal, 1);
@@ -517,15 +510,15 @@ export class UIScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(D + 3)
     );
 
-    // Diamond close button
     const closeX = this.add.sprite(panelX + panelW - 30, panelY + 29, 'ui-close-btn', 0)
       .setScale(1.6).setDepth(D + 4).setInteractive({ useHandCursor: true });
     closeX.on('pointerover',  () => closeX.setFrame(1));
     closeX.on('pointerout',   () => closeX.setFrame(0));
-    closeX.on('pointerdown',  cleanup);
+    // Fixed: Close on pointerup to prevent map clicks
+    closeX.on('pointerdown',  (p, x, y, e) => e.stopPropagation());
+    closeX.on('pointerup',    cleanup);
     nodes.push(closeX);
 
-    // ── Column header row ─────────────────────────────────────────────────
     const colY = panelY + headerH + 16;
     const col = {
       rank:     panelX + 32,
@@ -545,7 +538,6 @@ export class UIScene extends Phaser.Scene {
       );
     });
 
-    // Divider under column headers
     const divider = this.add.graphics().setDepth(D + 2);
     divider.lineStyle(1, P.borderGold, 0.3);
     divider.beginPath();
@@ -554,14 +546,12 @@ export class UIScene extends Phaser.Scene {
     divider.strokePath();
     nodes.push(divider);
 
-    // ── Loading state ─────────────────────────────────────────────────────
     const loading = this.add.text(panelX + panelW / 2, panelY + panelH / 2, 'Loading...', {
       fontSize: '18px', fontStyle: 'bold',
       color: '#5a4a72', stroke: '#060814', strokeThickness: 3
     }).setOrigin(0.5).setDepth(D + 3);
     nodes.push(loading);
 
-    // ── My rank footer (placeholder) ──────────────────────────────────────
     const footerY  = panelY + panelH - 52;
     const footerBg = this.add.graphics().setDepth(D + 2);
     footerBg.fillStyle(0x100820, 1);
@@ -578,7 +568,6 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setDepth(D + 3);
     nodes.push(myRankText);
 
-    // ── Close button ──────────────────────────────────────────────────────
     const mkBtn = (cx, cy, w, h, label, fillN, fillH, border, onClick) => {
       const c  = this.add.container(cx - w / 2, cy - h / 2).setDepth(D + 4);
       const bg = this.add.graphics();
@@ -601,12 +590,11 @@ export class UIScene extends Phaser.Scene {
       c.add(hit);
       hit.on('pointerover',  () => draw(fillH,       P.borderGlow));
       hit.on('pointerout',   () => draw(fillN,       border));
-      hit.on('pointerdown',  () => draw(P.btnPress,  P.borderDim));
+      hit.on('pointerdown',  (p, x, y, e) => { e.stopPropagation(); draw(P.btnPress,  P.borderDim); });
       hit.on('pointerup',    () => { draw(fillH, P.borderGlow); onClick(); });
       nodes.push(c);
     };
 
-    // ── Fetch and render rows ─────────────────────────────────────────────
     try {
       const [rows, me] = await Promise.all([
         apiService.getLeaderboard(20),
@@ -616,7 +604,7 @@ export class UIScene extends Phaser.Scene {
       loading.destroy();
 
       const rowH      = 34;
-      const rowsAreaH = panelH - headerH - 40 - 52; // leave footer
+      const rowsAreaH = panelH - headerH - 40 - 52;
       const maxRows   = Math.floor(rowsAreaH / rowH);
       const visRows   = rows.slice(0, maxRows);
 
@@ -628,14 +616,12 @@ export class UIScene extends Phaser.Scene {
         const border   = isMe ? P.borderMe : P.borderGold;
         const opacity  = isMe ? 0.9 : 0.55;
 
-        // Row card background
         const rowBg = this.add.graphics().setDepth(D + 2);
         rowBg.fillStyle(cardFill, 1);
         rowBg.fillRoundedRect(panelX + 16, rowY, panelW - 32, rowH - 4, 4);
         rowBg.lineStyle(1, border, opacity);
         rowBg.strokeRoundedRect(panelX + 16, rowY, panelW - 32, rowH - 4, 4);
         if (isMe) {
-          // Gold left accent strip
           rowBg.fillStyle(P.borderMe, 1);
           rowBg.fillRoundedRect(panelX + 16, rowY + 4, 4, rowH - 12, 2);
         }
@@ -646,7 +632,6 @@ export class UIScene extends Phaser.Scene {
         const stroke = '#060814';
         const thick  = 3;
 
-        // Rank
         nodes.push(
           this.add.text(col.rank, textY, `#${entry.rank}`, {
             fontSize: '14px', fontStyle: isMe ? 'bold' : 'normal',
@@ -654,7 +639,6 @@ export class UIScene extends Phaser.Scene {
           }).setOrigin(0, 0.5).setDepth(D + 3)
         );
 
-        // Username (truncated)
         const uname = (entry.username ?? '').length > 20
           ? entry.username.slice(0, 19) + '…'
           : (entry.username ?? '—');
@@ -665,7 +649,6 @@ export class UIScene extends Phaser.Scene {
           }).setOrigin(0, 0.5).setDepth(D + 3)
         );
 
-        // XP (right-aligned)
         nodes.push(
           this.add.text(col.xp, textY, `${entry.totalXp} XP`, {
             fontSize: '14px', fontStyle: isMe ? 'bold' : 'normal',
@@ -676,7 +659,6 @@ export class UIScene extends Phaser.Scene {
         rowY += rowH;
       });
 
-      // Update footer with my real rank
       myRankText.setText(`Your Rank:  #${me?.rank ?? '?'}   ·   ${me?.totalXp ?? 0} XP`);
       myRankText.setColor('#f4c048');
       myRankText.setOrigin(0, 0.5);
@@ -686,7 +668,6 @@ export class UIScene extends Phaser.Scene {
       console.error('Leaderboard load failed:', err);
     }
 
-    // Close button sits at right side of footer, rank text on the left
     mkBtn(
       panelX + panelW - 72, footerY + 26,
       120, 34,
@@ -696,28 +677,31 @@ export class UIScene extends Phaser.Scene {
     );
   }
 
-  showUserProfile() {
+  async showUserProfile() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
-    const learner = gameState.getLearner();
-    if (!learner) return;
 
     const overlay = this.add.rectangle(0, 0, width, height, 0x060a14, 0.86)
       .setOrigin(0)
       .setDepth(1200)
       .setInteractive();
+    
+    // Stop overlay clicks from hitting the map
+    overlay.on('pointerdown', (p, x, y, e) => e.stopPropagation());
+    overlay.on('pointerup', (p, x, y, e) => e.stopPropagation());
+    
     const nodes = [overlay];
     const depth = 1201;
     const tileSize = 56;
     const cols = 12;
-    const rows = 8;
+    const rows = 9; 
     const panelLeft = Math.floor(width / 2 - (cols * tileSize) / 2);
     const panelTop = Math.floor(height / 2 - (rows * tileSize) / 2);
     const panelWidth = cols * tileSize;
 
     this.buildProfilePanel(panelLeft, panelTop, cols, rows, tileSize, depth, nodes);
 
-    const headerY = panelTop + 42;
+    const headerY = panelTop + 32;
     const title = this.add.text(width / 2, headerY, 'PLAYER PROFILE', {
       fontSize: '34px',
       color: '#f8fbff',
@@ -727,7 +711,13 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(depth + 3);
     nodes.push(title);
 
-    const closeBtn = this.add.sprite(panelLeft + panelWidth - 40, panelTop + 36, 'ui-close-btn', 0)
+    const cleanup = (pointer, localX, localY, event) => {
+      if (event && event.stopPropagation) event.stopPropagation();
+      nodes.forEach((node) => node?.destroy());
+      if (this.profileTween) this.profileTween.stop();
+    };
+
+    const closeBtn = this.add.sprite(panelLeft + panelWidth - 40, panelTop + 32, 'ui-close-btn', 0)
       .setScale(1.8)
       .setDepth(depth + 4)
       .setInteractive({ useHandCursor: true });
@@ -735,98 +725,151 @@ export class UIScene extends Phaser.Scene {
 
     closeBtn.on('pointerover', () => closeBtn.setFrame(1));
     closeBtn.on('pointerout', () => closeBtn.setFrame(0));
+    
+    // Fixed: Close on pointerup to prevent map clicks
+    closeBtn.on('pointerdown', (p, x, y, e) => e.stopPropagation());
+    closeBtn.on('pointerup', cleanup);
 
-    this.ensureProfileIdleAnimation();
-
-    const portraitFrame = this.add.image(width / 2, height / 2 + 16, 'ui-portrait-frame')
-      .setScale(4.2)
-      .setDepth(depth + 2);
-    nodes.push(portraitFrame);
-
-    const character = this.add.sprite(width / 2, height / 2 + 26, soldier.sheetKey, 0)
-      .setScale(2.85)
-      .setDepth(depth + 3);
-    character.play('idle');
-    nodes.push(character);
-
-    const glow = this.add.circle(width / 2, height / 2 + 96, 58, 0x6cc0ff, 0.24)
-      .setDepth(depth + 1);
-    nodes.push(glow);
-
-    const leftStats = this.getPrimaryLeftStats(learner);
-    const rightStats = this.getPrimaryRightStats(learner);
-    const extras = this.getExtraProfileStats(learner);
-
-    const renderStatRows = (startX, startY, rowsToDraw, align = 'left') => {
-      let y = startY;
-      rowsToDraw.forEach(([label, value]) => {
-        const labelText = this.add.text(startX, y, `${label}:`, {
-          fontSize: '17px',
-          color: '#a5c8ea',
-          fontStyle: 'bold'
-        }).setDepth(depth + 3);
-        nodes.push(labelText);
-
-        const valueText = this.add.text(startX, y + 19, this.truncateProfileValue(value, 34), {
-          fontSize: '18px',
-          color: '#f1f7ff',
-          fontStyle: 'bold'
-        }).setDepth(depth + 3);
-
-        if (align === 'right') {
-          labelText.setOrigin(1, 0);
-          valueText.setOrigin(1, 0);
-        }
-        nodes.push(valueText);
-        y += 58;
-      });
-    };
-
-    renderStatRows(panelLeft + 36, panelTop + 102, leftStats);
-    renderStatRows(panelLeft + panelWidth - 36, panelTop + 102, rightStats, 'right');
-
-    let extraY = panelTop + rows * tileSize - 124;
-    extras.slice(0, 2).forEach(([label, value]) => {
-      const extraLine = this.add.text(
-        width / 2,
-        extraY,
-        `${label}: ${this.truncateProfileValue(value, 52)}`,
-        {
-          fontSize: '15px',
-          color: '#c4def8'
-        }
-      ).setOrigin(0.5).setDepth(depth + 3);
-      nodes.push(extraLine);
-      extraY += 24;
-    });
-
-    this.tweens.add({
-      targets: character,
-      y: character.y - 6,
-      duration: 1100,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    const footer = this.add.text(width / 2, panelTop + rows * tileSize - 24, 'Tap outside or X to close', {
-      fontSize: '14px',
-      color: '#9ec6ea'
+    const loadingText = this.add.text(width / 2, height / 2, 'Loading Profile...', {
+      fontSize: '20px', color: '#c4def8', stroke: '#060814', strokeThickness: 3
     }).setOrigin(0.5).setDepth(depth + 3);
-    nodes.push(footer);
+    nodes.push(loadingText);
 
-    const cleanup = () => nodes.forEach((node) => node?.destroy());
-    closeBtn.on('pointerdown', cleanup);
-    overlay.on('pointerdown', cleanup);
+    try {
+      const [learnerData, roleData] = await Promise.all([
+        apiService.getCurrentLearner(),
+        apiService.getMyRole()
+      ]);
+
+      loadingText.destroy();
+
+      this.ensureProfileIdleAnimation();
+
+      const portraitFrame = this.add.image(width / 2, height / 2 + 16, 'ui-portrait-frame')
+        .setScale(4.2)
+        .setDepth(depth + 2);
+      nodes.push(portraitFrame);
+
+      const character = this.add.sprite(width / 2, height / 2 + 26, soldier.sheetKey, 0)
+        .setScale(2.85)
+        .setDepth(depth + 3);
+      character.play('idle');
+      applyPlayerProfileToSprite(character, gameState.getPlayerProfile() || getDefaultPlayerProfile());
+      nodes.push(character);
+
+      const glow = this.add.circle(width / 2, height / 2 + 96, 58, 0x6cc0ff, 0.24)
+        .setDepth(depth + 1);
+      nodes.push(glow);
+
+      const leftStats = this.getPrimaryLeftStats(learnerData, roleData);
+      const rightStats = this.getPrimaryRightStats(learnerData);
+      const extras = this.getExtraProfileStats(learnerData);
+
+      const renderStatRows = (startX, startY, rowsToDraw, align = 'left') => {
+        let y = startY;
+        rowsToDraw.forEach(([label, value]) => {
+          const labelText = this.add.text(startX, y, `${label}:`, {
+            fontSize: '17px',
+            color: '#a5c8ea',
+            fontStyle: 'bold'
+          }).setDepth(depth + 3);
+          nodes.push(labelText);
+
+          const valueText = this.add.text(startX, y + 19, this.truncateProfileValue(value, 34), {
+            fontSize: '18px',
+            color: '#f1f7ff',
+            fontStyle: 'bold'
+          }).setDepth(depth + 3);
+
+          if (align === 'right') {
+            labelText.setOrigin(1, 0);
+            valueText.setOrigin(1, 0);
+          }
+          nodes.push(valueText);
+          y += 58;
+        });
+      };
+
+      renderStatRows(panelLeft + 36, panelTop + 102, leftStats);
+      renderStatRows(panelLeft + panelWidth - 36, panelTop + 102, rightStats, 'right');
+
+      let extraY = panelTop + rows * tileSize - 150;
+      extras.slice(0, 2).forEach(([label, value]) => {
+        const extraLine = this.add.text(
+          width / 2,
+          extraY,
+          `${label}: ${this.truncateProfileValue(value, 52)}`,
+          {
+            fontSize: '15px',
+            color: '#c4def8'
+          }
+        ).setOrigin(0.5).setDepth(depth + 3);
+        nodes.push(extraLine);
+        extraY += 24;
+      });
+
+      this.profileTween = this.tweens.add({
+        targets: character,
+        y: character.y - 6,
+        duration: 1100,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+
+      const mkBtn = (cx, cy, w, h, label, fillN, fillH, border, onClick) => {
+        const c  = this.add.container(cx - w / 2, cy - h / 2).setDepth(depth + 4);
+        const bg = this.add.graphics();
+        const draw = (fill, brd) => {
+          bg.clear();
+          bg.fillStyle(fill, 1);
+          bg.fillRoundedRect(0, 0, w, h, 4);
+          bg.lineStyle(2, brd, 1);
+          bg.strokeRoundedRect(0, 0, w, h, 4);
+          bg.fillStyle(0xffffff, 0.06);
+          bg.fillRoundedRect(2, 2, w - 4, h * 0.42, { tl: 3, tr: 3, bl: 0, br: 0 });
+        };
+        draw(fillN, border);
+        c.add(bg);
+        c.add(this.add.text(w / 2, h / 2, label, {
+          fontSize: '14px', fontStyle: 'bold',
+          color: '#f0ecff', stroke: '#060814', strokeThickness: 4
+        }).setOrigin(0.5));
+        const hit = this.add.rectangle(w / 2, h / 2, w, h, 0, 0).setInteractive({ useHandCursor: true });
+        c.add(hit);
+        hit.on('pointerover',  () => draw(fillH,       0xf0b030));
+        hit.on('pointerout',   () => draw(fillN,       border));
+        hit.on('pointerdown',  (p, x, y, e) => { e.stopPropagation(); draw(0x100520, 0x604008); });
+        hit.on('pointerup',    () => { draw(fillH, 0xf0b030); onClick(); });
+        nodes.push(c);
+      };
+
+      mkBtn(
+        width / 2, panelTop + rows * tileSize - 70, 
+        140, 36,
+        'LOGOUT',
+        0x3a0e0e, 0x601818, 0x8b2020,
+        () => { 
+          cleanup(); 
+          this.handleLogout(); 
+        }
+      );
+
+      const footer = this.add.text(width / 2, panelTop + rows * tileSize - 28, 'Tap X to close', {
+        fontSize: '13px',
+        color: '#7a96b4'
+      }).setOrigin(0.5).setDepth(depth + 3);
+      nodes.push(footer);
+
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      loadingText.setText('Failed to load profile data.\nPlease ensure you are logged in.');
+      loadingText.setColor('#ff6b6b');
+    }
   }
 
   buildProfilePanel(left, top, cols, rows, tileSize, depth, nodes) {
-    const cornerFrames = {
-      tl: 0,
-      tr: 2,
-      bl: 6,
-      br: 8
-    };
+    const cornerFrames = { tl: 0, tr: 2, bl: 6, br: 8 };
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
@@ -872,6 +915,71 @@ export class UIScene extends Phaser.Scene {
     nodes.push(headerLeft, headerRight);
   }
 
+  async consumeInventoryItem(item) {
+    const itemId = item?.itemId || item?.item_id;
+    if (!itemId) return false;
+
+    const effect = this.resolveItemEffect(item);
+    if (!effect.usable) {
+      this.showQuickToast(effect.message || 'This item activates automatically during encounters.');
+      return false;
+    }
+
+    const updated = await apiService.removeInventoryItem(itemId, 1);
+    gameState.setInventory(updated);
+
+    if (effect.xpGain > 0) {
+      gameState.updateXP(effect.xpGain);
+    }
+
+    if (effect.nextCombatHpBonus > 0) {
+      const current = gameState.getActiveEffects();
+      const existing = Number(current.nextCombatHpBonus || 0);
+      gameState.setActiveEffects({
+        ...current,
+        nextCombatHpBonus: existing + effect.nextCombatHpBonus
+      });
+    }
+
+    if (effect.assistCharges > 0) {
+      const currentMap = gameState.getCurrentMap();
+      if (currentMap) {
+        const playerState = {
+          ...(currentMap.playerState || {}),
+          assistCharges: Math.max(0, Number(currentMap.playerState?.assistCharges || 0) + effect.assistCharges)
+        };
+        gameState.setCurrentMap({
+          ...currentMap,
+          playerState
+        });
+      }
+    }
+
+    this.showQuickToast(effect.message);
+    return true;
+  }
+
+  resolveItemEffect(item) {
+    return resolveItemEffect(item);
+  }
+
+  showQuickToast(message) {
+    const toast = this.add.text(this.cameras.main.width / 2, 84, message, {
+      fontSize: '14px',
+      color: '#fff3ed',
+      backgroundColor: '#2b1835',
+      padding: { x: 12, y: 8 }
+    }).setOrigin(0.5).setDepth(1400);
+
+    this.tweens.add({
+      targets: toast,
+      alpha: 0,
+      y: toast.y - 10,
+      duration: 1600,
+      onComplete: () => toast.destroy()
+    });
+  }
+
   ensureProfileIdleAnimation() {
     if (this.anims.exists('idle')) return;
 
@@ -885,12 +993,16 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  getPrimaryLeftStats(learner) {
+  getPrimaryLeftStats(learner, roleInfo) {
+    const roleString = (typeof roleInfo === 'object' && roleInfo !== null) 
+      ? (roleInfo.role || roleInfo.roleName || 'User') 
+      : (roleInfo || gameState.getRole() || 'User');
+    const profile = gameState.getPlayerProfile() || getDefaultPlayerProfile();
     return [
-      ['Username', learner.username ?? 'Unknown'],
       ['Full Name', learner.full_name ?? learner.fullName ?? 'Unknown'],
+      ['Style', profile.label],
       ['Email', learner.email ?? 'Unknown'],
-      ['User ID', learner.learnerId ?? learner.id ?? 'N/A']
+      ['Role', roleString]
     ];
   }
 
@@ -898,16 +1010,16 @@ export class UIScene extends Phaser.Scene {
     const joined = learner.created_at || learner.createdAt || learner.joined_at || learner.joinedAt;
     return [
       ['Level', String(learner.level ?? 1)],
-      ['Total XP', String(learner.total_xp ?? learner.totalXp ?? 0)],
-      ['Status', learner.is_active === false ? 'Inactive' : 'Active'],
-      ['Joined', joined ? this.formatJoinDate(joined) : 'Unknown']
+      ['XP Points', String(learner.total_xp ?? learner.totalXp ?? 0)],
+      ['Created', joined ? this.formatJoinDate(joined) : 'Unknown']
     ];
   }
 
   getExtraProfileStats(learner) {
     const tracked = new Set([
       'username', 'full_name', 'fullName', 'email', 'level', 'total_xp', 'totalXp',
-      'learnerId', 'id', 'is_active', 'created_at', 'createdAt', 'joined_at', 'joinedAt'
+      'learnerId', 'id', 'is_active', 'created_at', 'createdAt', 'joined_at', 'joinedAt',
+      'supabase_user_id', 'supabaseUserId', 'updated_at', 'updatedAt' 
     ]);
 
     return Object.entries(learner)
@@ -937,5 +1049,4 @@ export class UIScene extends Phaser.Scene {
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1));
   }
-
 }

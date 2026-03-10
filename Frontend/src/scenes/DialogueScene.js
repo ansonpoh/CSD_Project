@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry';
 import { apiService } from '../services/api';
 import { gameState } from '../services/gameState';
+import { dailyQuestService } from '../services/dailyQuests.js';
 
 const P = {
   bgDeep:     0x090f24,
@@ -621,6 +622,7 @@ export class DialogueScene extends Phaser.Scene {
 
     if (viewedAllPages && contentId) {
       gameState.markLessonComplete(contentId, payload);
+      dailyQuestService.recordEvent('lesson_completed');
       void apiService.completeLessonProgress(payload)
         .then((saved) => gameState.upsertLessonProgress(saved))
         .catch((e) => console.warn('Completion sync failed:', e));

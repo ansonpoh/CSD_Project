@@ -9,6 +9,8 @@ import { DialogueScene } from '../scenes/DialogueScene.js';
 import { UIScene } from '../scenes/UIScene.js';
 import { ContributorScene } from '../scenes/ContributorScene.js';
 import { AdminScene } from '../scenes/AdminScene.js';
+import { MapEditorScene } from '../scenes/MapEditorScene.js';
+import { SideChallengeScene } from '../scenes/SideChallengeScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -41,9 +43,11 @@ const config = {
     CombatScene,
     ShopScene,
     DialogueScene,
+    SideChallengeScene,
     UIScene,
     ContributorScene,
-    AdminScene
+    AdminScene,
+    MapEditorScene
   ]
 };
 

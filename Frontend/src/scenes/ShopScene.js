@@ -141,7 +141,7 @@ export class ShopScene extends Phaser.Scene {
     } catch (error) {
       console.error('Failed to load items:', error);
     }
-  }
+  }1
 
   displayItems() {
     const width       = this.cameras.main.width;

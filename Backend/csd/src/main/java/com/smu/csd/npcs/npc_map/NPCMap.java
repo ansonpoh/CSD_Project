@@ -8,6 +8,7 @@ import com.smu.csd.contents.Content;
 import com.smu.csd.maps.Map;
 import com.smu.csd.npcs.NPC;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -27,7 +28,8 @@ import lombok.NoArgsConstructor;
 public class NPCMap {
     @Id
     @UuidGenerator
-    private UUID npc_map_id;
+    @Column(name = "npc_map_id")
+    private UUID npcMapId;
     @ManyToOne
     @JoinColumn(name = "npc_id")
     private NPC npc;

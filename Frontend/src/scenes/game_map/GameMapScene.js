@@ -8,6 +8,7 @@ import { encounterStateMethods } from './encounterState.js';
 import { questPanelMethods } from './questPanels.js';
 import { mapEventMethods } from './mapEvents.js';
 
+import { apiService } from '../../services/api.js';
 export class GameMapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameMapScene' });
@@ -20,11 +21,15 @@ export class GameMapScene extends Phaser.Scene {
 
   async create() {
     await createGameMapScene.call(this);
+    const data = await apiService.getNPCsByMap('57068713-4b08-422f-b7db-5ee1be2224f6')
+    console.log(data)
   }
 
   update() {
     updateGameMapScene.call(this);
   }
+
+  
 }
 
 Object.assign(

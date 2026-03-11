@@ -104,8 +104,20 @@ export class CombatScene extends Phaser.Scene {
   async create() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const playerBattleY = 180;
+    const playerBarStartX = 50;
+    const playerBarWidth = 260;
+    const playerBattleX = playerBarStartX + (playerBarWidth / 2);
+    const monsterBarStartX = width - 50 - playerBarWidth;
+    const monsterBattleX = monsterBarStartX + (playerBarWidth / 2);
+    const monsterBattleY = 180;
 
-    this.drawBackdrop(width, height);
+    this.drawBackdrop(width, height, {
+      playerX: playerBattleX,
+      playerY: playerBattleY,
+      monsterX: monsterBattleX,
+      monsterY: monsterBattleY
+    });
 
     const titleMonsterName = this.monsterData?.name || this.monsterName;
     const titleSuffix = this.bossEncounter ? ' [BOSS]' : '';
@@ -118,8 +130,8 @@ export class CombatScene extends Phaser.Scene {
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    this.createPlayerIcon(width * 0.18, 180);
-    this.createMonsterIcon(width * 0.82, 180);
+    this.createPlayerIcon(playerBattleX, playerBattleY);
+    this.createMonsterIcon(monsterBattleX, monsterBattleY);
     this.createHealthBars(width);
     this.createQuizPanel(width, height);
     this.createActionButtons(width);

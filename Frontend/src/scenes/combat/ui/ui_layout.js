@@ -1,15 +1,19 @@
 import { P } from '../constants.js';
 
 export const combatSceneUiLayoutMethods = {
-  drawBackdrop(width, height) {
+  drawBackdrop(width, height, layout = {}) {
+    const playerAuraX = Number.isFinite(layout.playerX) ? layout.playerX : width * 0.22;
+    const playerAuraY = Number.isFinite(layout.playerY) ? layout.playerY : 180;
+    const monsterAuraX = Number.isFinite(layout.monsterX) ? layout.monsterX : width * 0.82;
+    const monsterAuraY = Number.isFinite(layout.monsterY) ? layout.monsterY : 180;
     this.add.rectangle(width / 2, height / 2, width, height, P.bgDeep);
     for (let i = 0; i < 5; i += 1) {
       const alpha = 0.06 - i * 0.01;
       this.add.rectangle(0, height / 2, 60 + i * 30, height, 0x8b0000, alpha).setOrigin(0, 0.5);
       this.add.rectangle(width, height / 2, 60 + i * 30, height, 0x8b0000, alpha).setOrigin(1, 0.5);
     }
-    this.add.circle(width * 0.25, 180, 120, 0x4193d5, 0.06);
-    this.add.circle(width * 0.82, 180, 120, 0x8b0000, 0.08);
+    this.add.circle(playerAuraX, playerAuraY, 120, 0x4193d5, 0.06);
+    this.add.circle(monsterAuraX, monsterAuraY, 120, 0x8b0000, 0.08);
 
     const titleBg = this.add.graphics();
     titleBg.fillStyle(0x1a0510, 1);

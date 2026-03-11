@@ -13,7 +13,9 @@ export function initializeSceneState(scene) {
   scene.interactPrompt = null;
   scene.interactPromptBg = null;
   scene.closestNpcSprite = null;
+  scene.closestMonsterSprite = null;
   scene.npcInteractDistance = 120;
+  scene.monsterInteractDistance = 95;
   scene.map = null;
   scene.collisionBodies = [];
   scene.npcMonsterMap = new Map();
@@ -56,6 +58,7 @@ export function resetSceneState(scene, data) {
   scene.interactKey = null;
   scene.interactPrompt = null;
   scene.interactPromptBg = null;
+  scene.closestMonsterSprite = null;
   scene.collisionBodies = [];
   scene.npcMonsterMap = new Map();
   scene.monsterSpriteByNpcKey = new Map();
@@ -94,4 +97,3 @@ export function resetSceneState(scene, data) {
   const learner = gameState.getLearner();
   scene.mapConfig = mapDiscoveryService.buildCatalog([scene.mapConfig], learner)[0] || scene.mapConfig;
 }
-

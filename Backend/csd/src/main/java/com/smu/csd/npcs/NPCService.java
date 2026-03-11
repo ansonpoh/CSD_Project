@@ -48,7 +48,7 @@ public class NPCService {
                 var npc = npcMap.getNpc();
                 Content c = npcMap.getContent();
                 return new NPCMapLessonResponse(
-                    npc.getNpc_id(),
+                    npc.getNpcId(),
                     npc.getName(),
                     npc.getAsset(),
                     c != null ? c.getContentId() : null,

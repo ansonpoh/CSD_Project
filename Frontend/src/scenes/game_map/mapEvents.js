@@ -11,7 +11,7 @@ export const mapEventMethods = {
     this.interactPromptBg.setVisible(true);
     this.interactPrompt.setVisible(true);
     this.time.delayedCall(duration, () => {
-      if (!this.closestNpcSprite) {
+      if (!this.closestNpcSprite && !this.closestMonsterSprite) {
         this.interactPromptBg?.setVisible(false);
         this.interactPrompt?.setVisible(false);
       }
@@ -195,8 +195,12 @@ export const mapEventMethods = {
     }
 
     if (rewards?.revealNextMonster) {
-      const nextLocked = this.getOrderedEncounters().find((entry) => !this.revealedMonsterNpcKeys.has(entry.npcKey));
-      if (nextLocked?.npc) this.revealMonsterForNpc(nextLocked.npc, { animate: true, silent: true });
+      if (!this.areAllNpcsCompleted()) {
+        this.showMapToast('Monsters unlock only after all NPC lessons are completed.');
+      } else {
+        const nextLocked = this.getOrderedEncounters().find((entry) => !this.revealedMonsterNpcKeys.has(entry.npcKey));
+        if (nextLocked?.npc) this.revealMonsterForNpc(nextLocked.npc, { animate: true, silent: true });
+      }
     }
 
     this.mapConfig = mapDiscoveryService.buildCatalog([this.mapConfig], gameState.getLearner())[0] || this.mapConfig;
@@ -235,4 +239,3 @@ export const mapEventMethods = {
     this.showMapToast(`${this.mapConfig.name} logged as a completed run.`, 2400);
   }
 };
-

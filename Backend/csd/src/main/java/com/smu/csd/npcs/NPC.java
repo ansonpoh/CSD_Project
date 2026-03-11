@@ -23,7 +23,8 @@ import lombok.NoArgsConstructor;
 public class NPC {
     @Id
     @UuidGenerator
-    private UUID npc_id;
+    @Column(name = "npc_id")
+    private UUID npcId;
     @Column
     private String name;
     @Column

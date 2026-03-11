@@ -4,6 +4,7 @@ import { dailyQuestService } from '../../services/dailyQuests.js';
 
 export const questPanelMethods = {
   processQueuedMonsterSpawns() {
+    if (!this.areAllNpcsCompleted()) return;
     if (!this.pendingMonsterUnlockNpcKeys.length) return;
 
     const keys = [...this.pendingMonsterUnlockNpcKeys];
@@ -16,6 +17,7 @@ export const questPanelMethods = {
   },
 
   revealMonsterForNpc(npc, opts = {}) {
+    if (!this.areAllNpcsCompleted()) return;
     const { animate = true, silent = false } = opts;
     const npcKey = this.getNpcKey(npc);
     if (this.revealedMonsterNpcKeys.has(npcKey)) return;
@@ -28,7 +30,6 @@ export const questPanelMethods = {
     sprite.setVisible(true);
     sprite.setActive(true);
     if (sprite.body) sprite.body.enable = true;
-    sprite.setInteractive({ useHandCursor: true });
     if (label) label.setVisible(true);
 
     if (animate) {
@@ -59,7 +60,7 @@ export const questPanelMethods = {
       this.interactPromptBg?.setVisible(true);
       this.interactPrompt.setVisible(true);
       this.time.delayedCall(1300, () => {
-        if (!this.closestNpcSprite) {
+        if (!this.closestNpcSprite && !this.closestMonsterSprite) {
           this.interactPromptBg?.setVisible(false);
           this.interactPrompt.setVisible(false);
         }
@@ -214,4 +215,3 @@ export const questPanelMethods = {
     return Boolean(ordered.length) && ordered.every((entry) => this.encounterProgressByNpcKey.get(entry.npcKey)?.rewardClaimed);
   }
 };
-

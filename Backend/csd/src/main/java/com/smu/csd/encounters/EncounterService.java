@@ -3,13 +3,19 @@ package com.smu.csd.encounters;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.smu.csd.encounters.dtos.EncounterClaimRewardResponseDto;
+import com.smu.csd.encounters.dtos.EncounterCombatResultRequestDto;
+import com.smu.csd.encounters.dtos.EncounterCombatResultResponseDto;
+import com.smu.csd.encounters.dtos.EncounterNpcInteractResponseDto;
+import com.smu.csd.encounters.dtos.EncounterStateDto;
+import com.smu.csd.encounters.dtos.EncounterTelemetryDashboardDto;
+import com.smu.csd.encounters.dtos.MonsterStateDto;
+import com.smu.csd.encounters.dtos.NpcSummaryDto;
 import com.smu.csd.leaderboard.LeaderboardService;
 import com.smu.csd.maps.MapRepository;
 import com.smu.csd.monsters.Monster;
@@ -49,7 +55,7 @@ public class EncounterService {
         this.mapRepository = mapRepository;
     }
 
-    public Map<String, Object> getEncounterState(UUID mapId, UUID supabaseUserId) {
+    public EncounterStateDto getEncounterState(UUID mapId, UUID supabaseUserId) {
         if (mapId == null) throw new IllegalArgumentException("mapId is required.");
         Learner learner = requireLearner(supabaseUserId);
 
@@ -67,47 +73,39 @@ public class EncounterService {
         int completedNpcCount = completedNpcIds.size();
         boolean allNpcsCompleted = totalNpcs > 0 && completedNpcCount >= totalNpcs;
 
-        List<Map<String, Object>> monsterState = buildMonsterState(monsters, learner, mapId, allNpcsCompleted);
+        List<MonsterStateDto> monsterState = buildMonsterState(monsters, learner, mapId, allNpcsCompleted);
+        NpcSummaryDto npcSummary = new NpcSummaryDto(totalNpcs, completedNpcCount, completedNpcIds, allNpcsCompleted);
 
-        Map<String, Object> npcSummary = new LinkedHashMap<>();
-        npcSummary.put("total", totalNpcs);
-        npcSummary.put("completed", completedNpcCount);
-        npcSummary.put("completedNpcIds", completedNpcIds);
-        npcSummary.put("allCompleted", allNpcsCompleted);
-
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("mapId", mapId);
-        response.put("npc", npcSummary);
-        response.put("monsters", monsterState);
-        return response;
+        return new EncounterStateDto(mapId, npcSummary, monsterState);
     }
 
-    public Map<String, Object> markNpcInteracted(UUID mapId, UUID npcId, UUID supabaseUserId) {
+    public EncounterNpcInteractResponseDto markNpcInteracted(UUID mapId, UUID npcId, UUID supabaseUserId) {
         if (mapId == null || npcId == null) {
             throw new IllegalArgumentException("mapId and npcId are required.");
         }
 
         Learner learner = requireLearner(supabaseUserId);
         boolean npcCompleted = isNpcCompleted(learner.getLearnerId(), npcId);
+        String message = npcCompleted
+            ? "NPC lesson is completed."
+            : "NPC completion is driven by lesson progress; complete the lesson to unlock monsters.";
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("mapId", mapId);
-        response.put("npcId", npcId);
-        response.put("completed", npcCompleted);
-        response.put(
-            "message",
-            npcCompleted
-                ? "NPC lesson is completed."
-                : "NPC completion is driven by lesson progress; complete the lesson to unlock monsters."
+        return new EncounterNpcInteractResponseDto(
+            mapId,
+            npcId,
+            npcCompleted,
+            message,
+            getEncounterState(mapId, supabaseUserId)
         );
-        response.put("state", getEncounterState(mapId, supabaseUserId));
-        return response;
     }
 
-    public Map<String, Object> recordCombatResult(Map<String, Object> request, UUID supabaseUserId) {
-        UUID mapId = parseUuid(request == null ? null : request.get("mapId"));
-        UUID monsterId = parseUuid(request == null ? null : request.get("monsterId"));
-        Boolean won = parseBoolean(request == null ? null : request.get("won"));
+    public EncounterCombatResultResponseDto recordCombatResult(
+        EncounterCombatResultRequestDto request,
+        UUID supabaseUserId
+    ) {
+        UUID mapId = request == null ? null : request.mapId();
+        UUID monsterId = request == null ? null : request.monsterId();
+        Boolean won = request == null ? null : request.won();
 
         if (mapId == null || monsterId == null) {
             throw new IllegalArgumentException("mapId and monsterId are required.");
@@ -136,20 +134,20 @@ public class EncounterService {
 
         MonsterProgress saved = monsterProgressRepository.save(progress);
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("mapId", mapId);
-        response.put("monsterId", monsterId);
-        response.put("won", didWin);
-        response.put("attempts", safeInt(saved.getAttempts()));
-        response.put("wins", safeInt(saved.getWins()));
-        response.put("losses", safeInt(saved.getLosses()));
-        response.put("lossStreak", safeInt(saved.getLossStreak()));
-        response.put("monsterDefeated", Boolean.TRUE.equals(saved.getMonsterDefeated()));
-        response.put("rewardClaimed", Boolean.TRUE.equals(saved.getRewardClaimed()));
-        return response;
+        return new EncounterCombatResultResponseDto(
+            mapId,
+            monsterId,
+            didWin,
+            safeInt(saved.getAttempts()),
+            safeInt(saved.getWins()),
+            safeInt(saved.getLosses()),
+            safeInt(saved.getLossStreak()),
+            Boolean.TRUE.equals(saved.getMonsterDefeated()),
+            Boolean.TRUE.equals(saved.getRewardClaimed())
+        );
     }
 
-    public Map<String, Object> claimReward(UUID mapId, UUID monsterId, UUID supabaseUserId) {
+    public EncounterClaimRewardResponseDto claimReward(UUID mapId, UUID monsterId, UUID supabaseUserId) {
         if (mapId == null || monsterId == null) {
             throw new IllegalArgumentException("mapId and monsterId are required.");
         }
@@ -179,17 +177,17 @@ public class EncounterService {
             monsterProgressRepository.save(progress);
         }
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("mapId", mapId);
-        response.put("monsterId", monsterId);
-        response.put("xpAwarded", xpAwarded);
-        response.put("learnerTotalXp", safeInt(learner.getTotal_xp()));
-        response.put("learnerLevel", safeInt(learner.getLevel()));
-        response.put("rewardClaimed", true);
-        return response;
+        return new EncounterClaimRewardResponseDto(
+            mapId,
+            monsterId,
+            xpAwarded,
+            safeInt(learner.getTotal_xp()),
+            safeInt(learner.getLevel()),
+            true
+        );
     }
 
-    public Map<String, Object> getTelemetryDashboard(UUID mapId) {
+    public EncounterTelemetryDashboardDto getTelemetryDashboard(UUID mapId) {
         List<MonsterProgress> rows = monsterProgressRepository.findAll();
         if (mapId != null) {
             rows = rows.stream().filter(r -> r.getMap() != null && mapId.equals(r.getMap().getMapId())).toList();
@@ -200,18 +198,18 @@ public class EncounterService {
         long combatLost = rows.stream().filter(r -> safeInt(r.getLosses()) > 0).count();
         long rewardClaimed = rows.stream().filter(r -> Boolean.TRUE.equals(r.getRewardClaimed())).count();
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("mapId", mapId);
-        response.put("combatStarted", combatStarted);
-        response.put("combatWon", combatWon);
-        response.put("combatLost", combatLost);
-        response.put("rewardClaimed", rewardClaimed);
-        response.put("winRate", toPercent(combatWon, combatStarted));
-        response.put("lossRate", toPercent(combatLost, combatStarted));
-        return response;
+        return new EncounterTelemetryDashboardDto(
+            mapId,
+            combatStarted,
+            combatWon,
+            combatLost,
+            rewardClaimed,
+            toPercent(combatWon, combatStarted),
+            toPercent(combatLost, combatStarted)
+        );
     }
 
-    private List<Map<String, Object>> buildMonsterState(
+    private List<MonsterStateDto> buildMonsterState(
         List<Monster> monsters,
         Learner learner,
         UUID mapId,
@@ -220,7 +218,7 @@ public class EncounterService {
         List<Monster> ordered = new ArrayList<>(monsters);
         ordered.sort(Comparator.comparing(monster -> asString(monster.getMonsterId())));
 
-        List<Map<String, Object>> rows = new ArrayList<>();
+        List<MonsterStateDto> rows = new ArrayList<>();
         for (int i = 0; i < ordered.size(); i++) {
             Monster monster = ordered.get(i);
             if (monster == null || monster.getMonsterId() == null) continue;
@@ -229,18 +227,18 @@ public class EncounterService {
                 .findByLearnerLearnerIdAndMapMapIdAndMonsterMonsterId(learner.getLearnerId(), mapId, monster.getMonsterId())
                 .orElse(null);
 
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("monsterId", monster.getMonsterId());
-            row.put("name", monster.getName());
-            row.put("boss", i == ordered.size() - 1);
-            row.put("unlocked", allNpcsCompleted);
-            row.put("monsterDefeated", progress != null && Boolean.TRUE.equals(progress.getMonsterDefeated()));
-            row.put("rewardClaimed", progress != null && Boolean.TRUE.equals(progress.getRewardClaimed()));
-            row.put("attempts", progress == null ? 0 : safeInt(progress.getAttempts()));
-            row.put("wins", progress == null ? 0 : safeInt(progress.getWins()));
-            row.put("losses", progress == null ? 0 : safeInt(progress.getLosses()));
-            row.put("lossStreak", progress == null ? 0 : safeInt(progress.getLossStreak()));
-            rows.add(row);
+            rows.add(new MonsterStateDto(
+                monster.getMonsterId(),
+                monster.getName(),
+                i == ordered.size() - 1,
+                allNpcsCompleted,
+                progress != null && Boolean.TRUE.equals(progress.getMonsterDefeated()),
+                progress != null && Boolean.TRUE.equals(progress.getRewardClaimed()),
+                progress == null ? 0 : safeInt(progress.getAttempts()),
+                progress == null ? 0 : safeInt(progress.getWins()),
+                progress == null ? 0 : safeInt(progress.getLosses()),
+                progress == null ? 0 : safeInt(progress.getLossStreak())
+            ));
         }
 
         return rows;
@@ -320,21 +318,6 @@ public class EncounterService {
         Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
         if (learner == null) throw new IllegalArgumentException("Learner profile not found for current user.");
         return learner;
-    }
-
-    private UUID parseUuid(Object value) {
-        if (value == null) return null;
-        try {
-            return UUID.fromString(String.valueOf(value));
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
-    private Boolean parseBoolean(Object value) {
-        if (value == null) return null;
-        if (value instanceof Boolean b) return b;
-        return Boolean.parseBoolean(String.valueOf(value));
     }
 
     private int safeInt(Integer value) {

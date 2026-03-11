@@ -1,6 +1,5 @@
 package com.smu.csd.encounters;
 
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
@@ -15,6 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.csd.encounters.dtos.EncounterClaimRewardResponseDto;
+import com.smu.csd.encounters.dtos.EncounterCombatResultRequestDto;
+import com.smu.csd.encounters.dtos.EncounterCombatResultResponseDto;
+import com.smu.csd.encounters.dtos.EncounterNpcInteractResponseDto;
+import com.smu.csd.encounters.dtos.EncounterStateDto;
+import com.smu.csd.encounters.dtos.EncounterTelemetryDashboardDto;
+
 @RestController
 @CrossOrigin(origins = "*")
 @RequestMapping("/api/encounters")
@@ -26,12 +32,12 @@ public class EncounterController {
     }
 
     @GetMapping("/map/{mapId}/state")
-    public Map<String, Object> getEncounterState(@PathVariable UUID mapId, Authentication authentication) {
+    public EncounterStateDto getEncounterState(@PathVariable UUID mapId, Authentication authentication) {
         return encounterService.getEncounterState(mapId, getSupabaseUserId(authentication));
     }
 
     @PutMapping("/map/{mapId}/npc/{npcId}/interact")
-    public Map<String, Object> markNpcInteracted(
+    public EncounterNpcInteractResponseDto markNpcInteracted(
         @PathVariable UUID mapId,
         @PathVariable UUID npcId,
         Authentication authentication
@@ -40,15 +46,15 @@ public class EncounterController {
     }
 
     @PostMapping("/combat/result")
-    public Map<String, Object> recordCombatResult(
-        @RequestBody Map<String, Object> request,
+    public EncounterCombatResultResponseDto recordCombatResult(
+        @RequestBody EncounterCombatResultRequestDto request,
         Authentication authentication
     ) {
         return encounterService.recordCombatResult(request, getSupabaseUserId(authentication));
     }
 
     @PostMapping("/map/{mapId}/monster/{monsterId}/claim")
-    public Map<String, Object> claimReward(
+    public EncounterClaimRewardResponseDto claimReward(
         @PathVariable UUID mapId,
         @PathVariable UUID monsterId,
         Authentication authentication
@@ -57,7 +63,7 @@ public class EncounterController {
     }
 
     @GetMapping("/telemetry/dashboard")
-    public Map<String, Object> getTelemetryDashboard(@RequestParam(required = false) UUID mapId) {
+    public EncounterTelemetryDashboardDto getTelemetryDashboard(@RequestParam(required = false) UUID mapId) {
         return encounterService.getTelemetryDashboard(mapId);
     }
 

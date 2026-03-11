@@ -56,6 +56,22 @@ function createHudButton(scene, cx, cy, label, fillNormal, fillHover, onClick) {
 }
 
 export const uiMethods = {
+  layoutMissionPanel() {
+    if (!this.missionCard || !this.missionCardBounds || !this.missionText) return;
+
+    const { x, y, width, minHeight } = this.missionCardBounds;
+    this.missionText.setWordWrapWidth(width - 28, true);
+    const contentHeight = this.missionText.height + 24;
+    const computedHeight = Math.max(minHeight, Math.ceil(contentHeight));
+
+    this.missionCard.clear();
+    this.missionCard.fillStyle(HUD.cardBg, 0.92);
+    this.missionCard.fillRoundedRect(x, y, width, computedHeight, 8);
+    this.missionCard.lineStyle(2, HUD.border, 0.8);
+    this.missionCard.strokeRoundedRect(x, y, width, computedHeight, 8);
+    this.missionText.setPosition(x + width / 2, y + computedHeight / 2);
+  },
+
   createUI() {
     const width = this.cameras.main.width;
 
@@ -67,25 +83,45 @@ export const uiMethods = {
       this.scene.start('WorldMapScene', { selectedMapId: this.mapConfig?.mapId || this.mapConfig?.id });
     });
 
+    const missionWidth = Math.min(700, Math.max(380, width - 120));
+    const missionX = Math.floor((width - missionWidth) / 2);
     const missionCard = this.add.graphics().setScrollFactor(0).setDepth(119);
+    this.missionCard = missionCard;
+    this.missionCardBounds = { x: missionX, y: 70, width: missionWidth, minHeight: 54 };
     missionCard.fillStyle(HUD.cardBg, 0.92);
-    missionCard.fillRoundedRect(width / 2 - 250, 70, 500, 54, 8);
+    missionCard.fillRoundedRect(missionX, 70, missionWidth, 54, 8);
     missionCard.lineStyle(2, HUD.border, 0.8);
-    missionCard.strokeRoundedRect(width / 2 - 250, 70, 500, 54, 8);
-    this.missionText = this.add.text(width / 2, 97, 'Syncing objectives...', {
+    missionCard.strokeRoundedRect(missionX, 70, missionWidth, 54, 8);
+    this.missionText = this.add.text(missionX + missionWidth / 2, 97, 'Syncing objectives...', {
       fontSize: '17px',
       fontFamily: 'Trebuchet MS, Verdana, sans-serif',
       fontStyle: 'bold',
       color: HUD.textMain,
       stroke: '#060814',
-      strokeThickness: 3
+      strokeThickness: 3,
+      align: 'center',
+      wordWrap: { width: missionWidth - 28 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(120);
 
     const bannerCard = this.add.graphics().setScrollFactor(0).setDepth(119);
+    this.mapBannerCard = bannerCard;
+    this.mapBannerCardBounds = { x: 32, y: 150, width: 280, minHeight: 124 };
     bannerCard.fillStyle(HUD.cardBg, 0.92);
-    bannerCard.fillRoundedRect(32, 150, 280, 124, 8);
+    bannerCard.fillRoundedRect(
+      this.mapBannerCardBounds.x,
+      this.mapBannerCardBounds.y,
+      this.mapBannerCardBounds.width,
+      this.mapBannerCardBounds.minHeight,
+      8
+    );
     bannerCard.lineStyle(2, HUD.border, 0.82);
-    bannerCard.strokeRoundedRect(32, 150, 280, 124, 8);
+    bannerCard.strokeRoundedRect(
+      this.mapBannerCardBounds.x,
+      this.mapBannerCardBounds.y,
+      this.mapBannerCardBounds.width,
+      this.mapBannerCardBounds.minHeight,
+      8
+    );
     this.mapBannerText = this.add.text(46, 164, '', {
       fontSize: '18px',
       fontFamily: 'Trebuchet MS, Verdana, sans-serif',
@@ -143,6 +179,8 @@ export const uiMethods = {
       () => this.claimActiveQuestReward()
     );
     this.claimRewardButton.setEnabled(false);
+    this.layoutMissionPanel();
     this.refreshMapSignalPanel();
   }
 };
+

@@ -83,6 +83,7 @@ export const questPanelMethods = {
 
     this.lastMissionSnapshot = summary;
     this.missionText.setText(summary);
+    this.layoutMissionPanel?.();
   },
 
   getOrderedEncounters() {
@@ -213,3 +214,4 @@ export const questPanelMethods = {
     return Boolean(ordered.length) && ordered.every((entry) => this.encounterProgressByNpcKey.get(entry.npcKey)?.rewardClaimed);
   }
 };
+

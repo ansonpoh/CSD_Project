@@ -26,6 +26,28 @@ export const mapEventMethods = {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
   },
 
+  layoutMapSignalPanel() {
+    if (!this.mapBannerCard || !this.mapBannerCardBounds || !this.mapSignalText) return;
+
+    const { x, y, width, minHeight } = this.mapBannerCardBounds;
+    const cardBottomPadding = 14;
+    const signalBottom = this.mapSignalText.y + this.mapSignalText.height;
+    const computedHeight = Math.max(minHeight, Math.ceil(signalBottom - y + cardBottomPadding));
+
+    this.mapBannerCard.clear();
+    this.mapBannerCard.fillStyle(HUD.cardBg, 0.92);
+    this.mapBannerCard.fillRoundedRect(x, y, width, computedHeight, 8);
+    this.mapBannerCard.lineStyle(2, HUD.border, 0.82);
+    this.mapBannerCard.strokeRoundedRect(x, y, width, computedHeight, 8);
+
+    const buttonHeight = 40;
+    const buttonGap = 8;
+    const buttonMargin = 14;
+    const firstButtonCenterY = y + computedHeight + buttonMargin + (buttonHeight / 2);
+    this.mapEventButton?.container?.setY(firstButtonCenterY - buttonHeight / 2);
+    this.sideChallengeButton?.container?.setY(firstButtonCenterY + buttonGap + buttonHeight / 2);
+  },
+
   refreshMapSignalPanel() {
     if (!this.mapBannerText || !this.mapSignalText) return;
 
@@ -50,6 +72,7 @@ export const mapEventMethods = {
 
     this.mapBannerText.setText(this.mapConfig?.name || 'Current Gate');
     this.mapSignalText.setText(lines.join('\n'));
+    this.layoutMapSignalPanel();
     this.mapEventButton?.setEnabled(Boolean(event) && !Boolean(lastChoice?.optionId));
     this.sideChallengeButton?.setEnabled(true);
   },
@@ -212,3 +235,4 @@ export const mapEventMethods = {
     this.showMapToast(`${this.mapConfig.name} logged as a completed run.`, 2400);
   }
 };
+

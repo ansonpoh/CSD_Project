@@ -23,12 +23,16 @@ export function initializeSceneState(scene) {
   scene.encounterProgressByNpcKey = new Map();
   scene.encounterState = null;
   scene.missionText = null;
+  scene.missionCard = null;
+  scene.missionCardBounds = null;
   scene.lastMissionSnapshot = '';
   scene.questTitleText = null;
   scene.questStepsText = null;
   scene.claimRewardButton = null;
   scene.mapBannerText = null;
   scene.mapSignalText = null;
+  scene.mapBannerCard = null;
+  scene.mapBannerCardBounds = null;
   scene.mapEventButton = null;
   scene.sideChallengeButton = null;
   scene.eventOverlay = null;
@@ -59,6 +63,9 @@ export function resetSceneState(scene, data) {
   scene.pendingMonsterUnlockNpcKeys = [];
   scene.encounterProgressByNpcKey = new Map();
   scene.encounterState = null;
+  scene.missionText = null;
+  scene.missionCard = null;
+  scene.missionCardBounds = null;
   scene.lastMissionSnapshot = '';
   scene.closestNpcSprite = null;
   scene.questTitleText = null;
@@ -66,6 +73,8 @@ export function resetSceneState(scene, data) {
   scene.claimRewardButton = null;
   scene.mapBannerText = null;
   scene.mapSignalText = null;
+  scene.mapBannerCard = null;
+  scene.mapBannerCardBounds = null;
   scene.mapEventButton = null;
   scene.sideChallengeButton = null;
   scene.eventOverlay = null;
@@ -85,3 +94,4 @@ export function resetSceneState(scene, data) {
   const learner = gameState.getLearner();
   scene.mapConfig = mapDiscoveryService.buildCatalog([scene.mapConfig], learner)[0] || scene.mapConfig;
 }
+

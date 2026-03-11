@@ -84,6 +84,16 @@ export class WorldMapScene extends Phaser.Scene {
 
   async create() {
     const { width, height } = this.cameras.main;
+
+      //temporary jump to quiz scenes for testing
+      this.input.keyboard.on('keydown-A', () => {
+        this.scene.start('DragQuizScene');
+      });
+      
+      this.input.keyboard.on('keydown-B', () => {
+        this.scene.start('ScenarioQuizScene');
+      });
+      
     const learner = gameState.getLearner();
     if (!learner) {
       this.scene.stop('UIScene');

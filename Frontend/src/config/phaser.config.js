@@ -11,6 +11,8 @@ import { ContributorScene } from '../scenes/ContributorScene.js';
 import { AdminScene } from '../scenes/AdminScene.js';
 import { MapEditorScene } from '../scenes/MapEditorScene.js';
 import { SideChallengeScene } from '../scenes/SideChallengeScene.js';
+import { DragQuizScene } from '../scenes/DragQuizScene.js';
+import { ScenarioQuizScene } from '../scenes/ScenarioQuizScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -41,6 +43,8 @@ const config = {
     WorldMapScene,
     GameMapScene,
     CombatScene,
+    DragQuizScene,
+    ScenarioQuizScene,
     ShopScene,
     DialogueScene,
     SideChallengeScene,

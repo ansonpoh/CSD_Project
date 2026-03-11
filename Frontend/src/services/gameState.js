@@ -285,7 +285,6 @@ class GameStateManager {
         role: this.role,
         currentMap: this.currentMap,
         inventory: this.inventory,
-        lessonProgress: this.lessonProgress,
         playerProfile: this.playerProfile,
         activeEffects: this.activeEffects
       },
@@ -303,12 +302,7 @@ class GameStateManager {
     this.role = state.role || null;
     this.currentMap = state.currentMap || null;
     this.inventory = (state.inventory || []).map((item) => normalizeInventoryEntry(item)).filter(Boolean);
-    this.lessonProgress = Object.fromEntries(
-      Object.values(state.lessonProgress || {})
-        .map((entry) => normalizeLessonEntry(entry))
-        .filter(Boolean)
-        .map((entry) => [entry.contentId, entry])
-    );
+    this.lessonProgress = {};
     this.playerProfile = state.playerProfile || null;
     this.activeEffects = state.activeEffects || {};
   }
@@ -329,3 +323,4 @@ class GameStateManager {
 }
 
 export const gameState = GameStateManager.getInstance();
+

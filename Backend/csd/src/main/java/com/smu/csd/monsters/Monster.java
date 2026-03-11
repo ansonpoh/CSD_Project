@@ -22,7 +22,8 @@ import lombok.NoArgsConstructor;
 public class Monster {
     @Id
     @UuidGenerator
-    private UUID monster_id;
+    @Column(name = "monster_id")
+    private UUID monsterId;
     @Column(unique = true)
     private String name;
     @Column

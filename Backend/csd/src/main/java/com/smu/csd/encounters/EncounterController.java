@@ -1,6 +1,6 @@
 package com.smu.csd.encounters;
 
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
@@ -26,22 +26,12 @@ public class EncounterController {
     }
 
     @GetMapping("/map/{mapId}/state")
-    public EncounterStateResponse getEncounterState(@PathVariable UUID mapId, Authentication authentication) {
+    public Map<String, Object> getEncounterState(@PathVariable UUID mapId, Authentication authentication) {
         return encounterService.getEncounterState(mapId, getSupabaseUserId(authentication));
     }
 
-    @GetMapping("/map/{mapId}/pairs")
-    public List<EncounterPairResponse> getPairs(@PathVariable UUID mapId) {
-        return encounterService.getPairs(mapId);
-    }
-
-    @PutMapping("/map/{mapId}/pair")
-    public EncounterPairResponse assignPair(@PathVariable UUID mapId, @RequestBody EncounterPairAssignRequest request) {
-        return encounterService.assignPair(mapId, request.npcId(), request.monsterId());
-    }
-
     @PutMapping("/map/{mapId}/npc/{npcId}/interact")
-    public EncounterProgressResponse markNpcInteracted(
+    public Map<String, Object> markNpcInteracted(
         @PathVariable UUID mapId,
         @PathVariable UUID npcId,
         Authentication authentication
@@ -50,15 +40,15 @@ public class EncounterController {
     }
 
     @PostMapping("/combat/result")
-    public EncounterProgressResponse recordCombatResult(
-        @RequestBody EncounterCombatResultRequest request,
+    public Map<String, Object> recordCombatResult(
+        @RequestBody Map<String, Object> request,
         Authentication authentication
     ) {
         return encounterService.recordCombatResult(request, getSupabaseUserId(authentication));
     }
 
     @PostMapping("/map/{mapId}/monster/{monsterId}/claim")
-    public EncounterRewardClaimResponse claimReward(
+    public Map<String, Object> claimReward(
         @PathVariable UUID mapId,
         @PathVariable UUID monsterId,
         Authentication authentication
@@ -67,9 +57,7 @@ public class EncounterController {
     }
 
     @GetMapping("/telemetry/dashboard")
-    public EncounterTelemetryDashboardResponse getTelemetryDashboard(
-        @RequestParam(required = false) UUID mapId
-    ) {
+    public Map<String, Object> getTelemetryDashboard(@RequestParam(required = false) UUID mapId) {
         return encounterService.getTelemetryDashboard(mapId);
     }
 

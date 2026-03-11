@@ -24,12 +24,18 @@ export const combatSceneQuizLifelineMethods = {
   },
 
   setQuizOptionsEnabled(enabled) {
-    this.optionButtons.forEach((btn) => {
-      if (!btn.container.visible) {
-        btn.setEnabled(false);
-        return;
+    this.optionButtons = (this.optionButtons || []).filter((btn) => {
+      const container = btn?.container;
+      const setEnabled = btn?.setEnabled;
+      if (!container || typeof setEnabled !== 'function' || !container.scene || !btn.hit?.scene) return false;
+
+      if (!container.visible) {
+        setEnabled(false);
+        return true;
       }
-      btn.setEnabled(enabled);
+
+      setEnabled(enabled);
+      return true;
     });
   },
 
@@ -63,3 +69,4 @@ export const combatSceneQuizLifelineMethods = {
     );
   }
 };
+

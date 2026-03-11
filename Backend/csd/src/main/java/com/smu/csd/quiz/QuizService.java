@@ -18,8 +18,6 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.contents.Content;
-import com.smu.csd.encounters.EncounterRetryProfile;
-import com.smu.csd.encounters.EncounterService;
 import com.smu.csd.monsters.MonsterRepository;
 import com.smu.csd.npcs.npc_map.NPCMap;
 import com.smu.csd.npcs.npc_map.NPCMapRepository;
@@ -43,16 +41,13 @@ public class QuizService {
 
     private final NPCMapRepository npcMapRepository;
     private final MonsterRepository monsterRepository;
-    private final EncounterService encounterService;
 
     public QuizService(
         NPCMapRepository npcMapRepository,
-        MonsterRepository monsterRepository,
-        EncounterService encounterService
+        MonsterRepository monsterRepository
     ) {
         this.npcMapRepository = npcMapRepository;
         this.monsterRepository = monsterRepository;
-        this.encounterService = encounterService;
     }
 
     public MonsterEncounterQuizResponse generateMonsterEncounterQuiz(MonsterEncounterQuizRequest request, UUID supabaseUserId) {
@@ -62,12 +57,7 @@ public class QuizService {
 
         boolean bossEncounter = Boolean.TRUE.equals(request.bossEncounter());
         int baseQuestionCount = bossEncounter ? BOSS_QUESTION_COUNT : NORMAL_QUESTION_COUNT;
-        EncounterRetryProfile retryProfile = encounterService.getRetryProfile(
-            request.mapId(),
-            request.monsterId(),
-            supabaseUserId
-        );
-        int totalQuestions = Math.max(5, baseQuestionCount - retryProfile.questionReduction());
+        int totalQuestions = baseQuestionCount;
         int requiredAccuracyPercent = bossEncounter ? BOSS_PASS_PERCENT : NORMAL_PASS_PERCENT;
         int requiredCorrectAnswers = (int) Math.ceil(totalQuestions * (requiredAccuracyPercent / 100.0));
         String difficulty = bossEncounter ? "hard" : "normal";
@@ -90,8 +80,8 @@ public class QuizService {
             requiredAccuracyPercent,
             requiredCorrectAnswers,
             totalQuestions,
-            retryProfile.startingMonsterHpPercent(),
-            retryProfile.lossStreak(),
+            100,
+            0,
             questions
         );
     }
@@ -349,3 +339,6 @@ public class QuizService {
         );
     }
 }
+
+
+

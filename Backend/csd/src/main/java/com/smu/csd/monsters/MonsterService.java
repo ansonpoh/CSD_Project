@@ -24,8 +24,8 @@ public class MonsterService {
         return repository.findAll();
     }
 
-    public Monster getMonsterById(UUID monster_id) {
-        return repository.findById(monster_id).orElseThrow(() -> new RuntimeException("Monster not found"));
+    public Monster getMonsterById(UUID monsterId) {
+        return repository.findById(monsterId).orElseThrow(() -> new RuntimeException("Monster not found"));
     }
 
     public List<Monster> getMonstersByMapId(UUID map_id) {
@@ -40,8 +40,8 @@ public class MonsterService {
         return repository.save(monster);
     }
 
-    public Monster updateMonster(UUID monster_id, Monster monster) {
-        return repository.findById(monster_id).map(current -> {
+    public Monster updateMonster(UUID monsterId, Monster monster) {
+        return repository.findById(monsterId).map(current -> {
             current.setName(monster.getName());
             current.setDescription(monster.getDescription());
             current.setAsset(monster.getAsset());
@@ -49,8 +49,8 @@ public class MonsterService {
         }).orElseThrow(() -> new RuntimeException("Monster not found"));
     }
 
-    public void deleteMonster(UUID monster_id) {
-        repository.deleteById(monster_id);
+    public void deleteMonster(UUID monsterId) {
+        repository.deleteById(monsterId);
     }
 
 

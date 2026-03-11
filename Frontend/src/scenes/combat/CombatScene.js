@@ -90,6 +90,15 @@ export class CombatScene extends Phaser.Scene {
       .filter((key) => key.startsWith('attack'))
       .map((key) => `${this.monsterName}_${key}`)
       .filter((fullKey) => this.anims.exists(fullKey));
+
+    // Scene objects are recreated on each entry; clear old references first.
+    this.optionButtons = [];
+    this.runBtn = null;
+    this.exitBtn = null;
+    this.questionText = null;
+    this.questionMetaText = null;
+    this.questionTargetText = null;
+    this.lifelineText = null;
   }
 
   async create() {
@@ -252,4 +261,5 @@ Object.assign(
   combatSceneEntityMethods,
   combatSceneQuizMethods
 );
+
 

@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { soldier } from '../../characters/soldier/Soldier.js';
 import { WORLD_MAP_PALETTE as P } from './constants.js';
 
@@ -55,7 +56,101 @@ export const worldMapPanelFactoryMethods = {
   },
 
   clearPanelBody(panel) {
+    if (panel?.scrollState?.wheelHandler) {
+      this.input.off('wheel', panel.scrollState.wheelHandler);
+    }
+    if (panel?.scrollState?.hitZone) {
+      panel.scrollState.hitZone.destroy();
+    }
+    if (panel?.scrollState?.maskGraphics) {
+      panel.scrollState.maskGraphics.destroy();
+    }
+    if (panel?.scrollState?.mask) {
+      panel.scrollState.mask.destroy();
+    }
+
+    panel.scrollState = null;
     panel.body.removeAll(true);
+  },
+
+  createScrollableBody(panel, options = {}) {
+    const headerHeight = 58;
+    const margins = {
+      left: options.left ?? 10,
+      right: options.right ?? 10,
+      top: options.top ?? 8,
+      bottom: options.bottom ?? 10
+    };
+    const viewport = {
+      x: margins.left,
+      y: margins.top,
+      width: panel.width - margins.left - margins.right,
+      height: panel.height - headerHeight - margins.top - margins.bottom
+    };
+
+    const content = this.add.container(viewport.x, viewport.y);
+    panel.body.add(content);
+
+    const maskGraphics = this.add.graphics();
+    maskGraphics.fillStyle(0xffffff, 1);
+    maskGraphics.fillRect(
+      panel.x + viewport.x,
+      panel.y + headerHeight + viewport.y,
+      viewport.width,
+      viewport.height
+    );
+    const mask = maskGraphics.createGeometryMask();
+    content.setMask(mask);
+    maskGraphics.setVisible(false);
+
+    const hitZone = this.add
+      .zone(
+        panel.x + viewport.x + viewport.width / 2,
+        panel.y + headerHeight + viewport.y + viewport.height / 2,
+        viewport.width,
+        viewport.height
+      )
+      .setInteractive();
+
+    panel.scrollState = {
+      content,
+      viewport,
+      contentHeight: 0,
+      offset: 0,
+      maxOffset: 0,
+      hitZone,
+      maskGraphics,
+      mask
+    };
+
+    const wheelHandler = (pointer, _gameObjects, _deltaX, deltaY) => {
+      const bounds = new Phaser.Geom.Rectangle(
+        panel.x + viewport.x,
+        panel.y + headerHeight + viewport.y,
+        viewport.width,
+        viewport.height
+      );
+      if (!bounds.contains(pointer.x, pointer.y)) return;
+      this.setPanelScrollOffset(panel, panel.scrollState.offset + deltaY * 0.75);
+    };
+
+    panel.scrollState.wheelHandler = wheelHandler;
+    this.input.on('wheel', wheelHandler);
+
+    return content;
+  },
+
+  setPanelScrollMetrics(panel, contentHeight) {
+    if (!panel?.scrollState) return;
+    panel.scrollState.contentHeight = Math.max(0, contentHeight);
+    panel.scrollState.maxOffset = Math.max(0, panel.scrollState.contentHeight - panel.scrollState.viewport.height);
+    this.setPanelScrollOffset(panel, panel.scrollState.offset);
+  },
+
+  setPanelScrollOffset(panel, nextOffset) {
+    if (!panel?.scrollState) return;
+    panel.scrollState.offset = Phaser.Math.Clamp(nextOffset, 0, panel.scrollState.maxOffset);
+    panel.scrollState.content.y = panel.scrollState.viewport.y - panel.scrollState.offset;
   },
 
   createMapCard(x, y, width, height, map, isSelected, onClick) {
@@ -107,7 +202,7 @@ export const worldMapPanelFactoryMethods = {
     }).setOrigin(1, 0);
     card.add(badge);
 
-    const social = `${map.socialProof.rating.toFixed(1)}★  ${this.formatCompact(map.socialProof.likes)} likes  ${this.formatCompact(map.socialProof.completions)} clears`;
+    const social = `${map.socialProof.rating.toFixed(1)}\u2605  ${this.formatCompact(map.socialProof.likes)} likes  ${this.formatCompact(map.socialProof.completions)} clears`;
     card.add(this.add.text(width - 12, 58, social, {
       fontSize: '12px',
       color: textColor,
@@ -189,3 +284,4 @@ export const worldMapPanelFactoryMethods = {
     });
   }
 };
+

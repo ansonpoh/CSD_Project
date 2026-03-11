@@ -86,7 +86,6 @@ export const entityRenderingMethods = {
       const sprite = this.physics.add.sprite(x, y, monsterName, 0);
       sprite.setScale(config.scale);
       sprite.setDepth(4);
-      sprite.setInteractive();
       sprite.setData('monster', encounterMonster);
       sprite.setData('npcKey', npcKey);
       sprite.setVisible(false);
@@ -110,7 +109,6 @@ export const entityRenderingMethods = {
       sprite.setData('baseLabel', labelName);
 
       sprite.play(`${monsterName}_idle`, true);
-      sprite.on('pointerdown', () => this.encounterMonster(encounterMonster));
       this.monsterSprites.push(sprite);
       this.monsterSpriteByNpcKey.set(npcKey, sprite);
 
@@ -165,33 +163,70 @@ export const entityRenderingMethods = {
     if (!player || !this.interactPrompt) return;
 
     this.npcSprites = this.npcSprites.filter((sprite) => sprite && sprite.active && sprite.body && sprite.getData('npc'));
+    this.monsterSprites = this.monsterSprites.filter((sprite) => sprite && sprite.getData('monster'));
 
-    let closest = null;
-    let closestDist = Number.POSITIVE_INFINITY;
+    let closestNpc = null;
+    let closestNpcDist = Number.POSITIVE_INFINITY;
     for (const npcSprite of this.npcSprites) {
       const distance = Phaser.Math.Distance.Between(player.x, player.y, npcSprite.x, npcSprite.y);
-      if (distance < closestDist) {
-        closestDist = distance;
-        closest = npcSprite;
+      if (distance < closestNpcDist) {
+        closestNpcDist = distance;
+        closestNpc = npcSprite;
       }
     }
 
-    const inRange = closest && closestDist <= this.npcInteractDistance;
-    if (!inRange) {
-      this.closestNpcSprite = null;
+    let closestMonster = null;
+    let closestMonsterDist = Number.POSITIVE_INFINITY;
+    for (const monsterSprite of this.monsterSprites) {
+      if (!monsterSprite.visible || !monsterSprite.active) continue;
+
+      const npcKey = monsterSprite.getData('npcKey');
+      const progress = npcKey ? this.encounterProgressByNpcKey.get(npcKey) : null;
+      if (progress?.monsterDefeated || progress?.rewardClaimed) continue;
+      if (npcKey && !this.isMonsterInteractableForNpcKey(npcKey)) continue;
+
+      const distance = Phaser.Math.Distance.Between(player.x, player.y, monsterSprite.x, monsterSprite.y);
+      if (distance < closestMonsterDist) {
+        closestMonsterDist = distance;
+        closestMonster = monsterSprite;
+      }
+    }
+
+    const inNpcRange = closestNpc && closestNpcDist <= this.npcInteractDistance;
+    const inMonsterRange = closestMonster && closestMonsterDist <= this.monsterInteractDistance;
+    this.closestNpcSprite = inNpcRange ? closestNpc : null;
+    this.closestMonsterSprite = inMonsterRange ? closestMonster : null;
+
+    if (!inNpcRange && !inMonsterRange) {
       this.interactPromptBg?.setVisible(false);
       this.interactPrompt.setVisible(false);
       return;
     }
 
-    const npc = closest.getData('npc');
+    const useMonsterTarget = inMonsterRange && (!inNpcRange || closestMonsterDist <= closestNpcDist);
+    this.interactPromptBg?.setVisible(true);
+    this.interactPrompt.setVisible(true);
+
+    if (useMonsterTarget) {
+      const monster = closestMonster.getData('monster');
+      const monsterName = monster?.name || 'monster';
+      this.interactPrompt.setText(`Press E to fight ${monsterName}`);
+
+      if (Phaser.Input.Keyboard.JustDown(this.interactKey) && !this.scene.isActive('DialogueScene') && !this.isDomInputFocused()) {
+        this.encounterMonster(monster);
+        this.interactPromptBg?.setVisible(false);
+        this.interactPrompt.setVisible(false);
+      }
+      return;
+    }
+
+    const npc = closestNpc.getData('npc');
     if (!npc || !npc.name) {
-      this.closestNpcSprite = null;
+      this.interactPromptBg?.setVisible(false);
       this.interactPrompt.setVisible(false);
       return;
     }
 
-    this.closestNpcSprite = closest;
     const progressState = this.getProgressState(npc);
     const mapping = this.npcMonsterMap.get(this.getNpcKey(npc));
     const monsterName = mapping?.monster?.name || 'monster';
@@ -199,8 +234,6 @@ export const entityRenderingMethods = {
     this.interactPrompt.setText(
       `Press E to talk to ${npc.name}  |  ${progressState.toUpperCase()}  |  ${monsterName}: ${spawned ? 'spawned' : 'locked'}`
     );
-    this.interactPromptBg?.setVisible(true);
-    this.interactPrompt.setVisible(true);
 
     if (Phaser.Input.Keyboard.JustDown(this.interactKey) && !this.scene.isActive('DialogueScene') && !this.isDomInputFocused()) {
       this.interactWithNPC(npc);

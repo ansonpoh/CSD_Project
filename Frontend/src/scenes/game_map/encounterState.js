@@ -99,6 +99,11 @@ export const encounterStateMethods = {
   },
 
   encounterMonster(monster) {
+    if (!this.areAllNpcsCompleted()) {
+      this.showMapToast('Monsters unlock only after all NPC lessons are completed.');
+      return;
+    }
+
     const npcId = monster?.npcId || null;
     const npcKey = npcId ? String(npcId) : null;
     if (npcKey && !this.isMonsterInteractableForNpcKey(npcKey)) {
@@ -288,7 +293,6 @@ export const encounterStateMethods = {
     }
 
     if (monsterSprite.visible && interactable) {
-      monsterSprite.setInteractive({ useHandCursor: true });
       if (monsterSprite.body) monsterSprite.body.enable = true;
       return;
     }
@@ -306,22 +310,27 @@ export const encounterStateMethods = {
     return activeQuest.npcKey === npcKey;
   },
 
+  areAllNpcsCompleted() {
+    const backendFlag = this.encounterState?.npc?.allCompleted;
+    if (typeof backendFlag === 'boolean') return backendFlag;
+    if (!Array.isArray(this.npcs) || !this.npcs.length) return false;
+    return this.npcs.every((npc) => this.getProgressState(npc) === 'completed');
+  },
+
   shouldMonsterBeUnlockedForNpc(npc) {
-    const key = this.getNpcKey(npc);
-    if (this.revealedMonsterNpcKeys.has(key)) return true;
-    const progress = this.getEncounterProgress(npc);
-    if (progress?.monsterUnlocked || progress?.monsterDefeated || progress?.rewardClaimed) return true;
-    const lessonState = this.getProgressState(npc);
-    return lessonState === 'interacted' || lessonState === 'completed';
+    if (!this.areAllNpcsCompleted()) return false;
+    return this.npcMonsterMap.has(this.getNpcKey(npc));
   },
 
   queueMonsterUnlockForNpc(npc) {
-    const key = this.getNpcKey(npc);
-    if (this.revealedMonsterNpcKeys.has(key)) return;
-    if (this.pendingMonsterUnlockNpcKeys.includes(key)) return;
-
-    this.pendingMonsterUnlockNpcKeys.push(key);
-    this.updateNpcVisualState(this.npcSprites.find((sprite) => sprite.getData('npcKey') === key));
+    if (!this.areAllNpcsCompleted()) return;
+    this.npcMonsterMap.forEach((_, key) => {
+      if (this.revealedMonsterNpcKeys.has(key)) return;
+      if (this.pendingMonsterUnlockNpcKeys.includes(key)) return;
+      this.pendingMonsterUnlockNpcKeys.push(key);
+    });
+    const npcKey = this.getNpcKey(npc);
+    this.updateNpcVisualState(this.npcSprites.find((sprite) => sprite.getData('npcKey') === npcKey));
     this.updateQuestPanel();
   },
 
@@ -336,8 +345,7 @@ export const encounterStateMethods = {
       ...existing,
       npcId,
       monsterId: existing.monsterId || this.getMonsterId(this.npcMonsterMap.get(npcKey)?.monster),
-      npcInteracted: true,
-      monsterUnlocked: true
+      npcInteracted: true
     });
     this.updateAllNpcVisualStates();
     this.updateMissionPanel();
@@ -345,7 +353,13 @@ export const encounterStateMethods = {
 
     try {
       const saved = await apiService.markEncounterNpcInteracted(mapId, npcId);
-      this.applyEncounterProgress(saved);
+      if (saved?.state) {
+        this.encounterState = saved.state;
+        this.hydrateEncounterProgress();
+      } else {
+        this.applyEncounterProgress(saved);
+      }
+      this.queueMonsterUnlockForNpc(npc);
       this.updateAllNpcVisualStates();
       this.updateMissionPanel();
       this.updateQuestPanel();

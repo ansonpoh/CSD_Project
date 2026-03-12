@@ -8,7 +8,7 @@ const P = {
   bgScenario: 0x081832,
   btnNormal: 0x2a0f42,
   btnHover: 0x3d1860,
-  btnPress: 0x100520,
+  btnPress: 0x2a1043,
   btnBlue: 0x1a2a52,
   btnBlueHov: 0x2a4278,
   borderGold: 0xc8870a,
@@ -96,10 +96,10 @@ export class ScenarioQuizScene extends Phaser.Scene {
   }
 
   createQuestionPanel(width, height) {
-    const panelX = 60;
-    const panelY = 130;
-    const panelW = width - 120;
-    const panelH = 360;
+    const panelW = Math.min(1120, width - 180);
+    const panelH = Math.min(720, height - 140);
+    const panelX = width / 2 - panelW / 2;
+    const panelY = height / 2 - panelH / 2;
 
     const qBg = this.add.graphics();
     qBg.fillStyle(P.bgPanel, 0.98);
@@ -158,7 +158,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
       lineSpacing: 8
     });
 
-    this.feedbackText = this.add.text(panelX + 16, panelY + panelH + 8, '', {
+    this.feedbackText = this.add.text(panelX + 16, panelY + panelH - 450, '', {
       fontFamily: UI_FONT,
       fontSize: '18px',
       fontStyle: 'bold',
@@ -180,7 +180,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
     const { panelX, panelY, panelW, panelH } = this.layout;
     const optionW = Math.floor((panelW - 20) / 2);
     const optionH = 72;
-    const optionStartY = panelY + panelH + 48;
+    const optionStartY = panelY + panelH - 220;
 
     this.optionButtons = [];
     for (let i = 0; i < 4; i += 1) {
@@ -205,10 +205,11 @@ export class ScenarioQuizScene extends Phaser.Scene {
   }
 
   createControlButtons(width, height) {
-    const btnY = height - 80;
+    const { panelY, panelH } = this.layout;
+    const btnY = panelY + panelH - 56;
 
     this.submitBtn = this.makeButton(
-      width / 2 - 120,
+      width / 2 - 500,
       btnY,
       180,
       46,
@@ -220,7 +221,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
     );
 
     this.nextBtn = this.makeButton(
-      width / 2 + 120,
+      width / 2 + 300,
       btnY,
       180,
       46,
@@ -271,7 +272,6 @@ export class ScenarioQuizScene extends Phaser.Scene {
     hit.on('pointerout', () => draw(fillNormal, borderColor, 1));
     hit.on('pointerdown', () => draw(P.btnPress, P.borderDim, 1));
     hit.on('pointerup', () => {
-      draw(fillHover, P.borderGlow, 1);
       onClick();
     });
 
@@ -398,12 +398,19 @@ export class ScenarioQuizScene extends Phaser.Scene {
     this.feedbackText.setText('');
 
     this.optionButtons.forEach((btn, idx) => {
-      if (!btn?.container?.visible) return;
-      if (idx === optionIndex) {
-        btn.draw(P.btnHover, P.borderGlow, 1);
-      } else {
-        btn.draw(btn.fillNormal, btn.borderColor, 0.9);
-      }
+    if (!btn?.container?.visible) return;
+        btn.hit.off('pointerout');
+        btn.hit.off('pointerover');
+
+        if (idx === optionIndex) {
+            btn.draw(P.btnPress, P.borderGlow, 1);
+            btn.hit.on('pointerover', () => btn.draw(P.btnHover, P.borderGlow, 1));
+            btn.hit.on('pointerout', () => btn.draw(P.btnPress, P.borderGlow, 1));
+        } else {
+            btn.draw(btn.fillNormal, btn.borderColor, 0.9);
+            btn.hit.on('pointerover', () => btn.draw(btn.fillHover, P.borderGlow, 1));
+            btn.hit.on('pointerout', () => btn.draw(btn.fillNormal, btn.borderColor, 0.9));
+        }
     });
   }
 

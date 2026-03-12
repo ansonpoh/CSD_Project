@@ -131,6 +131,10 @@ public class QuestionBankService {
             .replaceAll("(?s)^```[a-z]*\\s*", "")
             .replaceAll("(?s)\\s*```$", "")
             .replaceAll(",\\s*(]|})", "$1")
+            // Fix missing comma before a known field that appears on a new line
+            .replaceAll("(\"[^\"]*\"|true|false|null)\\s*\\n(\\s*)(\"?(?:isCorrect|optionText|scenarioText|options)\"?\\s*:)", "$1,\n$2$3")
+            // Fix unquoted field names (e.g. isCorrect: → "isCorrect":)
+            .replaceAll("\\b(isCorrect|optionText|scenarioText|options)\\b(?=\\s*:)", "\"$1\"")
             .strip();
 
         try {

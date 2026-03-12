@@ -485,6 +485,41 @@ class ApiService {
     const { data } = await this.api.put(`/contents/flags/${contentFlagId}/review`, payload);
     return data;
   }
+
+  // Question Bank endpoints
+  async generateBankDraft(mapId) {
+    const { data } = await this.api.post(`/question-bank/map/${mapId}/generate`);
+    return data;
+  }
+
+  async saveBankQuestions(mapId, questions) {
+    const { data } = await this.api.post(`/question-bank/map/${mapId}`, questions);
+    return data;
+  }
+
+  async getAllBankQuestions() {
+    const { data } = await this.api.get('/question-bank/all');
+    return data;
+  }
+
+  async getBankQuestionsByMap(mapId) {
+    const { data } = await this.api.get(`/question-bank/map/${mapId}`);
+    return data;
+  }
+
+  async approveBankQuestion(bankQuestionId) {
+    const { data } = await this.api.put(`/question-bank/${bankQuestionId}/approve`);
+    return data;
+  }
+
+  async rejectBankQuestion(bankQuestionId) {
+    const { data } = await this.api.put(`/question-bank/${bankQuestionId}/reject`);
+    return data;
+  }
+
+  async addBankQuestionToQuiz(quizId, bankQuestionId) {
+    await this.api.post(`/question-bank/into-quiz/${quizId}/${bankQuestionId}`);
+  }
 }
 
 export const apiService = new ApiService();

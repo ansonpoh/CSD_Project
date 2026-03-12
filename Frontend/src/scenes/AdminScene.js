@@ -10,6 +10,7 @@ export class AdminScene extends Phaser.Scene {
     this.contributorAccountsModal = null;
     this.telemetryModal = null;
     this.flagQueueModal = null;
+    this.questionBankModal = null;
   }
 
   create() {
@@ -36,7 +37,7 @@ export class AdminScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const panelW = 980;
-    const panelH = 500;
+    const panelH = 580;
     const panelX = width / 2 - panelW / 2;
     const panelY = height / 2 - panelH / 2 + 40;
 
@@ -51,7 +52,7 @@ export class AdminScene extends Phaser.Scene {
     const gap = 20;
     const totalCards = 4;
     const startX = width / 2 - ((cardW * totalCards + gap * (totalCards - 1)) / 2) + cardW / 2;
-    const y = panelY + 146;
+    const y = panelY + 116;
 
     this.createActionCard(startX, y, cardW, cardH, 'Review Queue', 'Fetch pending moderation queue', async () => {
       await this.openReviewQueueWorkflow();
@@ -69,11 +70,16 @@ export class AdminScene extends Phaser.Scene {
       await this.openTelemetryWorkflow();
     });
 
-    this.createButton(width / 2 - 90, panelY + panelH - 66, 180, 42, 'Logout', async () => {
+    this.createActionCard(width / 2, y + cardH + 28, cardW, cardH, 'Question Bank', 'Manage map question banks', async () => {
+      await this.openQuestionBankWorkflow();
+    });
+
+    this.createButton(width / 2 - 90, panelY + panelH - 60, 180, 42, 'Logout', async () => {
       this.destroyReviewQueueModal();
       this.destroyContributorAccountsModal();
       this.destroyTelemetryModal();
       this.destroyContributorDetailsModal();
+      this.destroyQuestionBankModal();
       await supabase.auth.signOut();
       gameState.clearState();
       this.scene.start('LoginScene');
@@ -85,6 +91,7 @@ export class AdminScene extends Phaser.Scene {
       this.destroyContributorAccountsModal();
       this.destroyTelemetryModal();
       this.destroyContributorDetailsModal();
+      this.destroyQuestionBankModal();
     });
     this.events.once('destroy', () => {
       this.destroyFlagQueueModal();
@@ -92,6 +99,7 @@ export class AdminScene extends Phaser.Scene {
       this.destroyContributorAccountsModal();
       this.destroyTelemetryModal();
       this.destroyContributorDetailsModal();
+      this.destroyQuestionBankModal();
     });
   }
 
@@ -788,7 +796,8 @@ export class AdminScene extends Phaser.Scene {
       !this.flagQueueModal &&
       !this.contributorAccountsModal &&
       !this.telemetryModal &&
-      !this.contributorDetailsModal;
+      !this.contributorDetailsModal &&
+      !this.questionBankModal;
   }
 
   escapeHtml(value) {
@@ -1042,6 +1051,365 @@ export class AdminScene extends Phaser.Scene {
       this.flagQueueModal.parentNode.removeChild(this.flagQueueModal);
     }
     this.flagQueueModal = null;
+    this.updateSceneInputInteractivity();
+  }
+
+  // --- Question Bank ---
+
+  async openQuestionBankWorkflow() {
+    if (this.questionBankModal) {
+      this.showToast('Question Bank is already open.');
+      return;
+    }
+    let maps;
+    try {
+      maps = await apiService.getAllMaps();
+    } catch (e) {
+      this.showToast(e?.response?.data?.message || e?.message || 'Unable to load maps');
+      return;
+    }
+    this.renderQuestionBankModal(maps || []);
+  }
+
+  renderQuestionBankModal(maps) {
+    const modal = document.createElement('div');
+    modal.style.position = 'absolute';
+    modal.style.left = '50%';
+    modal.style.top = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.width = 'min(1000px, calc(100vw - 40px))';
+    modal.style.maxHeight = '85vh';
+    modal.style.overflowY = 'auto';
+    modal.style.padding = '24px';
+    modal.style.background = 'rgba(42, 23, 19, 0.98)';
+    modal.style.border = '2px solid #c8870a';
+    modal.style.borderRadius = '10px';
+    modal.style.boxShadow = '0 16px 38px rgba(0,0,0,0.5)';
+    modal.style.zIndex = '1000';
+
+    const mapOptions = maps.map(m =>
+      `<option value="${this.escapeHtml(m.mapId)}">${this.escapeHtml(m.name)}</option>`
+    ).join('');
+
+    const selectStyle = `background:#1f0e0b; color:#ffe8dc; border:1px solid #845042; border-radius:4px; padding:6px 10px; font-size:13px; min-width:160px;`;
+    const btnPrimary = `background:#4a2800; color:#ffd4a6; border:1px solid #c8870a; border-radius:6px; padding:8px 16px; cursor:pointer; font-size:13px;`;
+    const btnDanger = `background:#4a1111; color:#ffc7c7; border:1px solid #ab6666; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px;`;
+    const tabActive = `padding:8px 20px; background:#4a2800; color:#ffd4a6; border:1px solid #c8870a; border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer; font-size:13px; margin-bottom:-1px;`;
+    const tabInactive = `padding:8px 20px; background:transparent; color:#efb9a2; border:1px solid transparent; border-bottom:1px solid #845042; border-radius:6px 6px 0 0; cursor:pointer; font-size:13px; margin-bottom:-1px;`;
+
+    modal.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px;">
+        <h2 style="margin:0; color:#ffe8dc;">Question Bank</h2>
+        <button id="bank-close-btn" style="${btnDanger}">Close</button>
+      </div>
+      <div style="display:flex; gap:0; margin-bottom:16px; border-bottom:1px solid #845042;">
+        <button id="bank-tab-gen" style="${tabActive}">Generate Questions</button>
+        <button id="bank-tab-view" style="${tabInactive}">View Bank</button>
+      </div>
+      <div id="bank-status" style="min-height:18px; font-size:13px; margin-bottom:12px;"></div>
+
+      <div id="bank-panel-gen">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+          <label style="color:#efb9a2; font-size:13px;">Select Map:</label>
+          <select id="bank-map-select" style="${selectStyle}">
+            <option value="">-- Choose a map --</option>
+            ${mapOptions}
+          </select>
+          <button id="bank-gen-btn" style="${btnPrimary}">Generate Draft</button>
+        </div>
+        <div id="bank-draft-area" style="display:none;">
+          <div style="color:#efb9a2; font-size:12px; margin-bottom:12px;">Review and edit the generated questions. Check boxes mark correct answers.</div>
+          <div id="bank-draft-questions"></div>
+          <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <button id="bank-add-q-btn" style="background:transparent; color:#c8870a; border:1px dashed #c8870a; border-radius:6px; padding:8px 18px; cursor:pointer; font-size:13px;">+ Add Question</button>
+            <button id="bank-save-btn" style="${btnPrimary}">Save All to Bank</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="bank-panel-view" style="display:none;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+          <label style="color:#efb9a2; font-size:13px;">Map:</label>
+          <select id="bank-view-map" style="${selectStyle}">
+            <option value="">All Maps</option>
+            ${mapOptions}
+          </select>
+          <label style="color:#efb9a2; font-size:13px;">Status:</label>
+          <select id="bank-view-status" style="${selectStyle}">
+            <option value="">All</option>
+            <option value="PENDING_REVIEW">Pending Review</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+          <button id="bank-view-load-btn" style="${btnPrimary}">Load</button>
+        </div>
+        <div id="bank-view-count" style="color:#efb9a2; font-size:13px; margin-bottom:10px;"></div>
+        <div id="bank-view-list"></div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    this.questionBankModal = modal;
+    this.updateSceneInputInteractivity();
+
+    // Helper: build an option row element
+    const buildOptionRowEl = (optionText, isCorrect) => {
+      const div = document.createElement('div');
+      div.setAttribute('data-opt-row', '');
+      div.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
+      div.innerHTML = `
+        <input type="checkbox" data-opt-correct ${isCorrect ? 'checked' : ''} style="flex-shrink:0; width:16px; height:16px; accent-color:#c8870a; cursor:pointer;">
+        <input type="text" data-opt-text value="${this.escapeHtml(optionText || '')}" placeholder="Option text..." style="flex:1; background:#1f0e0b; color:#ffe8dc; border:1px solid #845042; border-radius:4px; padding:6px 8px; font-size:12px;">
+        <button data-remove-opt style="background:#4a1111; color:#ffc7c7; border:1px solid #ab6666; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:11px; flex-shrink:0;">✕</button>
+      `;
+      div.querySelector('[data-remove-opt]').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        div.remove();
+      });
+      return div;
+    };
+
+    // Helper: build a draft question card element
+    const buildDraftQuestionEl = (idx, q) => {
+      const card = document.createElement('div');
+      card.setAttribute('data-q-card', '');
+      card.style.cssText = 'border:1px solid #845042; border-radius:8px; padding:14px; margin-bottom:12px; background:rgba(31,14,11,0.72); position:relative;';
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="color:#c8870a; font-weight:bold; font-size:14px;" data-q-label>Q${idx + 1}</div>
+          <button data-remove-q style="background:#4a1111; color:#ffc7c7; border:1px solid #ab6666; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:12px;">✕ Remove</button>
+        </div>
+        <textarea data-q-text style="width:100%; min-height:72px; background:#1f0e0b; color:#ffe8dc; border:1px solid #845042; border-radius:4px; padding:8px; font-size:13px; resize:vertical; box-sizing:border-box;">${this.escapeHtml(q.scenarioText || '')}</textarea>
+        <div style="color:#efb9a2; font-size:12px; margin:8px 0 4px;">Options — check the correct answer(s):</div>
+        <div data-opts-container></div>
+        <button data-add-opt style="margin-top:6px; background:transparent; color:#c8870a; border:1px dashed #c8870a; border-radius:4px; padding:4px 12px; cursor:pointer; font-size:12px;">+ Add Option</button>
+      `;
+      const optsContainer = card.querySelector('[data-opts-container]');
+      (q.options || []).forEach(opt => optsContainer.appendChild(buildOptionRowEl(opt.optionText, opt.isCorrect)));
+      card.querySelector('[data-add-opt]').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        optsContainer.appendChild(buildOptionRowEl('', false));
+      });
+      card.querySelector('[data-remove-q]').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        card.remove();
+        renumberQuestions();
+      });
+      return card;
+    };
+
+    const renumberQuestions = () => {
+      draftQuestionsEl.querySelectorAll('[data-q-card]').forEach((card, i) => {
+        const label = card.querySelector('[data-q-label]');
+        if (label) label.textContent = `Q${i + 1}`;
+      });
+    };
+
+    // Tab switching
+    const tabGen = modal.querySelector('#bank-tab-gen');
+    const tabView = modal.querySelector('#bank-tab-view');
+    const panelGen = modal.querySelector('#bank-panel-gen');
+    const panelView = modal.querySelector('#bank-panel-view');
+
+    tabGen.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      tabGen.style.cssText = tabActive;
+      tabView.style.cssText = tabInactive;
+      panelGen.style.display = 'block';
+      panelView.style.display = 'none';
+    });
+    tabView.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      tabView.style.cssText = tabActive;
+      tabGen.style.cssText = tabInactive;
+      panelView.style.display = 'block';
+      panelGen.style.display = 'none';
+    });
+
+    // Close
+    modal.querySelector('#bank-close-btn').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      this.destroyQuestionBankModal();
+    });
+
+    // Generate Draft
+    const genBtn = modal.querySelector('#bank-gen-btn');
+    const mapSelect = modal.querySelector('#bank-map-select');
+    const draftArea = modal.querySelector('#bank-draft-area');
+    const draftQuestionsEl = modal.querySelector('#bank-draft-questions');
+
+    genBtn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const mapId = mapSelect.value;
+      if (!mapId) { this.setBankStatus('Please select a map first.', '#ffc7c7'); return; }
+      genBtn.disabled = true;
+      genBtn.style.opacity = '0.6';
+      genBtn.textContent = 'Generating...';
+      draftArea.style.display = 'none';
+      this.setBankStatus('AI is generating questions — this may take a few seconds...', '#ffd4a6');
+      try {
+        const draft = await apiService.generateBankDraft(mapId);
+        draftQuestionsEl.innerHTML = '';
+        draft.forEach((q, idx) => draftQuestionsEl.appendChild(buildDraftQuestionEl(idx, q)));
+        draftArea.style.display = 'block';
+        this.setBankStatus(`Generated ${draft.length} questions. Review and edit below, then save.`, '#a7f0c2');
+      } catch (err) {
+        this.setBankStatus(err?.response?.data?.message || err?.message || 'Generation failed', '#ffc7c7');
+      } finally {
+        genBtn.disabled = false;
+        genBtn.style.opacity = '1';
+        genBtn.textContent = 'Generate Draft';
+      }
+    });
+
+    // Add Question
+    modal.querySelector('#bank-add-q-btn').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const idx = draftQuestionsEl.querySelectorAll('[data-q-card]').length;
+      draftQuestionsEl.appendChild(buildDraftQuestionEl(idx, { scenarioText: '', options: [{ optionText: '', isCorrect: false }] }));
+    });
+
+    // Save to Bank
+    modal.querySelector('#bank-save-btn').addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const mapId = mapSelect.value;
+      if (!mapId) { this.setBankStatus('No map selected.', '#ffc7c7'); return; }
+      const questions = [];
+      draftQuestionsEl.querySelectorAll('[data-q-card]').forEach(qEl => {
+        const scenarioText = qEl.querySelector('[data-q-text]').value.trim();
+        const options = [];
+        qEl.querySelectorAll('[data-opt-row]').forEach(optEl => {
+          const optionText = optEl.querySelector('[data-opt-text]').value.trim();
+          const isCorrect = optEl.querySelector('[data-opt-correct]').checked;
+          if (optionText) options.push({ optionText, isCorrect });
+        });
+        if (scenarioText && options.length > 0) questions.push({ scenarioText, options });
+      });
+      if (questions.length === 0) { this.setBankStatus('No valid questions to save.', '#ffc7c7'); return; }
+      const saveBtn = modal.querySelector('#bank-save-btn');
+      saveBtn.disabled = true;
+      saveBtn.style.opacity = '0.6';
+      this.setBankStatus('Saving to bank...', '#ffd4a6');
+      try {
+        const saved = await apiService.saveBankQuestions(mapId, questions);
+        this.setBankStatus(`${saved.length} question(s) saved as Pending Review.`, '#a7f0c2');
+        draftArea.style.display = 'none';
+        draftQuestionsEl.innerHTML = '';
+        this.showToast('Questions saved to bank!');
+      } catch (err) {
+        this.setBankStatus(err?.response?.data?.message || err?.message || 'Save failed', '#ffc7c7');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = '1';
+      }
+    });
+
+    // View Bank: Load
+    const viewLoadBtn = modal.querySelector('#bank-view-load-btn');
+    const viewMapSelect = modal.querySelector('#bank-view-map');
+    const viewStatusSelect = modal.querySelector('#bank-view-status');
+    const viewCountEl = modal.querySelector('#bank-view-count');
+    const viewListEl = modal.querySelector('#bank-view-list');
+
+    viewLoadBtn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      viewLoadBtn.disabled = true;
+      viewLoadBtn.style.opacity = '0.6';
+      viewListEl.innerHTML = '';
+      viewCountEl.textContent = '';
+      this.setBankStatus('Loading questions...', '#ffd4a6');
+      try {
+        const selectedMapId = viewMapSelect.value;
+        const questions = selectedMapId
+          ? await apiService.getBankQuestionsByMap(selectedMapId)
+          : await apiService.getAllBankQuestions();
+        const filterStatus = viewStatusSelect.value;
+        const filtered = filterStatus ? questions.filter(q => q.status === filterStatus) : questions;
+        viewCountEl.textContent = `Total: ${filtered.length} question${filtered.length !== 1 ? 's' : ''}`;
+        if (filtered.length === 0) {
+          viewListEl.innerHTML = '<div style="color:#ffe7dc;">No questions found.</div>';
+        } else {
+          filtered.forEach(q => {
+            const statusColor = q.status === 'APPROVED' ? '#a7f0c2' : q.status === 'REJECTED' ? '#ffc7c7' : '#ffd4a6';
+            const actionBtns = q.status === 'PENDING_REVIEW' ? `
+              <button data-bank-approve="${this.escapeHtml(q.bankQuestionId)}" style="background:#1a3a1a; color:#a7f0c2; border:1px solid #4ca84c; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px;">Approve</button>
+              <button data-bank-reject="${this.escapeHtml(q.bankQuestionId)}" style="background:#4a1111; color:#ffc7c7; border:1px solid #ab6666; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px;">Reject</button>
+            ` : '';
+            const item = document.createElement('div');
+            item.setAttribute('data-bank-q-id', q.bankQuestionId);
+            item.style.cssText = 'border:1px solid #845042; border-radius:8px; padding:12px; margin-bottom:10px; background:rgba(31,14,11,0.72);';
+            item.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                  <div style="color:#ffe8dc; font-size:13px; line-height:1.5;">${this.escapeHtml(this.previewText(q.scenarioText, 240))}</div>
+                  <div style="margin-top:6px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                    <span style="color:#efb9a2; font-size:12px;">${this.escapeHtml(q.mapName || '')}</span>
+                    <span data-q-status style="color:${statusColor}; font-size:12px; font-weight:bold;">${this.escapeHtml(q.status || '')}</span>
+                    <span style="color:#dca892; font-size:11px;">${this.formatDate(q.createdAt)}</span>
+                  </div>
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0; align-items:center;">${actionBtns}</div>
+              </div>
+            `;
+            viewListEl.appendChild(item);
+          });
+        }
+        this.setBankStatus('', '');
+      } catch (err) {
+        this.setBankStatus(err?.response?.data?.message || err?.message || 'Failed to load questions', '#ffc7c7');
+      } finally {
+        viewLoadBtn.disabled = false;
+        viewLoadBtn.style.opacity = '1';
+      }
+    });
+
+    // View Bank: Approve / Reject via event delegation
+    viewListEl.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const target = e.target;
+      const bankQuestionId = target.getAttribute('data-bank-approve') || target.getAttribute('data-bank-reject');
+      if (!bankQuestionId) return;
+      const isApprove = target.hasAttribute('data-bank-approve');
+      target.disabled = true;
+      target.style.opacity = '0.6';
+      this.setBankStatus(isApprove ? 'Approving...' : 'Rejecting...', '#ffd4a6');
+      try {
+        if (isApprove) {
+          await apiService.approveBankQuestion(bankQuestionId);
+        } else {
+          await apiService.rejectBankQuestion(bankQuestionId);
+        }
+        const rowEl = viewListEl.querySelector(`[data-bank-q-id="${this.escapeCssSelector(bankQuestionId)}"]`);
+        if (rowEl) {
+          const newStatus = isApprove ? 'APPROVED' : 'REJECTED';
+          const newColor = isApprove ? '#a7f0c2' : '#ffc7c7';
+          const statusEl = rowEl.querySelector('[data-q-status]');
+          if (statusEl) { statusEl.textContent = newStatus; statusEl.style.color = newColor; }
+          rowEl.querySelectorAll('[data-bank-approve],[data-bank-reject]').forEach(btn => btn.remove());
+        }
+        this.setBankStatus(isApprove ? 'Question approved.' : 'Question rejected.', '#a7f0c2');
+        this.showToast(isApprove ? 'Question approved!' : 'Question rejected.');
+      } catch (err) {
+        this.setBankStatus(err?.response?.data?.message || err?.message || 'Action failed', '#ffc7c7');
+        target.disabled = false;
+        target.style.opacity = '1';
+      }
+    });
+  }
+
+  setBankStatus(message, color = '#ffd4a6') {
+    if (!this.questionBankModal) return;
+    const el = this.questionBankModal.querySelector('#bank-status');
+    if (!el) return;
+    el.textContent = message;
+    el.style.color = color;
+  }
+
+  destroyQuestionBankModal() {
+    if (this.questionBankModal && this.questionBankModal.parentNode) {
+      this.questionBankModal.parentNode.removeChild(this.questionBankModal);
+    }
+    this.questionBankModal = null;
     this.updateSceneInputInteractivity();
   }
 

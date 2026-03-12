@@ -10,7 +10,8 @@ export const combatSceneEntityMethods = {
 
     this.monsterSprite = this.add.sprite(x, y, this.monsterKey.key, 0)
       .setScale(Math.max(this.monsterKey.scale, 2.2))
-      .setDepth(10);
+      .setDepth(10)
+      .setFlipX(true);
 
     if (this.canPlayAnim(`${this.monsterName}_idle`)) {
       this.monsterSprite.play(`${this.monsterName}_idle`, true);

@@ -303,11 +303,10 @@ export const encounterStateMethods = {
   },
 
   isMonsterInteractableForNpcKey(npcKey) {
-    const activeQuest = this.getActiveQuest();
-    if (!activeQuest) return true;
+    if (!this.areAllNpcsCompleted()) return false;
     const progress = this.encounterProgressByNpcKey.get(npcKey);
     if (progress?.monsterDefeated || progress?.rewardClaimed) return true;
-    return activeQuest.npcKey === npcKey;
+    return true;
   },
 
   areAllNpcsCompleted() {

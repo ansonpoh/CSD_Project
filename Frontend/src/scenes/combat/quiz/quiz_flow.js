@@ -30,7 +30,7 @@ export const combatSceneQuizFlowMethods = {
   refreshQuizMeta() {
     const current = Math.min(this.currentQuestionIndex + 1, Math.max(1, this.totalQuestions || 1));
     this.questionMetaText?.setText(`Question ${current}/${Math.max(1, this.totalQuestions || 1)}  |  Correct ${this.correctAnswers}`);
-    this.questionTargetText?.setText(`Target: ${this.requiredCorrectAnswers || 1} correct (${this.requiredAccuracyPercent}%)`);
+    this.questionTargetText?.setText('No target score. Keep answering until the monster falls.');
     this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${MAX_LIFELINES}`);
   },
 
@@ -51,34 +51,25 @@ export const combatSceneQuizFlowMethods = {
       return;
     }
 
-    if (this.remainingLifelines > 0) {
-      await this.consumeHeartLifeline();
-      this.addLog('Wrong answer. A heart was consumed. Try this question again.');
-      this.refreshQuizMeta();
-      this.time.delayedCall(450, () => {
-        if (this.battleOver) return;
+    this.consumeHeartLifeline();
+    this.playMonsterCounterAttack({ applyDamage: false });
+    this.addLog('Wrong answer. A heart was lost.');
+    this.refreshQuizMeta();
 
+    if (this.remainingLifelines <= 0) {
+      this.time.delayedCall(450, () => {
         this.answerLocked = false;
-        this.renderCurrentQuestion();
-        this.setQuizOptionsEnabled(true);
+        this.defeat('You ran out of hearts.');
       });
       return;
     }
 
-    this.wrongAnswers += 1;
-    this.currentQuestionIndex += 1;
-    this.addLog('Wrong answer. The monster counterattacks.');
-    this.playMonsterCounterAttack();
-    this.refreshQuizMeta();
+    this.time.delayedCall(450, () => {
+      if (this.battleOver) return;
 
-    this.time.delayedCall(700, () => {
       this.answerLocked = false;
-      if (this.playerHP <= 0) {
-        this.defeat('You were overwhelmed before clearing the quiz gate.');
-        return;
-      }
-
-      this.evaluateEncounterState();
+      this.renderCurrentQuestion();
+      this.setQuizOptionsEnabled(true);
     });
   },
 
@@ -88,7 +79,7 @@ export const combatSceneQuizFlowMethods = {
     this.playPlayerQuizAttack();
     this.refreshQuizMeta();
 
-    if (this.correctAnswers >= this.requiredCorrectAnswers) {
+    if (this.currentQuestionIndex >= this.totalQuestions) {
       this.monsterHP = 0;
       this.updateHealthBars();
     }
@@ -102,20 +93,8 @@ export const combatSceneQuizFlowMethods = {
   evaluateEncounterState() {
     if (this.battleOver) return;
 
-    if (this.correctAnswers >= this.requiredCorrectAnswers) {
+    if (this.monsterHP <= 0 || this.currentQuestionIndex >= this.totalQuestions) {
       this.victory();
-      return;
-    }
-
-    if (this.currentQuestionIndex >= this.totalQuestions) {
-      this.defeat(`Quiz complete. You needed ${this.requiredCorrectAnswers}/${this.totalQuestions} correct.`);
-      return;
-    }
-
-    const remainingQuestions = this.totalQuestions - this.currentQuestionIndex;
-    const maxReachable = this.correctAnswers + remainingQuestions;
-    if (maxReachable < this.requiredCorrectAnswers) {
-      this.defeat('Not enough questions remain to reach the required score.');
       return;
     }
 
@@ -123,3 +102,4 @@ export const combatSceneQuizFlowMethods = {
     this.setQuizOptionsEnabled(true);
   }
 };
+

@@ -62,15 +62,24 @@ public class EncounterService {
         List<NPCMapLessonResponse> npcs = getMapNpcs(mapId);
         List<Monster> monsters = getMapMonsters(mapId);
 
-        List<UUID> completedNpcIds = npcs.stream()
-            .map(NPCMapLessonResponse::npcId)
+        List<UUID> lessonContentIds = npcs.stream()
+            .map(NPCMapLessonResponse::contentId)
             .filter(id -> id != null)
-            .filter(npcId -> isNpcCompleted(learner.getLearnerId(), npcId))
             .distinct()
             .toList();
 
-        int totalNpcs = (int) npcs.stream().map(NPCMapLessonResponse::npcId).filter(id -> id != null).distinct().count();
-        int completedNpcCount = completedNpcIds.size();
+        List<UUID> completedContentIds = lessonContentIds.stream()
+            .filter(contentId -> isContentCompleted(learner.getLearnerId(), contentId))
+            .toList();
+
+        List<UUID> completedNpcIds = npcs.stream()
+            .filter(npc -> npc.npcId() != null && npc.contentId() != null && completedContentIds.contains(npc.contentId()))
+            .map(NPCMapLessonResponse::npcId)
+            .distinct()
+            .toList();
+
+        int totalNpcs = lessonContentIds.size();
+        int completedNpcCount = completedContentIds.size();
         boolean allNpcsCompleted = totalNpcs > 0 && completedNpcCount >= totalNpcs;
 
         List<MonsterStateDto> monsterState = buildMonsterState(monsters, learner, mapId, allNpcsCompleted);
@@ -257,21 +266,33 @@ public class EncounterService {
     }
 
     private boolean hasAllNpcsCompletedOnMap(UUID learnerId, UUID mapId) {
-        List<UUID> npcIds = getMapNpcs(mapId).stream().map(NPCMapLessonResponse::npcId).distinct().toList();
-        if (npcIds.isEmpty()) return false;
+        List<UUID> contentIds = getMapNpcs(mapId).stream()
+            .map(NPCMapLessonResponse::contentId)
+            .filter(id -> id != null)
+            .distinct()
+            .toList();
+        if (contentIds.isEmpty()) return false;
 
-        long completed = learnerLessonProgressRepository.countByLearnerLearnerIdAndNpcIdInAndStatus(
+        long completed = learnerLessonProgressRepository.countByLearnerLearnerIdAndContentIdInAndStatus(
             learnerId,
-            npcIds,
+            contentIds,
             LearnerLessonProgress.Status.COMPLETED
         );
-        return completed >= npcIds.size();
+        return completed >= contentIds.size();
     }
 
     private boolean isNpcCompleted(UUID learnerId, UUID npcId) {
         return learnerLessonProgressRepository.existsByLearnerLearnerIdAndNpcIdAndStatus(
             learnerId,
             npcId,
+            LearnerLessonProgress.Status.COMPLETED
+        );
+    }
+
+    private boolean isContentCompleted(UUID learnerId, UUID contentId) {
+        return learnerLessonProgressRepository.existsByLearnerLearnerIdAndContentIdAndStatus(
+            learnerId,
+            contentId,
             LearnerLessonProgress.Status.COMPLETED
         );
     }
@@ -334,3 +355,4 @@ public class EncounterService {
         return Math.round(pct * 100.0) / 100.0;
     }
 }
+

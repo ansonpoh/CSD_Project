@@ -23,18 +23,15 @@ export const combatSceneQuizDataMethods = {
     this.lossStreak = this.quizEncounter.lossStreak;
     this.applyEventAssistModifiers();
     this.monsterHP = Phaser.Math.Clamp(this.startingMonsterHpPercent, 1, 100);
-    this.damagePerCorrect = Math.max(1, Math.ceil(this.monsterHP / Math.max(1, this.requiredCorrectAnswers)));
+    this.damagePerCorrect = Math.max(1, Math.ceil(this.monsterHP / Math.max(1, this.totalQuestions)));
     this.bossEncounter = Boolean(this.quizEncounter.bossEncounter);
-    this.updateHealthBars();
+    this.syncPlayerHealthToHearts();
 
     this.refreshQuizMeta();
-    this.addLog(
-      `Answer ${this.requiredCorrectAnswers}/${this.totalQuestions} correctly (${this.requiredAccuracyPercent}%) to slay the monster.`
-    );
+    this.addLog(`Encounter rule: each wrong answer costs 1 heart. Reach 0 hearts and you lose.`);
     if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
     if (this.eventAssist) this.addLog(`Map event assist active: ${this.eventAssist.label || 'authored modifier applied'}.`);
     if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
-    if (this.bossEncounter) this.addLog('Boss encounter: perfect score required unless hearts save your mistakes.');
     this.renderCurrentQuestion();
   },
 
@@ -49,7 +46,7 @@ export const combatSceneQuizDataMethods = {
       );
       this.totalQuestions = this.quizEncounter.questions.length;
       this.quizEncounter.totalQuestions = this.totalQuestions;
-      this.requiredCorrectAnswers = Math.max(1, Math.ceil(this.totalQuestions * (this.requiredAccuracyPercent / 100)));
+      this.requiredCorrectAnswers = this.totalQuestions;
       this.quizEncounter.requiredCorrectAnswers = this.requiredCorrectAnswers;
     }
 
@@ -80,12 +77,6 @@ export const combatSceneQuizDataMethods = {
     if (!normalizedQuestions.length) return this.buildFallbackQuizEncounter();
 
     const totalQuestions = Number.isInteger(payload?.totalQuestions) ? payload.totalQuestions : normalizedQuestions.length;
-    const requiredCorrectAnswers = Number.isInteger(payload?.requiredCorrectAnswers)
-      ? payload.requiredCorrectAnswers
-      : Math.ceil(totalQuestions * ((payload?.requiredAccuracyPercent || 90) / 100));
-    const requiredAccuracyPercent = Number.isInteger(payload?.requiredAccuracyPercent)
-      ? payload.requiredAccuracyPercent
-      : 90;
     const startingMonsterHpPercent = Number.isFinite(payload?.startingMonsterHpPercent)
       ? Phaser.Math.Clamp(Number(payload.startingMonsterHpPercent), 1, 100)
       : 100;
@@ -94,8 +85,8 @@ export const combatSceneQuizDataMethods = {
     return {
       bossEncounter: Boolean(payload?.bossEncounter),
       totalQuestions: Math.max(1, normalizedQuestions.length),
-      requiredCorrectAnswers: Phaser.Math.Clamp(requiredCorrectAnswers, 1, normalizedQuestions.length),
-      requiredAccuracyPercent,
+      requiredCorrectAnswers: Math.max(1, normalizedQuestions.length),
+      requiredAccuracyPercent: 0,
       startingMonsterHpPercent,
       lossStreak,
       questions: normalizedQuestions
@@ -104,9 +95,7 @@ export const combatSceneQuizDataMethods = {
 
   buildFallbackQuizEncounter() {
     const boss = this.bossEncounter;
-    const passPercent = boss ? 100 : 90;
     const totalQuestions = 10;
-    const requiredCorrectAnswers = Math.ceil(totalQuestions * (passPercent / 100));
     const monsterDisplay = this.monsterData?.name || this.monsterName || 'monster';
 
     const baseQuestions = [
@@ -152,11 +141,12 @@ export const combatSceneQuizDataMethods = {
     return {
       bossEncounter: boss,
       totalQuestions,
-      requiredCorrectAnswers,
-      requiredAccuracyPercent: passPercent,
+      requiredCorrectAnswers: totalQuestions,
+      requiredAccuracyPercent: 0,
       startingMonsterHpPercent: 100,
       lossStreak: 0,
       questions
     };
   }
 };
+

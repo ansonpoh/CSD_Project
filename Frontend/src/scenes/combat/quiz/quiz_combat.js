@@ -26,7 +26,7 @@ export const combatSceneQuizCombatMethods = {
     this.addLog(`Correct! Slash landed for ${damage} damage.`);
   },
 
-  playMonsterCounterAttack() {
+  playMonsterCounterAttack({ applyDamage = true } = {}) {
     const attackAnim = this.getRandomMonsterAttackAnim();
     if (this.monsterSprite && attackAnim) {
       if (this.canPlayAnim(attackAnim)) this.monsterSprite.play(attackAnim, true);
@@ -41,6 +41,8 @@ export const combatSceneQuizCombatMethods = {
         if (this.playerHP > 0 && this.canPlayAnim('idle')) this.playerSprite.play('idle', true);
       });
     }
+
+    if (!applyDamage) return;
 
     const damage = Phaser.Math.Between(8, 18);
     this.playerHP = Math.max(0, this.playerHP - damage);

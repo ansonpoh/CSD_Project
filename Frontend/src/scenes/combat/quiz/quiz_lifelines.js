@@ -1,26 +1,17 @@
-import { apiService } from '../../../services/api.js';
-import { gameState } from '../../../services/gameState.js';
 import { MAX_LIFELINES } from '../constants.js';
 
 export const combatSceneQuizLifelineMethods = {
-  async consumeHeartLifeline() {
+  consumeHeartLifeline() {
     if (this.remainingLifelines <= 0) return false;
     this.remainingLifelines -= 1;
-
-    const heartItem = this.findHeartInventoryItem();
-    if (!heartItem) return true;
-
-    const itemId = heartItem.itemId || heartItem.item_id || heartItem.id;
-    if (!itemId) return true;
-
-    try {
-      const updatedInventory = await apiService.removeInventoryItem(itemId, 1);
-      gameState.setInventory(updatedInventory || []);
-    } catch (error) {
-      console.warn('Failed to sync heart consumption, applying local fallback.', error);
-      gameState.removeItem(itemId, 1);
-    }
+    this.syncPlayerHealthToHearts();
     return true;
+  },
+
+  syncPlayerHealthToHearts() {
+    const ratio = this.remainingLifelines / MAX_LIFELINES;
+    this.playerHP = Math.max(0, Math.min(100, ratio * 100));
+    this.updateHealthBars();
   },
 
   setQuizOptionsEnabled(enabled) {
@@ -40,20 +31,15 @@ export const combatSceneQuizLifelineMethods = {
   },
 
   getInitialLifelineCount() {
-    const totalHearts = this.getHeartInventoryCount();
-    return Math.min(MAX_LIFELINES, totalHearts);
+    return MAX_LIFELINES;
   },
 
   getHeartInventoryCount() {
-    const inventory = gameState.getInventory();
-    return inventory
-      .filter((item) => this.isHeartItem(item))
-      .reduce((sum, item) => sum + Math.max(0, Number(item?.quantity ?? 1)), 0);
+    return MAX_LIFELINES;
   },
 
   findHeartInventoryItem() {
-    const inventory = gameState.getInventory();
-    return inventory.find((item) => this.isHeartItem(item) && Number(item?.quantity ?? 1) > 0) || null;
+    return null;
   },
 
   isHeartItem(item) {
@@ -69,4 +55,3 @@ export const combatSceneQuizLifelineMethods = {
     );
   }
 };
-

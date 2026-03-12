@@ -12,6 +12,11 @@ import org.springframework.data.repository.query.Param;
 public interface LearnerLessonProgressRepository extends JpaRepository<LearnerLessonProgress, UUID> {
     List<LearnerLessonProgress> findByLearnerLearnerId(UUID learnerId);
     Optional<LearnerLessonProgress> findByLearnerLearnerIdAndContentId(UUID learnerId, UUID contentId);
+    boolean existsByLearnerLearnerIdAndContentIdAndStatus(
+        UUID learnerId,
+        UUID contentId,
+        LearnerLessonProgress.Status status
+    );
 
     boolean existsByLearnerLearnerIdAndNpcIdAndStatus(
         UUID learnerId,
@@ -22,6 +27,11 @@ public interface LearnerLessonProgressRepository extends JpaRepository<LearnerLe
     long countByLearnerLearnerIdAndNpcIdInAndStatus(
         UUID learnerId,
         Collection<UUID> npcIds,
+        LearnerLessonProgress.Status status
+    );
+    long countByLearnerLearnerIdAndContentIdInAndStatus(
+        UUID learnerId,
+        Collection<UUID> contentIds,
         LearnerLessonProgress.Status status
     );
 
@@ -38,3 +48,4 @@ public interface LearnerLessonProgressRepository extends JpaRepository<LearnerLe
         @Param("status") LearnerLessonProgress.Status status
     );
 }
+

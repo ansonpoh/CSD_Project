@@ -86,15 +86,22 @@ public class QuestionBankService {
         }
 
         String prompt = """
-                You are an educational quiz designer. Based on the following lesson content from an educational game, \
-                generate exactly 10 scenario-based multiple-choice questions.
+                You are a quiz designer for a Gen-Alpha educational game platform. \
+                Based on the following lesson content, generate exactly 10 scenario-based multiple-choice questions.
 
-                Rules:
-                - Each question must describe a realistic situation or scenario that tests understanding of the lesson content.
+                Tone and style rules:
+                - Write scenarios that feel real and relatable to Generation Alpha teenagers and young adults.
+                - Use variety across question types: some as short dialogues between friends or characters, \
+                some as social media posts or group chat snippets, some as first-person narrations \
+                ("You are...", "Your friend asks..."), and some as story-based mini-situations.
+                - Language can be casual and modern, but must remain clear and appropriate.
+                - Do NOT use formal academic language. Make it feel like a real-life moment, not a textbook.
+                - Do not reveal which options are correct in the scenario text.
+                - Questions must test understanding of the lesson content only.
+
+                Answer option rules:
                 - Each question must have exactly 4 to 5 answer options.
                 - At least 1 and at most 3 options should be correct (isCorrect: true). The rest are wrong (isCorrect: false).
-                - Do not reveal which options are correct in the scenario text.
-                - Questions must be based only on the provided content.
 
                 Lesson content:
                 %s

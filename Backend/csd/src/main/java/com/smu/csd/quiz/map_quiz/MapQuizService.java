@@ -90,6 +90,32 @@ public class MapQuizService {
     }
 
     @Transactional
+    public MapQuizResponse unpublishQuiz(UUID quizId) {
+        MapQuiz quiz = requireQuiz(quizId);
+        if (!quiz.isPublished()) {
+            throw new IllegalStateException("Quiz is not published.");
+        }
+        quiz.setPublished(false);
+        return toResponse(quizRepository.save(quiz), true);
+    }
+
+    @Transactional
+    public MapQuizResponse removeQuestion(UUID quizId, UUID questionId) {
+        MapQuiz quiz = requireQuiz(quizId);
+        if (quiz.isPublished()) {
+            throw new IllegalStateException("Cannot remove questions from a published quiz. Unpublish it first.");
+        }
+        MapQuizQuestion question = questionRepository.findById(questionId)
+            .orElseThrow(() -> new IllegalArgumentException("Question not found: " + questionId));
+        if (!question.getQuiz().getQuizId().equals(quizId)) {
+            throw new IllegalArgumentException("Question does not belong to this quiz.");
+        }
+        optionRepository.deleteByQuestion_QuestionId(questionId);
+        questionRepository.deleteById(questionId);
+        return toResponse(quiz, true);
+    }
+
+    @Transactional
     public MapQuizResponse publishQuiz(UUID quizId) {
         MapQuiz quiz = requireQuiz(quizId);
         List<MapQuizQuestion> questions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId);
@@ -155,6 +181,24 @@ public class MapQuizService {
 
         attempt = attemptRepository.save(attempt);
         return new MapQuizSubmitResponse(attempt.getAttemptId(), passed, correct, total);
+    }
+
+    public List<LearnerMapQuizAttemptResponse> getMyAttempts(UUID supabaseUserId, UUID quizId) {
+        Learner learner = requireLearner(supabaseUserId);
+        MapQuiz quiz = requireQuiz(quizId);
+        int totalQuestions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId).size();
+        return attemptRepository
+            .findByLearner_LearnerIdAndQuiz_QuizIdOrderByAttemptedAtDesc(learner.getLearnerId(), quizId)
+            .stream()
+            .map(a -> new LearnerMapQuizAttemptResponse(
+                a.getAttemptId(),
+                a.getStatus().name(),
+                a.getScore(),
+                totalQuestions,
+                a.getAttemptedAt(),
+                a.getCompletedAt()
+            ))
+            .toList();
     }
 
     public boolean hasPassedQuiz(UUID supabaseUserId, UUID mapId) {

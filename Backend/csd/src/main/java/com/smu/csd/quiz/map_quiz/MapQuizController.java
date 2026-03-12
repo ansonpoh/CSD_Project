@@ -1,4 +1,4 @@
-package com.smu.csd.quiz;
+package com.smu.csd.quiz.map_quiz;
 
 import java.util.UUID;
 
@@ -52,8 +52,8 @@ public class MapQuizController {
     // --- Learner endpoints ---
 
     @GetMapping("/map/{mapId}")
-    public MapQuizResponse getQuizForLearner(@PathVariable UUID mapId) {
-        return mapQuizService.getQuizForLearner(mapId);
+    public MapQuizResponse getQuizForLearner(@PathVariable UUID mapId, Authentication authentication) {
+        return mapQuizService.getQuizForLearner(getSupabaseUserId(authentication), mapId);
     }
 
     @PostMapping("/submit")

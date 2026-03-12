@@ -1,4 +1,4 @@
-package com.smu.csd.quiz;
+package com.smu.csd.quiz.encounter;
 
 import java.util.List;
 import java.util.UUID;

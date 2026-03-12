@@ -1,4 +1,4 @@
-package com.smu.csd.quiz;
+package com.smu.csd.quiz.map_quiz;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

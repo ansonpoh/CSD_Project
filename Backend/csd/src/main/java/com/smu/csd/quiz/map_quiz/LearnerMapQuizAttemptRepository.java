@@ -1,4 +1,4 @@
-package com.smu.csd.quiz;
+package com.smu.csd.quiz.map_quiz;
 
 import java.util.List;
 import java.util.Optional;

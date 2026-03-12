@@ -271,6 +271,14 @@ public class EncounterService {
         return new EncounterRewardClaimResponse(xpAwarded, updatedXp, updatedLevel, updated);
     }
 
+    public boolean allNpcsInteracted(UUID learnerId, UUID mapId) {
+        List<EncounterPairResponse> pairs = getPairs(mapId);
+        if (pairs.isEmpty()) return false;
+        return pairs.stream().allMatch(pair ->
+            readProgress(learnerId, mapId, pair.npcId(), pair.monsterId()).npcInteracted()
+        );
+    }
+
     public EncounterRetryProfile getRetryProfile(UUID mapId, UUID monsterId, UUID supabaseUserId) {
         if (mapId == null || monsterId == null || supabaseUserId == null) {
             return new EncounterRetryProfile(0, 0, 100);

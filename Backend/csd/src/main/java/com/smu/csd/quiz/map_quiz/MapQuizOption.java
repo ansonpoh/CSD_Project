@@ -1,4 +1,4 @@
-package com.smu.csd.quiz;
+package com.smu.csd.quiz.map_quiz;
 
 import java.util.UUID;
 
@@ -20,21 +20,21 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(schema = "quiz", name = "map_quiz_question")
-public class MapQuizQuestion {
+@Table(schema = "quiz", name = "map_quiz_option")
+public class MapQuizOption {
 
     @Id
     @UuidGenerator
-    @Column(name = "question_id")
-    private UUID questionId;
+    @Column(name = "option_id")
+    private UUID optionId;
 
     @ManyToOne
-    @JoinColumn(name = "quiz_id", nullable = false)
-    private MapQuiz quiz;
+    @JoinColumn(name = "question_id", nullable = false)
+    private MapQuizQuestion question;
 
-    @Column(name = "scenario_text", nullable = false, columnDefinition = "text")
-    private String scenarioText;
+    @Column(name = "option_text", nullable = false, columnDefinition = "text")
+    private String optionText;
 
-    @Column(name = "question_order", nullable = false)
-    private int questionOrder;
+    @Column(name = "is_correct", nullable = false)
+    private boolean isCorrect;
 }

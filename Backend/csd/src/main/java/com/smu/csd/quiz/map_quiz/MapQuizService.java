@@ -1,4 +1,4 @@
-package com.smu.csd.quiz;
+package com.smu.csd.quiz.map_quiz;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smu.csd.encounters.EncounterService;
 import com.smu.csd.maps.Map;
 import com.smu.csd.maps.MapRepository;
 import com.smu.csd.roles.learner.Learner;
@@ -25,6 +26,7 @@ public class MapQuizService {
     private final LearnerMapQuizAttemptRepository attemptRepository;
     private final MapRepository mapRepository;
     private final LearnerRepository learnerRepository;
+    private final EncounterService encounterService;
 
     public MapQuizService(
         MapQuizRepository quizRepository,
@@ -32,7 +34,8 @@ public class MapQuizService {
         MapQuizOptionRepository optionRepository,
         LearnerMapQuizAttemptRepository attemptRepository,
         MapRepository mapRepository,
-        LearnerRepository learnerRepository
+        LearnerRepository learnerRepository,
+        EncounterService encounterService
     ) {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
@@ -40,6 +43,7 @@ public class MapQuizService {
         this.attemptRepository = attemptRepository;
         this.mapRepository = mapRepository;
         this.learnerRepository = learnerRepository;
+        this.encounterService = encounterService;
     }
 
     // --- Admin ---
@@ -104,7 +108,11 @@ public class MapQuizService {
 
     // --- Learner ---
 
-    public MapQuizResponse getQuizForLearner(UUID mapId) {
+    public MapQuizResponse getQuizForLearner(UUID supabaseUserId, UUID mapId) {
+        Learner learner = requireLearner(supabaseUserId);
+        if (!encounterService.allNpcsInteracted(learner.getLearnerId(), mapId)) {
+            throw new IllegalStateException("You must interact with all NPCs before accessing the quiz.");
+        }
         MapQuiz quiz = quizRepository.findByMap_MapIdAndIsPublishedTrue(mapId)
             .orElseThrow(() -> new IllegalArgumentException("No published quiz found for map: " + mapId));
         return toResponse(quiz, false);
@@ -114,6 +122,9 @@ public class MapQuizService {
     public MapQuizSubmitResponse submitAttempt(UUID supabaseUserId, MapQuizSubmitRequest request) {
         Learner learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(request.quizId());
+        if (!encounterService.allNpcsInteracted(learner.getLearnerId(), quiz.getMap().getMapId())) {
+            throw new IllegalStateException("You must interact with all NPCs before submitting the quiz.");
+        }
 
         List<MapQuizQuestion> questions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quiz.getQuizId());
         int total = questions.size();

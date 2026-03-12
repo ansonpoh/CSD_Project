@@ -520,6 +520,32 @@ class ApiService {
   async addBankQuestionToQuiz(quizId, bankQuestionId) {
     await this.api.post(`/question-bank/into-quiz/${quizId}/${bankQuestionId}`);
   }
+
+  // Map Quiz (Admin) endpoints
+  async createQuiz(quizData) {
+    const { data } = await this.api.post('/map-quizzes', quizData);
+    return data;
+  }
+
+  async getQuizForAdmin(mapId) {
+    const { data } = await this.api.get(`/map-quizzes/map/${mapId}/admin`);
+    return data;
+  }
+
+  async publishQuiz(quizId) {
+    const { data } = await this.api.put(`/map-quizzes/${quizId}/publish`);
+    return data;
+  }
+
+  async unpublishQuiz(quizId) {
+    const { data } = await this.api.put(`/map-quizzes/${quizId}/unpublish`);
+    return data;
+  }
+
+  async removeQuizQuestion(quizId, questionId) {
+    const { data } = await this.api.delete(`/map-quizzes/${quizId}/questions/${questionId}`);
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

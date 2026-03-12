@@ -11,6 +11,7 @@ export class AdminScene extends Phaser.Scene {
     this.telemetryModal = null;
     this.flagQueueModal = null;
     this.questionBankModal = null;
+    this.quizManagementModal = null;
   }
 
   create() {
@@ -70,8 +71,12 @@ export class AdminScene extends Phaser.Scene {
       await this.openTelemetryWorkflow();
     });
 
-    this.createActionCard(width / 2, y + cardH + 28, cardW, cardH, 'Question Bank', 'Manage map question banks', async () => {
+    this.createActionCard(width / 2 - 120, y + cardH + 28, cardW, cardH, 'Question Bank', 'Manage map question banks', async () => {
       await this.openQuestionBankWorkflow();
+    });
+
+    this.createActionCard(width / 2 + 120, y + cardH + 28, cardW, cardH, 'Quiz Management', 'Create & publish map quizzes', async () => {
+      await this.openQuizManagementWorkflow();
     });
 
     this.createButton(width / 2 - 90, panelY + panelH - 60, 180, 42, 'Logout', async () => {
@@ -80,6 +85,7 @@ export class AdminScene extends Phaser.Scene {
       this.destroyTelemetryModal();
       this.destroyContributorDetailsModal();
       this.destroyQuestionBankModal();
+      this.destroyQuizManagementModal();
       await supabase.auth.signOut();
       gameState.clearState();
       this.scene.start('LoginScene');
@@ -92,6 +98,7 @@ export class AdminScene extends Phaser.Scene {
       this.destroyTelemetryModal();
       this.destroyContributorDetailsModal();
       this.destroyQuestionBankModal();
+      this.destroyQuizManagementModal();
     });
     this.events.once('destroy', () => {
       this.destroyFlagQueueModal();
@@ -100,6 +107,7 @@ export class AdminScene extends Phaser.Scene {
       this.destroyTelemetryModal();
       this.destroyContributorDetailsModal();
       this.destroyQuestionBankModal();
+      this.destroyQuizManagementModal();
     });
   }
 
@@ -797,7 +805,8 @@ export class AdminScene extends Phaser.Scene {
       !this.contributorAccountsModal &&
       !this.telemetryModal &&
       !this.contributorDetailsModal &&
-      !this.questionBankModal;
+      !this.questionBankModal &&
+      !this.quizManagementModal;
   }
 
   escapeHtml(value) {
@@ -1420,6 +1429,339 @@ export class AdminScene extends Phaser.Scene {
       this.questionBankModal.parentNode.removeChild(this.questionBankModal);
     }
     this.questionBankModal = null;
+    this.updateSceneInputInteractivity();
+  }
+
+  // --- Quiz Management ---
+
+  async openQuizManagementWorkflow() {
+    if (this.quizManagementModal) {
+      this.showToast('Quiz Management is already open.');
+      return;
+    }
+    let maps;
+    try {
+      maps = await apiService.getAllMaps();
+    } catch (e) {
+      this.showToast(e?.response?.data?.message || e?.message || 'Unable to load maps');
+      return;
+    }
+    this.renderQuizManagementModal(maps || []);
+  }
+
+  renderQuizManagementModal(maps) {
+    const modal = document.createElement('div');
+    modal.style.position = 'absolute';
+    modal.style.left = '50%';
+    modal.style.top = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.width = 'min(1000px, calc(100vw - 40px))';
+    modal.style.maxHeight = '85vh';
+    modal.style.overflowY = 'auto';
+    modal.style.padding = '24px';
+    modal.style.background = 'rgba(42, 23, 19, 0.98)';
+    modal.style.border = '2px solid #c8870a';
+    modal.style.borderRadius = '10px';
+    modal.style.boxShadow = '0 16px 38px rgba(0,0,0,0.5)';
+    modal.style.zIndex = '1000';
+
+    const mapOptions = maps.map(m =>
+      `<option value="${this.escapeHtml(m.mapId)}">${this.escapeHtml(m.name)}</option>`
+    ).join('');
+
+    const selectStyle = `background:#1f0e0b; color:#ffe8dc; border:1px solid #845042; border-radius:4px; padding:6px 10px; font-size:13px; min-width:200px;`;
+    const btnPrimary = `background:#4a2800; color:#ffd4a6; border:1px solid #c8870a; border-radius:6px; padding:8px 16px; cursor:pointer; font-size:13px;`;
+    const btnDanger = `background:#4a1111; color:#ffc7c7; border:1px solid #ab6666; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px;`;
+    const btnSuccess = `background:#1a3a1a; color:#a7f0c2; border:1px solid #4ca84c; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px;`;
+
+    modal.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px;">
+        <h2 style="margin:0; color:#ffe8dc;">Quiz Management</h2>
+        <button id="quiz-mgmt-close-btn" style="${btnDanger}">Close</button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+        <label style="color:#efb9a2; font-size:13px;">Select Map:</label>
+        <select id="quiz-mgmt-map-select" style="${selectStyle}">
+          <option value="">-- Choose a map --</option>
+          ${mapOptions}
+        </select>
+        <button id="quiz-mgmt-load-btn" style="${btnPrimary}">Load Quiz</button>
+      </div>
+
+      <div id="quiz-mgmt-status" style="min-height:18px; font-size:13px; margin-bottom:12px;"></div>
+
+      <div id="quiz-mgmt-create-form" style="display:none; border:1px solid #845042; border-radius:8px; padding:16px; background:rgba(31,14,11,0.72); margin-bottom:16px;">
+        <div style="color:#ffe8dc; font-weight:bold; margin-bottom:12px;">No quiz exists for this map — create one:</div>
+        <div style="margin-bottom:10px;">
+          <label style="color:#efb9a2; font-size:13px; display:block; margin-bottom:4px;">Title</label>
+          <input id="quiz-new-title" type="text" placeholder="Quiz title..." style="width:100%; background:#1f0e0b; color:#ffe8dc; border:1px solid #845042; border-radius:4px; padding:8px; font-size:13px; box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="color:#efb9a2; font-size:13px; display:block; margin-bottom:4px;">Description</label>
+          <textarea id="quiz-new-desc" rows="2" placeholder="Short description..." style="width:100%; background:#1f0e0b; color:#ffe8dc; border:1px solid #845042; border-radius:4px; padding:8px; font-size:13px; resize:vertical; box-sizing:border-box;"></textarea>
+        </div>
+        <button id="quiz-create-btn" style="${btnPrimary}">Create Quiz</button>
+      </div>
+
+      <div id="quiz-mgmt-detail" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+          <div>
+            <div id="quiz-detail-title" style="color:#ffe8dc; font-size:18px; font-weight:bold;"></div>
+            <div id="quiz-detail-desc" style="color:#efb9a2; font-size:13px; margin-top:4px;"></div>
+            <div id="quiz-detail-status" style="margin-top:6px; font-size:13px; font-weight:bold;"></div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="quiz-publish-btn" style="${btnSuccess}">Publish</button>
+            <button id="quiz-unpublish-btn" style="${btnDanger}">Unpublish</button>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #845042; padding-top:14px; margin-bottom:14px;">
+          <div style="color:#ffe8dc; font-weight:bold; margin-bottom:10px;">Questions</div>
+          <div id="quiz-questions-list" style="margin-bottom:14px;"></div>
+          <div style="color:#efb9a2; font-size:13px; font-weight:bold; margin-bottom:8px; margin-top:16px;">Add Approved Bank Questions</div>
+          <div id="quiz-bank-pool" style="max-height:260px; overflow-y:auto; border:1px solid #845042; border-radius:6px; padding:10px; background:rgba(20,9,7,0.6);"></div>
+          <div style="margin-top:10px;">
+            <button id="quiz-reload-bank-btn" style="${btnPrimary}">Reload Bank Questions</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    this.quizManagementModal = modal;
+    this.updateSceneInputInteractivity();
+
+    let currentQuizId = null;
+
+    const setStatus = (msg, color = '#ffd4a6') => {
+      const el = modal.querySelector('#quiz-mgmt-status');
+      if (el) { el.textContent = msg; el.style.color = color; }
+    };
+
+    const renderQuizDetail = (quiz) => {
+      currentQuizId = quiz.quizId;
+      modal.querySelector('#quiz-mgmt-create-form').style.display = 'none';
+      const detail = modal.querySelector('#quiz-mgmt-detail');
+      detail.style.display = 'block';
+
+      modal.querySelector('#quiz-detail-title').textContent = quiz.title || 'Untitled';
+      modal.querySelector('#quiz-detail-desc').textContent = quiz.description || '';
+      const statusEl = modal.querySelector('#quiz-detail-status');
+      statusEl.textContent = quiz.published ? 'Status: PUBLISHED' : 'Status: DRAFT';
+      statusEl.style.color = quiz.published ? '#a7f0c2' : '#ffd4a6';
+
+      renderQuestions(quiz.questions || []);
+    };
+
+    const renderQuestions = (questions) => {
+      const listEl = modal.querySelector('#quiz-questions-list');
+      if (!listEl) return;
+      if (questions.length === 0) {
+        listEl.innerHTML = '<div style="color:#dca892; font-size:13px;">No questions yet. Add from the bank below.</div>';
+        return;
+      }
+      listEl.innerHTML = '';
+      questions.forEach((q, i) => {
+        const card = document.createElement('div');
+        card.setAttribute('data-quiz-q-id', q.questionId);
+        card.style.cssText = 'border:1px solid #845042; border-radius:6px; padding:10px 12px; margin-bottom:8px; background:rgba(31,14,11,0.72); display:flex; justify-content:space-between; align-items:flex-start; gap:10px;';
+        const optionsHtml = (q.options || []).map(o =>
+          `<span style="display:inline-block; margin-right:10px; color:${o.isCorrect ? '#a7f0c2' : '#dca892'}; font-size:11px;">${o.isCorrect ? '✓' : '○'} ${this.escapeHtml(o.optionText || '')}</span>`
+        ).join('');
+        card.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="color:#c8870a; font-size:12px; font-weight:bold; margin-bottom:4px;">Q${i + 1}</div>
+            <div style="color:#ffe8dc; font-size:13px; line-height:1.4; margin-bottom:6px;">${this.escapeHtml(this.previewText(q.scenarioText, 200))}</div>
+            <div style="flex-wrap:wrap;">${optionsHtml}</div>
+          </div>
+          <button data-remove-quiz-q="${this.escapeHtml(q.questionId)}" style="background:#4a1111; color:#ffc7c7; border:1px solid #ab6666; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px; flex-shrink:0;">✕ Remove</button>
+        `;
+        listEl.appendChild(card);
+      });
+
+      // Remove question buttons
+      listEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-remove-quiz-q]');
+        if (!btn) return;
+        e.preventDefault(); e.stopPropagation();
+        const questionId = btn.getAttribute('data-remove-quiz-q');
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        setStatus('Removing question...', '#ffd4a6');
+        try {
+          const updated = await apiService.removeQuizQuestion(currentQuizId, questionId);
+          renderQuizDetail(updated);
+          setStatus('Question removed.', '#a7f0c2');
+        } catch (err) {
+          setStatus(err?.response?.data?.message || err?.message || 'Remove failed', '#ffc7c7');
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }
+      });
+    };
+
+    const loadBankPool = async () => {
+      const mapId = modal.querySelector('#quiz-mgmt-map-select').value;
+      const poolEl = modal.querySelector('#quiz-bank-pool');
+      if (!poolEl) return;
+      poolEl.innerHTML = '<div style="color:#efb9a2; font-size:12px;">Loading approved questions...</div>';
+      try {
+        const all = mapId ? await apiService.getBankQuestionsByMap(mapId) : await apiService.getAllBankQuestions();
+        const approved = all.filter(q => q.status === 'APPROVED');
+        if (approved.length === 0) {
+          poolEl.innerHTML = '<div style="color:#dca892; font-size:12px;">No approved bank questions for this map yet.</div>';
+          return;
+        }
+        poolEl.innerHTML = '';
+        approved.forEach(q => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(132,80,66,0.35);';
+          row.innerHTML = `
+            <div style="flex:1; min-width:0; color:#ffe8dc; font-size:12px; line-height:1.4;">${this.escapeHtml(this.previewText(q.scenarioText, 180))}</div>
+            <button data-add-bank-q="${this.escapeHtml(q.bankQuestionId)}" style="background:#1a3a1a; color:#a7f0c2; border:1px solid #4ca84c; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px; flex-shrink:0;">+ Add</button>
+          `;
+          poolEl.appendChild(row);
+        });
+      } catch (err) {
+        poolEl.innerHTML = `<div style="color:#ffc7c7; font-size:12px;">${this.escapeHtml(err?.response?.data?.message || err?.message || 'Failed to load bank')}</div>`;
+      }
+    };
+
+    // Event: Load Quiz
+    modal.querySelector('#quiz-mgmt-load-btn').addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const mapId = modal.querySelector('#quiz-mgmt-map-select').value;
+      if (!mapId) { setStatus('Please select a map first.', '#ffc7c7'); return; }
+      setStatus('Loading...', '#ffd4a6');
+      modal.querySelector('#quiz-mgmt-create-form').style.display = 'none';
+      modal.querySelector('#quiz-mgmt-detail').style.display = 'none';
+      try {
+        const quiz = await apiService.getQuizForAdmin(mapId);
+        renderQuizDetail(quiz);
+        await loadBankPool();
+        setStatus('', '');
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 404 || status === 400) {
+          modal.querySelector('#quiz-mgmt-create-form').style.display = 'block';
+          modal.querySelector('#quiz-detail-title') && (modal.querySelector('#quiz-detail-title').textContent = '');
+          setStatus('No quiz exists for this map. Fill in the form to create one.', '#ffd4a6');
+        } else {
+          setStatus(err?.response?.data?.message || err?.message || 'Failed to load quiz', '#ffc7c7');
+        }
+      }
+    });
+
+    // Event: Create Quiz
+    modal.querySelector('#quiz-create-btn').addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const mapId = modal.querySelector('#quiz-mgmt-map-select').value;
+      const title = modal.querySelector('#quiz-new-title').value.trim();
+      const description = modal.querySelector('#quiz-new-desc').value.trim();
+      if (!mapId) { setStatus('No map selected.', '#ffc7c7'); return; }
+      if (!title) { setStatus('Title is required.', '#ffc7c7'); return; }
+      const btn = modal.querySelector('#quiz-create-btn');
+      btn.disabled = true; btn.style.opacity = '0.6';
+      setStatus('Creating quiz...', '#ffd4a6');
+      try {
+        const quiz = await apiService.createQuiz({ mapId, title, description });
+        renderQuizDetail(quiz);
+        await loadBankPool();
+        setStatus('Quiz created!', '#a7f0c2');
+        this.showToast('Quiz created!');
+      } catch (err) {
+        setStatus(err?.response?.data?.message || err?.message || 'Create failed', '#ffc7c7');
+      } finally {
+        btn.disabled = false; btn.style.opacity = '1';
+      }
+    });
+
+    // Event: Publish
+    modal.querySelector('#quiz-publish-btn').addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (!currentQuizId) return;
+      setStatus('Publishing...', '#ffd4a6');
+      try {
+        const updated = await apiService.publishQuiz(currentQuizId);
+        renderQuizDetail(updated);
+        setStatus('Quiz published!', '#a7f0c2');
+        this.showToast('Quiz published!');
+      } catch (err) {
+        setStatus(err?.response?.data?.message || err?.message || 'Publish failed', '#ffc7c7');
+      }
+    });
+
+    // Event: Unpublish
+    modal.querySelector('#quiz-unpublish-btn').addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (!currentQuizId) return;
+      setStatus('Unpublishing...', '#ffd4a6');
+      try {
+        const updated = await apiService.unpublishQuiz(currentQuizId);
+        renderQuizDetail(updated);
+        setStatus('Quiz unpublished.', '#a7f0c2');
+        this.showToast('Quiz unpublished.');
+      } catch (err) {
+        setStatus(err?.response?.data?.message || err?.message || 'Unpublish failed', '#ffc7c7');
+      }
+    });
+
+    // Event: Add bank question to quiz (event delegation on pool)
+    modal.querySelector('#quiz-bank-pool').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-add-bank-q]');
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      if (!currentQuizId) { setStatus('Load a quiz first.', '#ffc7c7'); return; }
+      const bankQuestionId = btn.getAttribute('data-add-bank-q');
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      btn.textContent = 'Adding...';
+      setStatus('Adding question to quiz...', '#ffd4a6');
+      try {
+        await apiService.addBankQuestionToQuiz(currentQuizId, bankQuestionId);
+        // Reload quiz detail to show the new question
+        const mapId = modal.querySelector('#quiz-mgmt-map-select').value;
+        const updated = await apiService.getQuizForAdmin(mapId);
+        renderQuizDetail(updated);
+        btn.textContent = '✓ Added';
+        setStatus('Question added to quiz.', '#a7f0c2');
+        this.showToast('Question added!');
+      } catch (err) {
+        setStatus(err?.response?.data?.message || err?.message || 'Add failed', '#ffc7c7');
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.textContent = '+ Add';
+      }
+    });
+
+    // Event: Reload bank pool
+    modal.querySelector('#quiz-reload-bank-btn').addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      await loadBankPool();
+    });
+
+    // Close
+    modal.querySelector('#quiz-mgmt-close-btn').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      this.destroyQuizManagementModal();
+    });
+  }
+
+  setQuizMgmtStatus(message, color = '#ffd4a6') {
+    if (!this.quizManagementModal) return;
+    const el = this.quizManagementModal.querySelector('#quiz-mgmt-status');
+    if (!el) return;
+    el.textContent = message;
+    el.style.color = color;
+  }
+
+  destroyQuizManagementModal() {
+    if (this.quizManagementModal && this.quizManagementModal.parentNode) {
+      this.quizManagementModal.parentNode.removeChild(this.quizManagementModal);
+    }
+    this.quizManagementModal = null;
     this.updateSceneInputInteractivity();
   }
 

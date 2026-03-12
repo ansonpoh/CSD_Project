@@ -1116,6 +1116,7 @@ export class AdminScene extends Phaser.Scene {
             ${mapOptions}
           </select>
           <button id="bank-gen-btn" style="${btnPrimary}">Generate Draft</button>
+          <button id="bank-manual-add-btn" style="background:transparent; color:#c8870a; border:1px dashed #c8870a; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:13px;" title="Add a blank question without AI">+ Add Manually</button>
         </div>
         <div id="bank-draft-area" style="display:none;">
           <div style="color:#efb9a2; font-size:12px; margin-bottom:12px;">Review and edit the generated questions. Check boxes mark correct answers.</div>
@@ -1262,11 +1263,20 @@ export class AdminScene extends Phaser.Scene {
       }
     });
 
-    // Add Question
+    // Add Question (from bottom of draft list)
     modal.querySelector('#bank-add-q-btn').addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       const idx = draftQuestionsEl.querySelectorAll('[data-q-card]').length;
       draftQuestionsEl.appendChild(buildDraftQuestionEl(idx, { scenarioText: '', options: [{ optionText: '', isCorrect: false }] }));
+    });
+
+    // Add Manually (top-level button — shows draft area and adds a blank question)
+    modal.querySelector('#bank-manual-add-btn').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      draftArea.style.display = 'block';
+      const idx = draftQuestionsEl.querySelectorAll('[data-q-card]').length;
+      draftQuestionsEl.appendChild(buildDraftQuestionEl(idx, { scenarioText: '', options: [{ optionText: '', isCorrect: false }] }));
+      this.setBankStatus('Blank question added. Fill in the scenario and options.', '#ffd4a6');
     });
 
     // Save to Bank

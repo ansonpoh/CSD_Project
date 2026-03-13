@@ -1,6 +1,7 @@
 package com.smu.csd;
 
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 // import org.springframework.transaction.support.TransactionTemplate;
@@ -19,6 +20,7 @@ public class DatabaseDebugger {
 
   // Testing whether connection is secured and if reading from DB works.
   @Bean
+  @ConditionalOnProperty(name = "app.debug.database-runner.enabled", havingValue = "true")
   ApplicationRunner dbDebug(DataSource dataSource) {
     return args -> {
       try (Connection c = dataSource.getConnection()) {

@@ -485,6 +485,67 @@ class ApiService {
     const { data } = await this.api.put(`/contents/flags/${contentFlagId}/review`, payload);
     return data;
   }
+
+  // Question Bank endpoints
+  async generateBankDraft(mapId) {
+    const { data } = await this.api.post(`/question-bank/map/${mapId}/generate`);
+    return data;
+  }
+
+  async saveBankQuestions(mapId, questions) {
+    const { data } = await this.api.post(`/question-bank/map/${mapId}`, questions);
+    return data;
+  }
+
+  async getAllBankQuestions() {
+    const { data } = await this.api.get('/question-bank/all');
+    return data;
+  }
+
+  async getBankQuestionsByMap(mapId) {
+    const { data } = await this.api.get(`/question-bank/map/${mapId}`);
+    return data;
+  }
+
+  async approveBankQuestion(bankQuestionId) {
+    const { data } = await this.api.put(`/question-bank/${bankQuestionId}/approve`);
+    return data;
+  }
+
+  async rejectBankQuestion(bankQuestionId) {
+    const { data } = await this.api.put(`/question-bank/${bankQuestionId}/reject`);
+    return data;
+  }
+
+  async addBankQuestionToQuiz(quizId, bankQuestionId) {
+    await this.api.post(`/question-bank/into-quiz/${quizId}/${bankQuestionId}`);
+  }
+
+  // Map Quiz (Admin) endpoints
+  async createQuiz(quizData) {
+    const { data } = await this.api.post('/map-quizzes', quizData);
+    return data;
+  }
+
+  async getQuizForAdmin(mapId) {
+    const { data } = await this.api.get(`/map-quizzes/map/${mapId}/admin`);
+    return data;
+  }
+
+  async publishQuiz(quizId) {
+    const { data } = await this.api.put(`/map-quizzes/${quizId}/publish`);
+    return data;
+  }
+
+  async unpublishQuiz(quizId) {
+    const { data } = await this.api.put(`/map-quizzes/${quizId}/unpublish`);
+    return data;
+  }
+
+  async removeQuizQuestion(quizId, questionId) {
+    const { data } = await this.api.delete(`/map-quizzes/${quizId}/questions/${questionId}`);
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

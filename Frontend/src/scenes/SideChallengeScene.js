@@ -128,6 +128,28 @@ export class SideChallengeScene extends Phaser.Scene {
     this.makeButton(width / 2 + 190, top + panelH - 56, 150, 42, 'BACK', () => this.closeScene());
   }
 
+  snapCardToNearestSlot(container) {
+    const snapThreshold = 120 * 120;
+    let bestSlot = null;
+    let bestDist = Infinity;
+
+    this.slotZones.forEach(slot => {
+      const dx = container.x - slot.zone.x;
+      const dy = container.y - slot.zone.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestSlot = slot;
+      }
+    });
+
+    if (bestSlot && bestDist <= snapThreshold) {
+      this.assignCardToSlot(container, bestSlot);
+    } else {
+      this.returnCardHome(container);
+    }
+  }
+
   createTokenCard(token, x, y, width, height) {
     const container = this.add.container(x, y);
     const bg = this.add.graphics();
@@ -169,17 +191,9 @@ export class SideChallengeScene extends Phaser.Scene {
       container.x = dragX;
       container.y = dragY;
     });
-    hit.on('drop', (_pointer, zone) => {
-      const slot = this.slotZones.find((entry) => entry.zone === zone);
-      if (!slot) {
-        this.returnCardHome(container);
-        return;
-      }
-      this.assignCardToSlot(container, slot);
-    });
-    hit.on('dragend', (_pointer, dropped) => {
-      if (!dropped) this.returnCardHome(container);
+    hit.on('dragend', () => {
       container.setDepth(20);
+      this.snapCardToNearestSlot(container);
     });
 
     return container;

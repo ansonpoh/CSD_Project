@@ -49,10 +49,6 @@ export class WorldMapScene extends Phaser.Scene {
       return;
     }
 
-    this.input.keyboard.on('keydown-A', () => {
-      this.scene.start('DragQuizScene');
-    });
-
     this.input.keyboard.on('keydown-B', () => {
       this.scene.start('ScenarioQuizScene');
     });

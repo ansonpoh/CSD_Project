@@ -11,7 +11,6 @@ import { ContributorScene } from '../scenes/contributor/ContributorScene.js';
 import { AdminScene } from '../scenes/admin/AdminScene.js';
 import { MapEditorScene } from '../scenes/map_editor/MapEditorScene.js';
 import { SideChallengeScene } from '../scenes/side_challenge/SideChallengeScene.js';
-import { DragQuizScene } from '../scenes/DragQuizScene.js';
 import { ScenarioQuizScene } from '../scenes/ScenarioQuizScene.js';
 
 const config = {
@@ -43,7 +42,6 @@ const config = {
     WorldMapScene,
     GameMapScene,
     CombatScene,
-    DragQuizScene,
     ScenarioQuizScene,
     ShopScene,
     DialogueScene,

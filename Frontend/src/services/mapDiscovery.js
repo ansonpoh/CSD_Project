@@ -250,7 +250,7 @@ class MapDiscoveryService {
   }
 
   getPlayerLevel(learner) {
-    return toNumber(learner?.level, 1);
+    return Math.max(1, toNumber(learner?.level, 1));
   }
 
   buildMapRecord(map, learner) {

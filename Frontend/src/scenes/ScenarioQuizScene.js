@@ -209,7 +209,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
     const btnY = panelY + panelH - 56;
 
     this.submitBtn = this.makeButton(
-      width / 2 - 500,
+      width / 2 + 300,
       btnY,
       180,
       46,
@@ -234,6 +234,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
 
     this.submitBtn.setEnabled(false);
     this.nextBtn.setEnabled(false);
+    this.nextBtn.container.setVisible(false); // hide button at start of qn
   }
 
   makeButton(x, y, w, h, label, fillNormal, fillHover, borderColor, onClick) {
@@ -403,6 +404,10 @@ export class ScenarioQuizScene extends Phaser.Scene {
 
     this.submitBtn.setEnabled(false);
     this.nextBtn.setEnabled(false);
+    
+    this.submitBtn.container.setVisible(true);
+    this.nextBtn.container.setVisible(false);
+
     this.refreshMeta();
   }
 
@@ -470,7 +475,8 @@ export class ScenarioQuizScene extends Phaser.Scene {
       }
     });
 
-    this.submitBtn.setEnabled(false);
+    this.submitBtn.container.setVisible(false);
+    this.nextBtn.container.setVisible(true);
     this.nextBtn.setEnabled(true);
     this.refreshMeta();
   }
@@ -489,16 +495,30 @@ export class ScenarioQuizScene extends Phaser.Scene {
     if (this.quizCompleted) return;
     this.quizCompleted = true;
 
-    this.optionButtons.forEach((btn) => btn?.setEnabled?.(false));
-    this.submitBtn.setEnabled(false);
-    this.nextBtn.setEnabled(false);
+    this.optionButtons.forEach((btn) => btn?.container?.setVisible(false));
+    this.submitBtn.container.setVisible(false);
+    this.nextBtn.container.setVisible(false);
+    this.scenarioText.setVisible(false);
+    this.scenarioTitleText.setVisible(false);
+    this.questionPromptText.setVisible(false);
+    this.questionMetaText.setVisible(false);
 
     const answered = Math.max(1, this.correctAnswers + this.wrongAnswers);
     const accuracy = Math.round((this.correctAnswers / answered) * 100);
+    var result = null;
+
+    if (accuracy >= 50){
+        result = 'PASS';
+    }else{
+        result = 'FAIL';
+    }
+
     this.feedbackText.setColor(P.textSub);
     this.feedbackText.setText(
-      `Quiz complete.\nCorrect: ${this.correctAnswers}/${this.totalQuestions}\nAccuracy: ${accuracy}%`
+      `Quiz complete.\nCorrect: ${this.correctAnswers}/${this.totalQuestions}\nAccuracy: ${accuracy}% (${result})`
     );
+    this.feedbackText.setFontSize(25);
+    this.feedbackText.setPosition(500, 275);
 
     this.refreshMeta();
   }

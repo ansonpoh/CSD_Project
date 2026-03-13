@@ -265,7 +265,7 @@ public class EncounterService {
             .toList();
     }
 
-    private boolean hasAllNpcsCompletedOnMap(UUID learnerId, UUID mapId) {
+    public boolean hasAllNpcsCompletedOnMap(UUID learnerId, UUID mapId) {
         List<UUID> contentIds = getMapNpcs(mapId).stream()
             .map(NPCMapLessonResponse::contentId)
             .filter(id -> id != null)

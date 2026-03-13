@@ -136,7 +136,7 @@ public class MapQuizService {
 
     public MapQuizResponse getQuizForLearner(UUID supabaseUserId, UUID mapId) {
         Learner learner = requireLearner(supabaseUserId);
-        if (!encounterService.allNpcsInteracted(learner.getLearnerId(), mapId)) {
+        if (!encounterService.hasAllNpcsCompletedOnMap(learner.getLearnerId(), mapId)) {
             throw new IllegalStateException("You must interact with all NPCs before accessing the quiz.");
         }
         MapQuiz quiz = quizRepository.findByMap_MapIdAndIsPublishedTrue(mapId)
@@ -148,7 +148,7 @@ public class MapQuizService {
     public MapQuizSubmitResponse submitAttempt(UUID supabaseUserId, MapQuizSubmitRequest request) {
         Learner learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(request.quizId());
-        if (!encounterService.allNpcsInteracted(learner.getLearnerId(), quiz.getMap().getMapId())) {
+        if (!encounterService.hasAllNpcsCompletedOnMap(learner.getLearnerId(), quiz.getMap().getMapId())) {
             throw new IllegalStateException("You must interact with all NPCs before submitting the quiz.");
         }
 

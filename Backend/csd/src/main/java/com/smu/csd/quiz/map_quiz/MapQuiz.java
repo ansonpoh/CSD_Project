@@ -5,8 +5,6 @@ import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
-import com.smu.csd.maps.Map;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -33,9 +31,8 @@ public class MapQuiz {
     @Column(name = "quiz_id")
     private UUID quizId;
 
-    @ManyToOne
-    @JoinColumn(name = "map_id", nullable = false)
-    private Map map;
+    @Column(name = "map_id", nullable = false)
+    private UUID mapId;
 
     @Column(nullable = false)
     private String title;

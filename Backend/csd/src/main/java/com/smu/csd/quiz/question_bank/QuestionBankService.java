@@ -1,20 +1,16 @@
 package com.smu.csd.quiz.question_bank;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smu.csd.contents.Content;
-import com.smu.csd.maps.Map;
-import com.smu.csd.maps.MapRepository;
-import com.smu.csd.npcs.npc_map.NPCMap;
-import com.smu.csd.npcs.npc_map.NPCMapRepository;
 import com.smu.csd.quiz.map_quiz.MapQuiz;
 import com.smu.csd.quiz.map_quiz.MapQuizOption;
 import com.smu.csd.quiz.map_quiz.MapQuizOptionRepository;
@@ -29,45 +25,69 @@ public class QuestionBankService {
 
     private final BankQuestionRepository bankQuestionRepository;
     private final BankQuestionOptionRepository bankOptionRepository;
-    private final MapRepository mapRepository;
-    private final NPCMapRepository npcMapRepository;
     private final MapQuizRepository mapQuizRepository;
     private final MapQuizQuestionRepository mapQuizQuestionRepository;
     private final MapQuizOptionRepository mapQuizOptionRepository;
     private final ChatClient chatClient;
+    private final RestTemplate restTemplate;
+
+    @Value("${game.url:http://csd-game:8082}")
+    private String gameServiceUrl;
 
     public QuestionBankService(
         BankQuestionRepository bankQuestionRepository,
         BankQuestionOptionRepository bankOptionRepository,
-        MapRepository mapRepository,
-        NPCMapRepository npcMapRepository,
         MapQuizRepository mapQuizRepository,
         MapQuizQuestionRepository mapQuizQuestionRepository,
         MapQuizOptionRepository mapQuizOptionRepository,
-        ChatClient.Builder chatClientBuilder
+        ChatClient.Builder chatClientBuilder,
+        RestTemplate restTemplate
     ) {
         this.bankQuestionRepository = bankQuestionRepository;
         this.bankOptionRepository = bankOptionRepository;
-        this.mapRepository = mapRepository;
-        this.npcMapRepository = npcMapRepository;
         this.mapQuizRepository = mapQuizRepository;
         this.mapQuizQuestionRepository = mapQuizQuestionRepository;
         this.mapQuizOptionRepository = mapQuizOptionRepository;
         this.chatClient = chatClientBuilder.build();
+        this.restTemplate = restTemplate;
+    }
+
+    private boolean checkMapExists(UUID mapId) {
+        try {
+            String url = gameServiceUrl + "/api/internal/maps/" + mapId;
+            restTemplate.getForObject(url, java.util.Map.class);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String getMapName(UUID mapId) {
+        try {
+            String url = gameServiceUrl + "/api/internal/maps/" + mapId;
+            java.util.Map<String, Object> map = restTemplate.getForObject(url, java.util.Map.class);
+            return map != null ? (String) map.get("name") : "Map " + mapId;
+        } catch (Exception e) {
+            return "Map " + mapId;
+        }
     }
 
     // --- Content summary ---
 
+    @SuppressWarnings("unchecked")
     public List<MapContentSummaryResponse> getContentSummary(UUID mapId) {
-        return npcMapRepository.findAllByMapMapIdAndContentStatus(mapId, Content.Status.APPROVED)
-            .stream()
-            .filter(nm -> nm.getNpc() != null && nm.getContent() != null)
-            .map(nm -> new MapContentSummaryResponse(
-                nm.getNpc().getName(),
-                nm.getContent().getTitle(),
-                nm.getContent().getBody()
-            ))
-            .toList();
+        try {
+            String url = gameServiceUrl + "/api/internal/maps/" + mapId + "/contents";
+            List<java.util.Map<String, Object>> list = restTemplate.getForObject(url, List.class);
+            if (list == null) return List.of();
+            return list.stream().map(m -> new MapContentSummaryResponse(
+                (String) m.get("npcName"),
+                (String) m.get("contentTitle"),
+                (String) m.get("contentBody")
+            )).toList();
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     // --- AI generation (returns draft, does not save) ---
@@ -148,12 +168,13 @@ public class QuestionBankService {
 
     @Transactional
     public List<BankQuestionResponse> saveQuestions(UUID mapId, List<BankQuestionRequest> requests) {
-        Map map = mapRepository.findById(mapId)
-            .orElseThrow(() -> new IllegalArgumentException("Map not found: " + mapId));
+        if (!checkMapExists(mapId)) {
+            throw new IllegalArgumentException("Map not found: " + mapId);
+        }
 
         return requests.stream().map(req -> {
             BankQuestion question = BankQuestion.builder()
-                .map(map)
+                .mapId(mapId)
                 .scenarioText(req.scenarioText())
                 .status(BankQuestion.Status.PENDING_REVIEW)
                 .build();
@@ -181,7 +202,7 @@ public class QuestionBankService {
     }
 
     public List<BankQuestionResponse> getBankQuestionsByMap(UUID mapId) {
-        return bankQuestionRepository.findByMap_MapId(mapId).stream()
+        return bankQuestionRepository.findByMapId(mapId).stream()
             .map(this::toResponseWithOptions)
             .toList();
     }
@@ -277,10 +298,13 @@ public class QuestionBankService {
         List<BankQuestionOptionResponse> optionResponses = options.stream()
             .map(o -> new BankQuestionOptionResponse(o.getBankOptionId(), o.getOptionText(), o.isCorrect()))
             .toList();
+            
+        String mapName = getMapName(question.getMapId());
+        
         return new BankQuestionResponse(
             question.getBankQuestionId(),
-            question.getMap().getMapId(),
-            question.getMap().getName(),
+            question.getMapId(),
+            mapName,
             question.getScenarioText(),
             question.getStatus().name(),
             question.getCreatedAt(),

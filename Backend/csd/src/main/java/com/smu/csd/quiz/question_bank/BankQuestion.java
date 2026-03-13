@@ -5,8 +5,6 @@ import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
-import com.smu.csd.maps.Map;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -39,9 +37,8 @@ public class BankQuestion {
     @Column(name = "bank_question_id")
     private UUID bankQuestionId;
 
-    @ManyToOne
-    @JoinColumn(name = "map_id", nullable = false)
-    private Map map;
+    @Column(name = "map_id", nullable = false)
+    private UUID mapId;
 
     @Column(name = "scenario_text", nullable = false, columnDefinition = "text")
     private String scenarioText;

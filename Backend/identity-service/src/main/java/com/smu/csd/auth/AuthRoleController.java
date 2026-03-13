@@ -80,6 +80,20 @@ public class AuthRoleController {
         return ResponseEntity.ok(Map.of("hasRole", hasRole));
     }
 
+    @GetMapping("/role/internal/{supabaseUserId}")
+    public ResponseEntity<Map<String, String>> internalGetRole(@PathVariable UUID supabaseUserId) {
+        if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
+            return ResponseEntity.ok(Map.of("role", "ADMIN"));
+        }
+        if (contributorRepository.existsBySupabaseUserId(supabaseUserId)) {
+            return ResponseEntity.ok(Map.of("role", "CONTRIBUTOR"));
+        }
+        if (checkLearnerExists(supabaseUserId.toString())) {
+            return ResponseEntity.ok(Map.of("role", "LEARNER"));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     private boolean checkLearnerExists(String supabaseUserId) {
         try {
             String url = backendUrl + "/api/learner/check/" + supabaseUserId;

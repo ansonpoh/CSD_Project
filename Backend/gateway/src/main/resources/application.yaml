@@ -35,6 +35,14 @@ spring:
             - Path=/api/auth/**, /api/administrators/**, /api/contributors/**
 
         # ─────────────────────────────────────────────
+        # PHASE 3: Game World Service
+        # ─────────────────────────────────────────────
+        - id: game-service
+          uri: ${GAME_URL:http://game-service:8082}
+          predicates:
+            - Path=/api/maps/**, /api/npcs/**, /api/monsters/**, /api/animations/**, /api/encounters/**
+
+        # ─────────────────────────────────────────────
         # PHASE 1 (Epic 1): All other traffic → monolith
         # ─────────────────────────────────────────────
         - id: monolith-fallback

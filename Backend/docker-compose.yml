@@ -44,6 +44,28 @@ services:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
 
+  game-service:
+    build:
+      context: ./game-service
+      dockerfile: Dockerfile
+    container_name: csd-game
+    ports:
+      - "8092:8082"
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      identity-service:
+        condition: service_started
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+
   gateway:
     build:
       context: ./gateway
@@ -56,8 +78,12 @@ services:
         condition: service_started
       identity-service:
         condition: service_started
+      game-service:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
       # Points to the monolith's internal port (8090 on host = 8080 in container)
       BACKEND_URL: http://csd-backend:8080
+      IDENTITY_URL: http://identity-service:8081
+      GAME_URL: http://game-service:8082

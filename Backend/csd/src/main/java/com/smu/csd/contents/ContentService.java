@@ -7,8 +7,11 @@ import java.util.UUID;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.ai.AIModerationResult;
@@ -16,12 +19,6 @@ import com.smu.csd.ai.AIService;
 import com.smu.csd.contents.topics.Topic;
 import com.smu.csd.contents.topics.TopicService;
 import com.smu.csd.exception.ResourceNotFoundException;
-import com.smu.csd.maps.Map;
-import com.smu.csd.maps.MapRepository;
-import com.smu.csd.npcs.NPC;
-import com.smu.csd.npcs.NPCRepository;
-import com.smu.csd.npcs.npc_map.NPCMap;
-import com.smu.csd.npcs.npc_map.NPCMapRepository;
 
 @Service
 public class ContentService {
@@ -31,41 +28,28 @@ public class ContentService {
     private final VectorStore vectorStore;
     private final TopicService topicService;
     private final AIService aiService;
-    private final NPCRepository npcRepository;
-    private final MapRepository mapRepository;
-    private final NPCMapRepository npcMapRepository;
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
+
+    @Value("${game.url:http://csd-game:8082}")
+    private String gameServiceUrl;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
             DuplicateDetectionService duplicateDetectionService, VectorStore vectorStore,
-            AIService aiService,
-            NPCRepository npcRepository, MapRepository mapRepository,
-            NPCMapRepository npcMapRepository, ObjectMapper objectMapper) {
+            AIService aiService, ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.contentRepository = contentRepository;
         this.duplicateDetectionService = duplicateDetectionService;
         this.vectorStore = vectorStore;
         this.topicService = topicService;
         this.aiService = aiService;
-        this.npcRepository = npcRepository;
-        this.mapRepository = mapRepository;
-        this.npcMapRepository = npcMapRepository;
         this.objectMapper = objectMapper;
+        this.restTemplate = restTemplate;
     }
 
-    /**
-     * Contributor submits their narration lines (written manually or edited from AI preview).
-     * The provided narrations are serialised to JSON and stored as the content body.
-     * AI screening still runs on whatever the contributor submitted.
-     */
     public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId,
             String title, String description, List<String> narrations, String videoUrl)
             throws ResourceNotFoundException {
-        // Assume contributor is valid based on JWT authority
         Topic topic = topicService.getById(topicId);
-        NPC npc = npcRepository.findById(npcId)
-                .orElseThrow(() -> new ResourceNotFoundException("NPC", "npcId", npcId));
-        Map map = mapRepository.findById(mapId)
-                .orElseThrow(() -> new ResourceNotFoundException("Map", "mapId", mapId));
 
         String body;
         try {
@@ -116,7 +100,7 @@ public class ContentService {
                 .contentFingerprint(fingerprint)
                 .build();
 
-        contentRepository.save(content);
+        content = contentRepository.save(content);
 
         vectorStore.add(List.of(new Document(
                 textForEmbedding,
@@ -126,12 +110,23 @@ public class ContentService {
                 )
         )));
 
-        NPCMap npcMap = NPCMap.builder()
-                .npc(npc)
-                .map(map)
-                .content(content)
-                .build();
-        npcMapRepository.save(npcMap);
+        // Call game-service to properly assign NPC to Content on Map
+        try {
+            String url = gameServiceUrl + "/api/internal/npc-maps";
+            java.util.Map<String, UUID> assignReq = java.util.Map.of(
+                "npcId", npcId,
+                "mapId", mapId,
+                "contentId", content.getContentId()
+            );
+            ResponseEntity<?> resp = restTemplate.postForEntity(url, assignReq, java.util.Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful()) { // Fallback error handling
+                throw new Exception("Game service returned non-200");
+            }
+        } catch (Exception e) {
+            // Rollback content creation if game service link fails
+            contentRepository.delete(content);
+            throw new IllegalStateException("Failed to assign content to NPC/Map in Game Service. " + e.getMessage());
+        }
 
         aiService.screenContent(content);
 
@@ -144,12 +139,10 @@ public class ContentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Content", "contentId", contentId));
     }
 
-    // Contributor uses this to see all their own submissions
     public List<Content> getByContributorId(UUID contributorId) {
         return contentRepository.findByContributorId(contributorId);
     }
 
-    // Moderator uses this to load the review queue, e.g. getByStatus(PENDING_REVIEW)
     public List<Content> getByStatus(Content.Status status) {
         return contentRepository.findByStatus(status);
     }
@@ -167,7 +160,6 @@ public class ContentService {
         return aiService.getModerationResult(contentId);
     }
 
-    // Moderator manually approves content after reviewing AI's NEEDS_REVIEW flag
     @Transactional
     public Content approveContent(UUID contentId) throws ResourceNotFoundException {
         Content content = getById(contentId);
@@ -180,7 +172,6 @@ public class ContentService {
         return contentRepository.save(content);
     }
 
-    // Moderator manually rejects content after reviewing AI's NEEDS_REVIEW flag
     @Transactional
     public Content rejectContent(UUID contentId) throws ResourceNotFoundException {
         Content content = getById(contentId);

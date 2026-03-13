@@ -7,20 +7,18 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smu.csd.contents.Content;
-import com.smu.csd.monsters.MonsterRepository;
-import com.smu.csd.npcs.npc_map.NPCMap;
-import com.smu.csd.npcs.npc_map.NPCMapRepository;
 
 @Service
 public class QuizService {
@@ -39,15 +37,15 @@ public class QuizService {
         "most", "many", "each", "every", "including", "lesson", "topic"
     );
 
-    private final NPCMapRepository npcMapRepository;
-    private final MonsterRepository monsterRepository;
+    private final RestTemplate restTemplate;
+
+    @Value("${game.url:http://csd-game:8082}")
+    private String gameServiceUrl;
 
     public QuizService(
-        NPCMapRepository npcMapRepository,
-        MonsterRepository monsterRepository
+        RestTemplate restTemplate
     ) {
-        this.npcMapRepository = npcMapRepository;
-        this.monsterRepository = monsterRepository;
+        this.restTemplate = restTemplate;
     }
 
     public MonsterEncounterQuizResponse generateMonsterEncounterQuiz(MonsterEncounterQuizRequest request, UUID supabaseUserId) {
@@ -88,21 +86,37 @@ public class QuizService {
 
     private String resolveMonsterName(UUID monsterId) {
         if (monsterId == null) return "monster";
-        return monsterRepository.findById(monsterId)
-            .map(monster -> monster.getName() == null ? "monster" : monster.getName())
-            .orElse("monster");
+        try {
+            String url = gameServiceUrl + "/api/internal/monsters/" + monsterId;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && response.containsKey("name")) {
+                return (String) response.get("name");
+            }
+        } catch (Exception e) {
+            // Ignored, fallback to "monster"
+        }
+        return "monster";
     }
 
+    @SuppressWarnings("unchecked")
     private List<String> loadLessonLines(UUID mapId) {
-        return npcMapRepository.findAllByMapMapIdAndContentStatus(mapId, Content.Status.APPROVED)
-            .stream()
-            .map(NPCMap::getContent)
-            .filter(Objects::nonNull)
-            .flatMap(content -> parseLessonLines(content.getBody()).stream())
-            .map(String::trim)
-            .filter(line -> line.length() >= 15)
-            .distinct()
-            .toList();
+        try {
+            String url = gameServiceUrl + "/api/internal/maps/" + mapId + "/contents";
+            List<Map<String, Object>> response = restTemplate.getForObject(url, List.class);
+            if (response == null) return List.of();
+
+            return response.stream()
+                .map(m -> (String) m.get("contentBody"))
+                .filter(body -> body != null && !body.isBlank())
+                .flatMap(body -> parseLessonLines(body).stream())
+                .map(String::trim)
+                .filter(line -> line.length() >= 15)
+                .distinct()
+                .toList();
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private List<String> parseLessonLines(String body) {
@@ -318,7 +332,7 @@ public class QuizService {
     private int indexOfIgnoreCase(List<String> values, String target) {
         for (int i = 0; i < values.size(); i++) {
             if (values.get(i) != null && values.get(i).equalsIgnoreCase(target)) return i;
-        }
+            }
         return -1;
     }
 
@@ -339,6 +353,3 @@ public class QuizService {
         );
     }
 }
-
-
-

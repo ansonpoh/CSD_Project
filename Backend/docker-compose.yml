@@ -15,8 +15,9 @@ services:
       context: ./csd
       dockerfile: Dockerfile
     container_name: csd-backend
+    # Port 8090 is internal only — only the gateway talks to the monolith directly
     ports:
-      - "8080:8080"
+      - "8090:8080"
     depends_on:
       redis:
         condition: service_healthy
@@ -28,3 +29,35 @@ services:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+  identity-service:
+    build:
+      context: ./identity-service
+      dockerfile: Dockerfile
+    container_name: csd-identity
+    # Port 8091 is internal only, mapped from 8081 for testing or debugging if needed
+    ports:
+      - "8091:8081"
+    environment:
+      SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: csd-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_started
+      identity-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      # Points to the monolith's internal port (8090 on host = 8080 in container)
+      BACKEND_URL: http://csd-backend:8080

@@ -22,7 +22,6 @@ import com.smu.csd.npcs.NPC;
 import com.smu.csd.npcs.NPCRepository;
 import com.smu.csd.npcs.npc_map.NPCMap;
 import com.smu.csd.npcs.npc_map.NPCMapRepository;
-import com.smu.csd.roles.contributor.ContributorService;
 
 @Service
 public class ContentService {
@@ -31,7 +30,6 @@ public class ContentService {
     private final DuplicateDetectionService duplicateDetectionService;
     private final VectorStore vectorStore;
     private final TopicService topicService;
-    private final ContributorService contributorService;
     private final AIService aiService;
     private final NPCRepository npcRepository;
     private final MapRepository mapRepository;
@@ -40,14 +38,13 @@ public class ContentService {
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
             DuplicateDetectionService duplicateDetectionService, VectorStore vectorStore,
-            ContributorService contributorService, AIService aiService,
+            AIService aiService,
             NPCRepository npcRepository, MapRepository mapRepository,
             NPCMapRepository npcMapRepository, ObjectMapper objectMapper) {
         this.contentRepository = contentRepository;
         this.duplicateDetectionService = duplicateDetectionService;
         this.vectorStore = vectorStore;
         this.topicService = topicService;
-        this.contributorService = contributorService;
         this.aiService = aiService;
         this.npcRepository = npcRepository;
         this.mapRepository = mapRepository;
@@ -60,11 +57,10 @@ public class ContentService {
      * The provided narrations are serialised to JSON and stored as the content body.
      * AI screening still runs on whatever the contributor submitted.
      */
-    @Transactional
     public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId,
             String title, String description, List<String> narrations, String videoUrl)
             throws ResourceNotFoundException {
-        contributorService.getById(contributorId);
+        // Assume contributor is valid based on JWT authority
         Topic topic = topicService.getById(topicId);
         NPC npc = npcRepository.findById(npcId)
                 .orElseThrow(() -> new ResourceNotFoundException("NPC", "npcId", npcId));

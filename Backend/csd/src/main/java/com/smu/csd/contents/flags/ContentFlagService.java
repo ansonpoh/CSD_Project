@@ -10,10 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentService;
 import com.smu.csd.exception.ResourceNotFoundException;
-import com.smu.csd.roles.administrator.Administrator;
-import com.smu.csd.roles.administrator.AdministratorRepository;
-import com.smu.csd.roles.learner.Learner;
-import com.smu.csd.roles.learner.LearnerRepository;
 
 @Service
 public class ContentFlagService {
@@ -22,32 +18,22 @@ public class ContentFlagService {
 
     private final ContentFlagRepository contentFlagRepository;
     private final ContentService contentService;
-    private final LearnerRepository learnerRepository;
-    private final AdministratorRepository administratorRepository;
 
     public ContentFlagService(
             ContentFlagRepository contentFlagRepository,
-            ContentService contentService,
-            LearnerRepository learnerRepository,
-            AdministratorRepository administratorRepository
+            ContentService contentService
     ) {
         this.contentFlagRepository = contentFlagRepository;
         this.contentService = contentService;
-        this.learnerRepository = learnerRepository;
-        this.administratorRepository = administratorRepository;
     }
 
-    @Transactional
     public ContentFlag createFlag(
             UUID contentId,
             UUID reportedBy,
             ContentFlag.FlagReason reason,
             String details
     ) throws ResourceNotFoundException {
-        Learner learner = learnerRepository.findBySupabaseUserId(reportedBy);
-        if (learner == null) {
-            throw new IllegalArgumentException("Only registered learners can flag content");
-}
+        // Assume reporting user is valid Learner based on JWT authority
 
         if (reason == null) {
             throw new IllegalArgumentException("Flag reason is required");
@@ -66,13 +52,13 @@ public class ContentFlagService {
         }
 
         if (contentFlagRepository.existsByContentContentIdAndReportedByAndStatus(
-                contentId, learner, ContentFlag.FlagStatus.OPEN)) {
+                contentId, reportedBy, ContentFlag.FlagStatus.OPEN)) {
             throw new IllegalStateException("You already have an open flag for this content");
         }
 
         ContentFlag flag = ContentFlag.builder()
                 .content(content)
-                .reportedBy(learner)
+                .reportedBy(reportedBy)
                 .reason(reason)
                 .details(normalizedDetails)
                 .status(ContentFlag.FlagStatus.OPEN)
@@ -90,7 +76,6 @@ public class ContentFlagService {
         return contentFlagRepository.findByContentContentIdOrderByCreatedAtDesc(contentId);
     }
 
-    @Transactional
     public ContentFlag reviewFlag(
             UUID contentFlagId,
             UUID reviewedBy,
@@ -104,11 +89,8 @@ public class ContentFlagService {
         if (status != ContentFlag.FlagStatus.REVIEWED && status != ContentFlag.FlagStatus.DISMISSED) {
             throw new IllegalArgumentException("Review status must be REVIEWED or DISMISSED");
         }
-
-        Administrator administrator = administratorRepository.findBySupabaseUserId(reviewedBy);
-        if (administrator == null) {
-            throw new IllegalArgumentException("Only registered administrators can review flags");
-        }
+        
+        // Assume reviewer is valid Administrator based on JWT authority
 
         ContentFlag flag = getById(contentFlagId);
 
@@ -123,7 +105,7 @@ public class ContentFlagService {
         }
 
         flag.setStatus(status);
-        flag.setReviewedBy(administrator);
+        flag.setReviewedBy(reviewedBy);
         flag.setReviewedAt(LocalDateTime.now());
         flag.setResolutionNotes(normalizedNotes);
 

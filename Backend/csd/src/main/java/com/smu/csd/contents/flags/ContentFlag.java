@@ -7,8 +7,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import com.smu.csd.contents.Content;
-import com.smu.csd.roles.administrator.Administrator;
-import com.smu.csd.roles.learner.Learner;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -38,9 +36,8 @@ public class ContentFlag {
     @JoinColumn(name = "content_id")
     private Content content;
 
-    @ManyToOne
-    @JoinColumn(name = "reported_by")
-    private Learner reportedBy;
+    @Column(name = "reported_by")
+    private UUID reportedBy;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "reason")
@@ -58,9 +55,8 @@ public class ContentFlag {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @ManyToOne
-    @JoinColumn(name = "reviewed_by")
-    private Administrator reviewedBy;
+    @Column(name = "reviewed_by")
+    private UUID reviewedBy;
 
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;

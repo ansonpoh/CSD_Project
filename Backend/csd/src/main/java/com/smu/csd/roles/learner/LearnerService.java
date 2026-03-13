@@ -57,6 +57,10 @@ public class LearnerService {
         return repository.findBySupabaseUserId(supabaseUserId);
     }
 
+    public boolean existsBySupabaseUserId(UUID supabaseUserId) {
+        return repository.existsBySupabaseUserId(supabaseUserId);
+    }
+
     @Transactional
     public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Boolean isActive)
             throws ResourceNotFoundException {

@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .requestMatchers("/webjars/**").permitAll()
                 .anyRequest().authenticated()
             )
+
+            // for authentication since we are not using basic http authentication
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtRoleConverter))
             )

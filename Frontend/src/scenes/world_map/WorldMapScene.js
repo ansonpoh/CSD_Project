@@ -49,6 +49,14 @@ export class WorldMapScene extends Phaser.Scene {
       return;
     }
 
+    this.input.keyboard.on('keydown-A', () => {
+      this.scene.start('DragQuizScene');
+    });
+
+    this.input.keyboard.on('keydown-B', () => {
+      this.scene.start('ScenarioQuizScene');
+    });
+
     this.cameras.main.setBackgroundColor(0x090f24);
     this.drawBackdrop(width, height);
     this.createHomeCloudBackdrop(width, height);

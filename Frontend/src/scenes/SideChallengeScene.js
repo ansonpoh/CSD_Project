@@ -183,13 +183,16 @@ export class SideChallengeScene extends Phaser.Scene {
     hit.on('pointerout', () => draw(P.card, P.gold));
 
     this.input.setDraggable(hit);
-    hit.on('dragstart', () => {
+    hit.on('dragstart', (pointer) => {
       container.setDepth(40);
       this.clearTokenFromSlots(token);
+      hit.setData('offsetX', container.x - pointer.x);
+      hit.setData('offsetY', container.y - pointer.y);
     });
-    hit.on('drag', (_pointer, dragX, dragY) => {
-      container.x = dragX;
-      container.y = dragY;
+
+    hit.on('drag', (pointer) => {
+      container.x = pointer.x + hit.getData('offsetX');
+      container.y = pointer.y + hit.getData('offsetY');
     });
     hit.on('dragend', () => {
       container.setDepth(20);

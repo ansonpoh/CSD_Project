@@ -339,7 +339,7 @@ export class DragQuizScene extends Phaser.Scene {
       const rect = this.add.rectangle(x + slotW / 2, centerY, slotW, 52, 0x050b18, 0.8)
         .setStrokeStyle(2, P.borderBlue, 0.9);
 
-      const label = this.add.text(rect.x, rect.y, `${i + 1}`, {
+      const label = this.add.text(rect.x, rect.y, '', {
         fontFamily: UI_FONT,
         fontSize: '18px',
         fontStyle: 'bold',
@@ -409,8 +409,8 @@ export class DragQuizScene extends Phaser.Scene {
       });
 
       hit.on('drag', (pointer, dragX, dragY) => {
-        container.x = dragX - tileW / 2;
-        container.y = dragY - tileH / 2;
+        container.x = dragX;
+        container.y = dragY;
       });
 
       hit.on('dragend', () => {

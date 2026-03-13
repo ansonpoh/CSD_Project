@@ -158,7 +158,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
       lineSpacing: 8
     });
 
-    this.feedbackText = this.add.text(panelX + 16, panelY + panelH - 450, '', {
+    this.feedbackText = this.add.text(panelX + 16, panelY + panelH - 425, '', {
       fontFamily: UI_FONT,
       fontSize: '18px',
       fontStyle: 'bold',
@@ -180,10 +180,10 @@ export class ScenarioQuizScene extends Phaser.Scene {
     const { panelX, panelY, panelW, panelH } = this.layout;
     const optionW = Math.floor((panelW - 20) / 2);
     const optionH = 72;
-    const optionStartY = panelY + panelH - 220;
+    const optionStartY = panelY + panelH - 325;
 
     this.optionButtons = [];
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 6; i += 1) {
       const col = i % 2;
       const row = Math.floor(i / 2);
       const x = panelX + col * (optionW + 20);
@@ -332,7 +332,8 @@ export class ScenarioQuizScene extends Phaser.Scene {
             'Ghost your friend and go confront - haters can\'t be sliding.',
             'Hold it down and signal your other homie to deal with the hater.',
             'Yolo it and push through the whole crowd.',
-            'Touch grass and wait for the hater to get bored.'
+            'Touch grass and wait for the hater to get bored.',
+            'All of the above???'
           ],
           correctIndex: 1,
           explanation: '[Translation: Stay with your friend - that\'s your priority. Just text or signal someone else to handle the problem. Don\'t leave your friend alone just to deal with something else.]'
@@ -347,11 +348,28 @@ export class ScenarioQuizScene extends Phaser.Scene {
             'Start beef immediately - only way to not look mid.',
             'Lowkey back up, read the room, then decide.',
             'Flex your fit even if it\'s not hitting.',
-            'Freeze up and hope they don\'t notice you.'
+            'Freeze up and hope they don\'t notice you.',
+            'All',
+            'None bro let me slepepep'
           ],
           correctIndex: 1,
           explanation: '[Translation: When you\'re unsure what\'s about to happen, the smart move is to create some space and watch for a second. This way you don\'t make things worse and you can figure out what\'s really going on before you act.]'
-        }
+        },
+        // {
+        //   id: 'sc-4',
+        //   type: 'SCENARIO_MULTI',
+        //   scenario: 'You need to secure your base. Which actions should you take?',
+        //   prompt: 'Select all that apply:',
+        //   options: [
+        //       'Lock all doors',
+        //       'Check perimeter cameras',
+        //       'Ignore suspicious noises',
+        //       'Notify your team',
+        //       'Run outside without plan'
+        //   ],
+        //   correctIndexes: [0, 1, 3],
+        //   explanation: 'Locking doors, checking cameras, and notifying the team are all proper safety actions.'
+        // }
       ]
     };
   }
@@ -380,7 +398,7 @@ export class ScenarioQuizScene extends Phaser.Scene {
       btn.draw(btn.fillNormal, btn.borderColor, 1);
       btn.container.setAlpha(1);
       btn.setText(q.options?.[idx] ?? `Option ${idx + 1}`);
-      btn.container.setVisible(Boolean(q.options?.[idx]));
+      btn.container.setVisible(Boolean(q.options?.[idx])); //hides the extra boxes
     });
 
     this.submitBtn.setEnabled(false);

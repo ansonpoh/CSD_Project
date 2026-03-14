@@ -6,9 +6,16 @@ import {
   readLoginForm,
   readRegisterForm,
   validateLoginForm,
-  validateRegisterForm
+  validateRegisterForm,
+  validateGoogleRegisterForm
 } from './formState.js';
-import { loginWithRole, registerWithRole } from './authFlow.js';
+import {
+  loginWithRole,
+  loginWithGoogle,
+  registerWithRole,
+  registerWithGoogle,
+  resumeGoogleOAuthIntent
+} from './authFlow.js';
 
 export class LoginScene extends Phaser.Scene {
   constructor() {
@@ -40,6 +47,23 @@ export class LoginScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
+    this.startAuthEntryFlow();
+  }
+
+  hasPendingOAuthFlow() {
+    const query = window.location.search || '';
+    const hash = window.location.hash || '';
+    const hasOAuthParams = query.includes('code=') || hash.includes('access_token') || hash.includes('error=');
+    const hasStoredIntent = Boolean(window.localStorage.getItem('google_oauth_intent'));
+    return hasOAuthParams || hasStoredIntent;
+  }
+
+  startAuthEntryFlow() {
+    if (this.hasPendingOAuthFlow()) {
+      this.resumeOAuthFlow({ mountFallbackForm: true });
+      return;
+    }
+
     this.mountAuthForm();
   }
 
@@ -50,6 +74,9 @@ export class LoginScene extends Phaser.Scene {
   }
 
   renderAuthForm() {
+    if (!this.loginForm) {
+      this.loginForm = createAuthFormContainer();
+    }
     this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode);
     wireAuthForm(this);
   }
@@ -79,6 +106,46 @@ export class LoginScene extends Phaser.Scene {
     }
   }
 
+  async handleGoogleAuth() {
+    try {
+      if (this.authMode === 'login') {
+        const form = readLoginForm(this.loginForm);
+        await loginWithGoogle({ role: form.role });
+        return;
+      }
+
+      const form = readRegisterForm(this.loginForm);
+      const validationError = validateGoogleRegisterForm(form);
+      if (validationError) {
+        this.setMessage(validationError);
+        return;
+      }
+
+      await registerWithGoogle(form);
+    } catch (error) {
+      this.setMessage(error.message || 'Google authentication failed');
+    }
+  }
+
+  async resumeOAuthFlow({ mountFallbackForm = false } = {}) {
+    try {
+      const result = await resumeGoogleOAuthIntent();
+      if (result) {
+        this.applyAuthResult(result);
+        return;
+      }
+
+      if (mountFallbackForm && !this.loginForm) {
+        this.mountAuthForm();
+      }
+    } catch (error) {
+      if (mountFallbackForm && !this.loginForm) {
+        this.mountAuthForm();
+      }
+      this.setMessage(error.message || 'Google authentication failed');
+    }
+  }
+
   async submitLogin() {
     const form = readLoginForm(this.loginForm);
     const validationError = validateLoginForm(form);
@@ -105,6 +172,9 @@ export class LoginScene extends Phaser.Scene {
     if (!result) return;
 
     if (result.action === 'rerender') {
+      if (!this.loginForm) {
+        this.loginForm = createAuthFormContainer();
+      }
       this.authMode = result.mode || this.authMode;
       this.renderAuthForm();
       if (result.message) this.setMessage(result.message);
@@ -123,6 +193,10 @@ export class LoginScene extends Phaser.Scene {
     }
 
     if (result.message) {
+      if (!this.loginForm) {
+        this.loginForm = createAuthFormContainer();
+        this.renderAuthForm();
+      }
       this.setMessage(result.message);
     }
   }

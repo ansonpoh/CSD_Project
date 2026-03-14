@@ -50,3 +50,11 @@ export function validateRegisterForm(form) {
 
   return null;
 }
+
+export function validateGoogleRegisterForm(form) {
+  if (form.role === 'learner' && !form.username) {
+    return 'Please provide a username for learner registration';
+  }
+
+  return null;
+}

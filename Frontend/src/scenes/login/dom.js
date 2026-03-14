@@ -57,6 +57,7 @@ export function wireAuthForm(scene) {
   const { loginForm } = scene;
 
   query(loginForm, '#submitBtn')?.addEventListener('click', () => scene.handleSubmit());
+  query(loginForm, '#googleAuthBtn')?.addEventListener('click', () => scene.handleGoogleAuth());
   query(loginForm, '#toggleModeBtn')?.addEventListener('click', () => scene.toggleMode());
 
   preventInputPropagation(loginForm);

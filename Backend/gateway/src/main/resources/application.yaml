@@ -45,6 +45,11 @@ spring:
         # ─────────────────────────────────────────────
         # PHASE 1 (Epic 1): All other traffic → monolith
         # ─────────────────────────────────────────────
+        - id: learning-service
+          uri: ${LEARNING_SERVICE_URL:http://learning-service:8083}
+          predicates:
+            - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**
+
         - id: monolith-fallback
           uri: ${BACKEND_URL:http://csd-backend:8090}
           predicates:

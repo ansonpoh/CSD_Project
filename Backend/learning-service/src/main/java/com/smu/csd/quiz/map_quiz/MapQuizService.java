@@ -11,8 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import com.smu.csd.roles.learner.Learner;
-import com.smu.csd.roles.learner.LearnerRepository;
+import com.smu.csd.dtos.LearnerDto;
 
 @Service
 public class MapQuizService {
@@ -23,25 +22,25 @@ public class MapQuizService {
     private final MapQuizQuestionRepository questionRepository;
     private final MapQuizOptionRepository optionRepository;
     private final LearnerMapQuizAttemptRepository attemptRepository;
-    private final LearnerRepository learnerRepository;
     private final RestTemplate restTemplate;
 
     @Value("${game.url:http://csd-game:8082}")
     private String gameServiceUrl;
+
+    @Value("${backend.url:http://csd-backend:8080}")
+    private String backendUrl;
 
     public MapQuizService(
         MapQuizRepository quizRepository,
         MapQuizQuestionRepository questionRepository,
         MapQuizOptionRepository optionRepository,
         LearnerMapQuizAttemptRepository attemptRepository,
-        LearnerRepository learnerRepository,
         RestTemplate restTemplate
     ) {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
         this.optionRepository = optionRepository;
         this.attemptRepository = attemptRepository;
-        this.learnerRepository = learnerRepository;
         this.restTemplate = restTemplate;
     }
 
@@ -155,8 +154,8 @@ public class MapQuizService {
     // --- Learner ---
 
     public MapQuizResponse getQuizForLearner(UUID supabaseUserId, UUID mapId) {
-        Learner learner = requireLearner(supabaseUserId);
-        if (!checkAllNpcsCompleted(learner.getLearnerId(), mapId)) {
+        LearnerDto learner = requireLearner(supabaseUserId);
+        if (!checkAllNpcsCompleted(learner.learnerId(), mapId)) {
             throw new IllegalStateException("You must interact with all NPCs before accessing the quiz.");
         }
         MapQuiz quiz = quizRepository.findByMapIdAndIsPublishedTrue(mapId)
@@ -166,9 +165,9 @@ public class MapQuizService {
 
     @Transactional
     public MapQuizSubmitResponse submitAttempt(UUID supabaseUserId, MapQuizSubmitRequest request) {
-        Learner learner = requireLearner(supabaseUserId);
+        LearnerDto learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(request.quizId());
-        if (!checkAllNpcsCompleted(learner.getLearnerId(), quiz.getMapId())) {
+        if (!checkAllNpcsCompleted(learner.learnerId(), quiz.getMapId())) {
             throw new IllegalStateException("You must interact with all NPCs before submitting the quiz.");
         }
 
@@ -192,7 +191,7 @@ public class MapQuizService {
         boolean passed = total > 0 && (correct * 100 / total) >= PASSING_SCORE_PERCENT;
 
         LearnerMapQuizAttempt attempt = LearnerMapQuizAttempt.builder()
-            .learner(learner)
+            .learnerId(learner.learnerId())
             .quiz(quiz)
             .score(correct)
             .status(passed ? LearnerMapQuizAttempt.Status.PASSED : LearnerMapQuizAttempt.Status.FAILED)
@@ -204,11 +203,11 @@ public class MapQuizService {
     }
 
     public List<LearnerMapQuizAttemptResponse> getMyAttempts(UUID supabaseUserId, UUID quizId) {
-        Learner learner = requireLearner(supabaseUserId);
+        LearnerDto learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(quizId);
         int totalQuestions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId).size();
         return attemptRepository
-            .findByLearner_LearnerIdAndQuiz_QuizIdOrderByAttemptedAtDesc(learner.getLearnerId(), quizId)
+            .findByLearnerIdAndQuiz_QuizIdOrderByAttemptedAtDesc(learner.learnerId(), quizId)
             .stream()
             .map(a -> new LearnerMapQuizAttemptResponse(
                 a.getAttemptId(),
@@ -222,12 +221,21 @@ public class MapQuizService {
     }
 
     public boolean hasPassedQuiz(UUID supabaseUserId, UUID mapId) {
-        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+        LearnerDto learner = fetchLearner(supabaseUserId);
         if (learner == null) return false;
         return quizRepository.findByMapIdAndIsPublishedTrue(mapId)
-            .map(quiz -> attemptRepository.existsByLearner_LearnerIdAndQuiz_QuizIdAndStatus(
-                learner.getLearnerId(), quiz.getQuizId(), LearnerMapQuizAttempt.Status.PASSED))
+            .map(quiz -> attemptRepository.existsByLearnerIdAndQuiz_QuizIdAndStatus(
+                learner.learnerId(), quiz.getQuizId(), LearnerMapQuizAttempt.Status.PASSED))
             .orElse(true); // no quiz published = no gate
+    }
+
+    private LearnerDto fetchLearner(UUID supabaseUserId) {
+        try {
+            String url = backendUrl + "/api/internal/learners/supabase/" + supabaseUserId;
+            return restTemplate.getForObject(url, LearnerDto.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // --- Helpers ---
@@ -237,8 +245,8 @@ public class MapQuizService {
             .orElseThrow(() -> new IllegalArgumentException("Quiz not found: " + quizId));
     }
 
-    private Learner requireLearner(UUID supabaseUserId) {
-        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+    private LearnerDto requireLearner(UUID supabaseUserId) {
+        LearnerDto learner = fetchLearner(supabaseUserId);
         if (learner == null) throw new IllegalArgumentException("Learner not found.");
         return learner;
     }

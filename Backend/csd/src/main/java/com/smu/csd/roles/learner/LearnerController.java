@@ -45,6 +45,11 @@ public class LearnerController {
         return ResponseEntity.ok(service.getBySupabaseUserId(supabaseUserId));
     }
 
+    @GetMapping("/check/{supabaseUserId}")
+    public ResponseEntity<Boolean> checkLearnerExists(@PathVariable UUID supabaseUserId) {
+        return ResponseEntity.ok(service.existsBySupabaseUserId(supabaseUserId));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<Learner> addLearner(@RequestBody Learner learner) throws ResourceAlreadyExistsException {
         Learner created = service.createLearner(

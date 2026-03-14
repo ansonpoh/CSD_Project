@@ -5,12 +5,10 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.smu.csd.roles.learner.Learner;
-
 public interface ContentFlagRepository extends JpaRepository<ContentFlag, UUID> {
     boolean existsByContentContentIdAndReportedByAndStatus(
             UUID contentId,
-            Learner reportedBy,
+            UUID reportedBy,
             ContentFlag.FlagStatus status
     );
 

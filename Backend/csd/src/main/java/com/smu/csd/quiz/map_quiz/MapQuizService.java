@@ -6,12 +6,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
-import com.smu.csd.encounters.EncounterService;
-import com.smu.csd.maps.Map;
-import com.smu.csd.maps.MapRepository;
 import com.smu.csd.roles.learner.Learner;
 import com.smu.csd.roles.learner.LearnerRepository;
 
@@ -24,41 +23,62 @@ public class MapQuizService {
     private final MapQuizQuestionRepository questionRepository;
     private final MapQuizOptionRepository optionRepository;
     private final LearnerMapQuizAttemptRepository attemptRepository;
-    private final MapRepository mapRepository;
     private final LearnerRepository learnerRepository;
-    private final EncounterService encounterService;
+    private final RestTemplate restTemplate;
+
+    @Value("${game.url:http://csd-game:8082}")
+    private String gameServiceUrl;
 
     public MapQuizService(
         MapQuizRepository quizRepository,
         MapQuizQuestionRepository questionRepository,
         MapQuizOptionRepository optionRepository,
         LearnerMapQuizAttemptRepository attemptRepository,
-        MapRepository mapRepository,
         LearnerRepository learnerRepository,
-        EncounterService encounterService
+        RestTemplate restTemplate
     ) {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
         this.optionRepository = optionRepository;
         this.attemptRepository = attemptRepository;
-        this.mapRepository = mapRepository;
         this.learnerRepository = learnerRepository;
-        this.encounterService = encounterService;
+        this.restTemplate = restTemplate;
+    }
+
+    private boolean checkMapExists(UUID mapId) {
+        try {
+            String url = gameServiceUrl + "/api/internal/maps/" + mapId;
+            restTemplate.getForObject(url, java.util.Map.class);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean checkAllNpcsCompleted(UUID learnerId, UUID mapId) {
+        try {
+            String url = gameServiceUrl + "/api/internal/encounters/all-npcs-completed?learnerId=" + learnerId + "&mapId=" + mapId;
+            Boolean result = restTemplate.getForObject(url, Boolean.class);
+            return Boolean.TRUE.equals(result);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // --- Admin ---
 
     @Transactional
     public MapQuizResponse createQuiz(MapQuizCreateRequest request) {
-        Map map = mapRepository.findById(request.mapId())
-            .orElseThrow(() -> new IllegalArgumentException("Map not found: " + request.mapId()));
+        if (!checkMapExists(request.mapId())) {
+            throw new IllegalArgumentException("Map not found: " + request.mapId());
+        }
 
-        if (quizRepository.findByMap_MapId(request.mapId()).isPresent()) {
+        if (quizRepository.findByMapId(request.mapId()).isPresent()) {
             throw new IllegalStateException("A quiz already exists for this map.");
         }
 
         MapQuiz quiz = MapQuiz.builder()
-            .map(map)
+            .mapId(request.mapId())
             .title(request.title())
             .description(request.description())
             .isPublished(false)
@@ -127,7 +147,7 @@ public class MapQuizService {
     }
 
     public MapQuizResponse getQuizForAdmin(UUID mapId) {
-        MapQuiz quiz = quizRepository.findByMap_MapId(mapId)
+        MapQuiz quiz = quizRepository.findByMapId(mapId)
             .orElseThrow(() -> new IllegalArgumentException("No quiz found for map: " + mapId));
         return toResponse(quiz, true);
     }
@@ -136,10 +156,10 @@ public class MapQuizService {
 
     public MapQuizResponse getQuizForLearner(UUID supabaseUserId, UUID mapId) {
         Learner learner = requireLearner(supabaseUserId);
-        if (!encounterService.hasAllNpcsCompletedOnMap(learner.getLearnerId(), mapId)) {
+        if (!checkAllNpcsCompleted(learner.getLearnerId(), mapId)) {
             throw new IllegalStateException("You must interact with all NPCs before accessing the quiz.");
         }
-        MapQuiz quiz = quizRepository.findByMap_MapIdAndIsPublishedTrue(mapId)
+        MapQuiz quiz = quizRepository.findByMapIdAndIsPublishedTrue(mapId)
             .orElseThrow(() -> new IllegalArgumentException("No published quiz found for map: " + mapId));
         return toResponse(quiz, false);
     }
@@ -148,7 +168,7 @@ public class MapQuizService {
     public MapQuizSubmitResponse submitAttempt(UUID supabaseUserId, MapQuizSubmitRequest request) {
         Learner learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(request.quizId());
-        if (!encounterService.hasAllNpcsCompletedOnMap(learner.getLearnerId(), quiz.getMap().getMapId())) {
+        if (!checkAllNpcsCompleted(learner.getLearnerId(), quiz.getMapId())) {
             throw new IllegalStateException("You must interact with all NPCs before submitting the quiz.");
         }
 
@@ -204,7 +224,7 @@ public class MapQuizService {
     public boolean hasPassedQuiz(UUID supabaseUserId, UUID mapId) {
         Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
         if (learner == null) return false;
-        return quizRepository.findByMap_MapIdAndIsPublishedTrue(mapId)
+        return quizRepository.findByMapIdAndIsPublishedTrue(mapId)
             .map(quiz -> attemptRepository.existsByLearner_LearnerIdAndQuiz_QuizIdAndStatus(
                 learner.getLearnerId(), quiz.getQuizId(), LearnerMapQuizAttempt.Status.PASSED))
             .orElse(true); // no quiz published = no gate
@@ -241,7 +261,7 @@ public class MapQuizService {
 
         return new MapQuizResponse(
             quiz.getQuizId(),
-            quiz.getMap().getMapId(),
+            quiz.getMapId(),
             quiz.getTitle(),
             quiz.getDescription(),
             quiz.isPublished(),

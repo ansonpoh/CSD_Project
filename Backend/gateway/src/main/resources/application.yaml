@@ -58,17 +58,6 @@ spring:
           predicates:
             - Path=/api/economy/**, /api/learner/**, /api/leaderboard/**, /api/inventory/**, /api/purchases/**
 
-        - id: monolith-fallback
-          uri: ${BACKEND_URL:http://csd-backend:8090}
-          predicates:
-            - Path=/api/**
-
-        # Swagger UI passthrough to monolith
-        - id: swagger-ui
-          uri: ${BACKEND_URL:http://csd-backend:8090}
-          predicates:
-            - Path=/swagger-ui/**, /v3/api-docs/**, /swagger-ui.html, /webjars/**
-
 # Actuator — expose health endpoint publicly
 management:
   endpoints:

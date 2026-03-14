@@ -170,21 +170,33 @@ public class QuizService {
         boolean bossEncounter,
         String monsterName
     ) {
-        List<String> linePool = new ArrayList<>(lessonLines.isEmpty()
-            ? fallbackLessonLines(monsterName)
-            : lessonLines);
+        List<String> linePool = new ArrayList<>(lessonLines);
+        if (linePool.isEmpty()) {
+            linePool.addAll(fallbackLessonLines(monsterName));
+        }
+
+        // If we don't have enough lines for the total questions, pad it with fallbacks.
+        while (linePool.size() < totalQuestions) {
+            List<String> fallbacks = fallbackLessonLines(monsterName);
+            Collections.shuffle(fallbacks);
+            linePool.add(fallbacks.get(0));
+            // Ensure uniqueness temporarily if possible, otherwise just duplicates are inevitable
+            // but at least they belong to the fallback pool and not just the single lesson line.
+        }
 
         Collections.shuffle(linePool);
+        
         List<String> vocabulary = extractVocabulary(linePool);
-        if (vocabulary.isEmpty()) {
-            vocabulary = new ArrayList<>(List.of(
-                "culture", "language", "community", "identity", "customs", "history", "expression"
+        if (vocabulary.isEmpty() || vocabulary.size() < 3) {
+            vocabulary.addAll(List.of(
+                "culture", "language", "community", "identity", "customs", "history", "expression", "understanding", "growth"
             ));
         }
 
         List<EncounterQuizQuestion> questions = new ArrayList<>();
+        // Now since linePool is at least size `totalQuestions`, we won't get exactly identical repetition.
         for (int i = 0; i < totalQuestions; i++) {
-            String line = linePool.get(i % linePool.size());
+            String line = linePool.get(i);
             questions.add(buildClozeQuestion(line, vocabulary, bossEncounter));
         }
         return questions;
@@ -281,17 +293,30 @@ public class QuizService {
     }
 
     private String pickTargetWord(String line, boolean bossEncounter) {
-        List<String> candidates = extractWords(line).stream()
+        List<String> candidates = new ArrayList<>(extractWords(line).stream()
             .filter(word -> !STOP_WORDS.contains(word.toLowerCase()))
+            .filter(word -> word.length() >= 4) // Prefer somewhat meaningful words
             .distinct()
-            .sorted(Comparator.comparingInt(String::length).reversed())
-            .toList();
+            .toList());
 
-        if (candidates.isEmpty()) return null;
+        if (candidates.isEmpty()) {
+            // fallback to any non-stopword if no long words exist
+            candidates = new ArrayList<>(extractWords(line).stream()
+                .filter(word -> !STOP_WORDS.contains(word.toLowerCase()))
+                .distinct()
+                .toList());
+            if (candidates.isEmpty()) return null;
+        }
+
+        Collections.shuffle(candidates);
+
         if (!bossEncounter) return candidates.get(0);
 
-        int hardIndex = Math.min(2, candidates.size() - 1);
-        return candidates.get(hardIndex);
+        // For bosses, try to pick the longest word among a few random choices
+        int subsetSize = Math.min(3, candidates.size());
+        List<String> subset = candidates.subList(0, subsetSize);
+        subset.sort(Comparator.comparingInt(String::length).reversed());
+        return subset.get(0);
     }
 
     private String maskFirstOccurrence(String text, String word) {

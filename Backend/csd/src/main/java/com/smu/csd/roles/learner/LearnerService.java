@@ -37,6 +37,8 @@ public class LearnerService {
                 .username(username)
                 .email(email)
                 .full_name(fullName)
+                .level(1)
+                .total_xp(0)
                 .build();
         
         Learner saved = repository.save(learner);

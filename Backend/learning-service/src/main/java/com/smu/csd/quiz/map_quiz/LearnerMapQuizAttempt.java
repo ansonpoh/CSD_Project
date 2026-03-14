@@ -5,8 +5,6 @@ import java.util.UUID;
 
 import org.hibernate.annotations.UuidGenerator;
 
-import com.smu.csd.roles.learner.Learner;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,9 +36,8 @@ public class LearnerMapQuizAttempt {
     @Column(name = "attempt_id")
     private UUID attemptId;
 
-    @ManyToOne
-    @JoinColumn(name = "learner_id", nullable = false)
-    private Learner learner;
+    @Column(name = "learner_id", nullable = false)
+    private UUID learnerId;
 
     @ManyToOne
     @JoinColumn(name = "quiz_id", nullable = false)
@@ -63,5 +60,9 @@ public class LearnerMapQuizAttempt {
     void prePersist() {
         if (attemptedAt == null) attemptedAt = LocalDateTime.now();
         if (status == null) status = Status.IN_PROGRESS;
+    }
+
+    public LocalDateTime getAttemptedAt() {
+        return attemptedAt;
     }
 }

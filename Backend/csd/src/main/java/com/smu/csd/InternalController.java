@@ -1,9 +1,9 @@
 package com.smu.csd;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.time.LocalDateTime;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.smu.csd.contents.Content;
-import com.smu.csd.contents.ContentRepository;
 import com.smu.csd.leaderboard.LeaderboardService;
 import com.smu.csd.roles.learner.Learner;
 import com.smu.csd.roles.learner.LearnerRepository;
@@ -26,33 +24,16 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Controller strictly for internal inter-service communication.
- * e.g., game-service calling the monolith for Content, Learner, Progress data.
+ * Providing Learner and Progress data to other services.
  */
 @RestController
 @RequestMapping("/api/internal")
 @RequiredArgsConstructor
 public class InternalController {
 
-    private final ContentRepository contentRepository;
     private final LearnerRepository learnerRepository;
     private final LearnerLessonProgressRepository learnerLessonProgressRepository;
     private final LeaderboardService leaderboardService;
-
-    // ----- Content Service mock-endpoints -----
-    @GetMapping("/contents/{id}")
-    public ResponseEntity<Map<String, Object>> getContent(@PathVariable UUID id) {
-        return contentRepository.findById(id).map(c -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            map.put("contentId", c.getContentId());
-            map.put("title", c.getTitle());
-            map.put("body", c.getBody());
-            map.put("topicId", c.getTopic() != null ? c.getTopic().getTopicId() : null);
-            map.put("topicName", c.getTopic() != null ? c.getTopic().getTopicName() : null);
-            map.put("videoUrl", c.getVideoUrl());
-            map.put("status", c.getStatus() != null ? c.getStatus().name() : "DRAFT");
-            return ResponseEntity.ok(map);
-        }).orElse(ResponseEntity.notFound().build());
-    }
 
     // ----- Learner Service mock-endpoints -----
     @GetMapping("/learners/supabase/{supabaseUserId}")
@@ -62,12 +43,12 @@ public class InternalController {
         
         return ResponseEntity.ok(Map.of(
             "learnerId", learner.getLearnerId(),
-            "totalXp", learner.getTotal_xp(),
-            "level", learner.getLevel()
+            "totalXp", learner.getTotal_xp() != null ? learner.getTotal_xp() : 0,
+            "level", learner.getLevel() != null ? learner.getLevel() : 1
         ));
     }
 
-    record AwardXpRequestDto(int xpAwarded) {}
+    public record AwardXpRequestDto(int xpAwarded) {}
 
     @PostMapping("/learners/{learnerId}/award-xp")
     public ResponseEntity<Map<String, Object>> awardXp(@PathVariable UUID learnerId, @RequestBody AwardXpRequestDto request) {
@@ -90,7 +71,7 @@ public class InternalController {
     }
 
     // ----- Progress Service mock-endpoints -----
-    record ProgressCheckRequestDto(UUID learnerId, List<UUID> contentIds) {}
+    public record ProgressCheckRequestDto(UUID learnerId, List<UUID> contentIds) {}
 
     @PostMapping("/progress/check-completed")
     public ResponseEntity<Boolean> checkAllCompleted(@RequestBody ProgressCheckRequestDto request) {

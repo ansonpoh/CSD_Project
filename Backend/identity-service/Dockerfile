@@ -2,7 +2,7 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 COPY . .
-RUN chmod +x mvnw && ./mvnw -DskipTests package
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw -DskipTests package
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM eclipse-temurin:21

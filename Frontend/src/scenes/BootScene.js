@@ -179,10 +179,35 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  hasPendingOAuthCallback() {
+    const query = window.location.search || '';
+    const hash = window.location.hash || '';
+    const hasOAuthParams = query.includes('code=') || hash.includes('access_token') || hash.includes('error=');
+    const hasStoredIntent = Boolean(window.localStorage.getItem('google_oauth_intent'));
+    return hasOAuthParams || hasStoredIntent;
+  }
+
+  async waitForSupabaseSession(timeoutMs = 4000, intervalMs = 150) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) return session;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    return null;
+  }
+
   async create() {
     this.sanitizeTilemapCache();
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token && this.hasPendingOAuthCallback()) {
+        session = await this.waitForSupabaseSession();
+      }
+
       if (!session?.access_token) {
         gameState.clearState();
         this.scene.start('LoginScene');

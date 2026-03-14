@@ -27,8 +27,8 @@ public class MapQuizService {
     @Value("${game.url:http://csd-game:8082}")
     private String gameServiceUrl;
 
-    @Value("${backend.url:http://csd-backend:8080}")
-    private String backendUrl;
+    @Value("${player.url:http://player-service:8084}")
+    private String playerServiceUrl;
 
     public MapQuizService(
         MapQuizRepository quizRepository,
@@ -231,7 +231,7 @@ public class MapQuizService {
 
     private LearnerDto fetchLearner(UUID supabaseUserId) {
         try {
-            String url = backendUrl + "/api/internal/learners/supabase/" + supabaseUserId;
+            String url = playerServiceUrl + "/api/internal/learners/supabase/" + supabaseUserId;
             return restTemplate.getForObject(url, LearnerDto.class);
         } catch (Exception e) {
             return null;

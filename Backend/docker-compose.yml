@@ -86,6 +86,29 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GAME_URL: http://game-service:8082
       BACKEND_URL: http://csd-backend:8080
+      PLAYER_URL: http://player-service:8084
+
+  player-service:
+    build:
+      context: ./player-service
+      dockerfile: Dockerfile
+    container_name: csd-player
+    ports:
+      - "8094:8084"
+    depends_on:
+      backend:
+        condition: service_started
+      identity-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
   gateway:
     build:
@@ -103,6 +126,8 @@ services:
         condition: service_started
       learning-service:
         condition: service_started
+      player-service:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
@@ -111,3 +136,4 @@ services:
       IDENTITY_URL: http://identity-service:8081
       GAME_URL: http://game-service:8082
       LEARNING_SERVICE_URL: http://learning-service:8083
+      PLAYER_SERVICE_URL: http://player-service:8084

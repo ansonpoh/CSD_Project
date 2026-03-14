@@ -36,8 +36,8 @@ public class EncounterService {
     private final MapRepository mapRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${backend.url:http://csd-backend:8080}")
-    private String backendUrl;
+    @Value("${player.url:http://player-service:8084}")
+    private String playerServiceUrl;
 
     public EncounterService(
         NPCService npcService,
@@ -175,7 +175,7 @@ public class EncounterService {
             
             // Call internal API to award XP
             try {
-                String url = backendUrl + "/api/internal/learners/" + learner.learnerId() + "/award-xp";
+                String url = playerServiceUrl + "/api/internal/learners/" + learner.learnerId() + "/award-xp";
                 AwardXpRequestDto request = new AwardXpRequestDto(xpAwarded);
                 updatedLearner = restTemplate.postForObject(url, request, LearnerDto.class);
             } catch (Exception e) {
@@ -275,7 +275,7 @@ public class EncounterService {
         if (contentIds.isEmpty()) return false;
 
         try {
-            String url = backendUrl + "/api/internal/progress/check-completed";
+            String url = playerServiceUrl + "/api/internal/progress/check-completed";
             ProgressCheckRequestDto request = new ProgressCheckRequestDto(learnerId, contentIds);
             ResponseEntity<Boolean> response = restTemplate.postForEntity(url, request, Boolean.class);
             return Boolean.TRUE.equals(response.getBody());
@@ -287,7 +287,7 @@ public class EncounterService {
 
     private boolean isNpcCompleted(UUID learnerId, UUID npcId) {
         try {
-            String url = backendUrl + "/api/internal/progress/npc-completed?learnerId=" + learnerId + "&npcId=" + npcId;
+            String url = playerServiceUrl + "/api/internal/progress/npc-completed?learnerId=" + learnerId + "&npcId=" + npcId;
             return Boolean.TRUE.equals(restTemplate.getForObject(url, Boolean.class));
         } catch (Exception e) {
             return false;
@@ -296,7 +296,7 @@ public class EncounterService {
 
     private boolean isContentCompleted(UUID learnerId, UUID contentId) {
         try {
-            String url = backendUrl + "/api/internal/progress/content-completed?learnerId=" + learnerId + "&contentId=" + contentId;
+            String url = playerServiceUrl + "/api/internal/progress/content-completed?learnerId=" + learnerId + "&contentId=" + contentId;
             return Boolean.TRUE.equals(restTemplate.getForObject(url, Boolean.class));
         } catch (Exception e) {
             return false;
@@ -343,7 +343,7 @@ public class EncounterService {
 
     private LearnerDto requireLearner(UUID supabaseUserId) {
         try {
-            String url = backendUrl + "/api/internal/learners/supabase/" + supabaseUserId;
+            String url = playerServiceUrl + "/api/internal/learners/supabase/" + supabaseUserId;
             LearnerDto learner = restTemplate.getForObject(url, LearnerDto.class);
             if (learner == null) throw new IllegalArgumentException("Learner profile not found for current user.");
             return learner;

@@ -1,1 +1,5 @@
 .vscode
+Backend/*/target/
+Frontend/dist/
+output/
+progress.md

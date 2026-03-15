@@ -250,6 +250,26 @@ class ApiService {
     return data;
   }
 
+  async getMyProfileState() {
+    const { data } = await this.api.get('/learner/me/profile-state');
+    return data;
+  }
+
+  async updateMyAvatarPreset(avatarPreset) {
+    const { data } = await this.api.put('/learner/me/profile-state/avatar-preset', {
+      avatarPreset
+    });
+    return data;
+  }
+
+  async recordDailyQuestEvent(eventType, amount = 1) {
+    const { data } = await this.api.post('/learner/me/profile-state/daily-quests/events', {
+      eventType,
+      amount
+    });
+    return data;
+  }
+
   async deleteLearner(id) {
     await this.api.delete(`/learner/${id}`);
   }

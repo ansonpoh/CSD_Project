@@ -4,8 +4,9 @@ import { soldier } from '../characters/soldier/Soldier';
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry';
 import { apiService } from '../services/api';
+import { dailyQuestService } from '../services/dailyQuests.js';
 import { gameState } from '../services/gameState';
-import { getDefaultPlayerProfile } from '../services/playerProfile.js';
+import { buildPlayerProfile, getDefaultPlayerProfile } from '../services/playerProfile.js';
 import { loadSharedUiAssets } from '../services/uiAssets.js';
 
 const P = {
@@ -220,7 +221,11 @@ export class BootScene extends Phaser.Scene {
       if (role === 'learner') {
         const learner = await apiService.getCurrentLearner();
         gameState.setLearner(learner);
-        gameState.setPlayerProfile(gameState.getPlayerProfile() || getDefaultPlayerProfile());
+        const profileState = await apiService.getMyProfileState().catch(() => null);
+        gameState.setPlayerProfile(buildPlayerProfile({
+          presetId: profileState?.avatarPreset || gameState.getPlayerProfile()?.presetId || getDefaultPlayerProfile().presetId
+        }));
+        dailyQuestService.hydrateFromSnapshot(profileState?.dailyQuests || null);
         const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
         const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);

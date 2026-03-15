@@ -1,4 +1,5 @@
 import { apiService } from '../../services/api.js';
+import { dailyQuestService } from '../../services/dailyQuests.js';
 import { gameState } from '../../services/gameState.js';
 import { supabase } from '../../config/supabaseClient.js';
 import {
@@ -58,7 +59,10 @@ function clearOAuthIntent() {
 async function hydrateLearnerSession(profile) {
   const learner = await apiService.getCurrentLearner();
   gameState.setLearner(learner);
-  gameState.setPlayerProfile(profile || gameState.getPlayerProfile() || getDefaultPlayerProfile());
+  const profileState = await apiService.getMyProfileState().catch(() => null);
+  const resolvedPreset = profileState?.avatarPreset || profile?.presetId || gameState.getPlayerProfile()?.presetId;
+  gameState.setPlayerProfile(buildPlayerProfile({ presetId: resolvedPreset || getDefaultPlayerProfile().presetId }));
+  dailyQuestService.hydrateFromSnapshot(profileState?.dailyQuests || null);
 
   const inventory = await apiService.getMyInventory().catch(() => []);
   gameState.setInventory(inventory || []);
@@ -80,7 +84,11 @@ async function createLearnerAccount({ userId, username, email, fullname, avatarP
 
   const learner = await apiService.addLearner(learnerPayload);
   gameState.setLearner(learner);
-  gameState.setPlayerProfile(buildPlayerProfile({ presetId: avatarPreset }));
+  const profileState = await apiService.updateMyAvatarPreset(avatarPreset).catch(() => null);
+  gameState.setPlayerProfile(buildPlayerProfile({
+    presetId: profileState?.avatarPreset || avatarPreset
+  }));
+  dailyQuestService.hydrateFromSnapshot(profileState?.dailyQuests || null);
   gameState.setInventory([]);
   gameState.setLessonProgress([]);
 }

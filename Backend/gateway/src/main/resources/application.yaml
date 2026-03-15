@@ -45,16 +45,18 @@ spring:
         # ─────────────────────────────────────────────
         # PHASE 1 (Epic 1): All other traffic → monolith
         # ─────────────────────────────────────────────
-        - id: monolith-fallback
-          uri: ${BACKEND_URL:http://csd-backend:8090}
+        - id: learning-service
+          uri: ${LEARNING_SERVICE_URL:http://learning-service:8083}
           predicates:
-            - Path=/api/**
+            - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**
 
-        # Swagger UI passthrough to monolith
-        - id: swagger-ui
-          uri: ${BACKEND_URL:http://csd-backend:8090}
+        # ─────────────────────────────────────────────
+        # PHASE 5: Player & Economy Service
+        # ─────────────────────────────────────────────
+        - id: player-service
+          uri: ${PLAYER_SERVICE_URL:http://player-service:8084}
           predicates:
-            - Path=/swagger-ui/**, /v3/api-docs/**, /swagger-ui.html, /webjars/**
+            - Path=/api/economy/**, /api/learner/**, /api/leaderboard/**, /api/inventory/**, /api/purchases/**
 
 # Actuator — expose health endpoint publicly
 management:

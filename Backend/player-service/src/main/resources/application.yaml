@@ -1,6 +1,6 @@
 spring:
   application:
-    name: csd
+    name: player-service
 
   datasource:
     url: jdbc:postgresql://aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require
@@ -21,7 +21,7 @@ spring:
   jpa:
     show-sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
-    
+
     hibernate:
       ddl-auto: validate
 
@@ -31,13 +31,12 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         '[default_schema]': public
 
-
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: https://tdhhdbipbnlfdjlbxege.supabase.co/auth/v1
-  
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -47,6 +46,9 @@ spring:
       ssl:
         enabled: ${REDIS__SSL:false}
       timeout: 2s
+
+server:
+  port: 8084
 
 supabase:
   jwt:

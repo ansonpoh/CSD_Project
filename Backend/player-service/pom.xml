@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.smu</groupId>
-	<artifactId>csd</artifactId>
+	<artifactId>player-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>csd</name>
-	<description>CSD Project</description>
+	<name>player-service</name>
+	<description>Player and Economy Microservice</description>
 	<url/>
 	<licenses>
 		<license/>

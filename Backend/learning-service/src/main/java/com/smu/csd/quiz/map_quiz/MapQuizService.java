@@ -24,10 +24,10 @@ public class MapQuizService {
     private final LearnerMapQuizAttemptRepository attemptRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://csd-game:8082}")
+    @Value("${game.url:http://localhost:8082}")
     private String gameServiceUrl;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${player.url:http://localhost:8084}")
     private String playerServiceUrl;
 
     public MapQuizService(

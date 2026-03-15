@@ -31,7 +31,7 @@ public class QuestionBankService {
     private final ChatClient chatClient;
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://csd-game:8082}")
+    @Value("${game.url:http://localhost:8082}")
     private String gameServiceUrl;
 
     public QuestionBankService(

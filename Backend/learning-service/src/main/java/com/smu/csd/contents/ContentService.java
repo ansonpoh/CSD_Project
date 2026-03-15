@@ -31,7 +31,7 @@ public class ContentService {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://csd-game:8082}")
+    @Value("${game.url:http://localhost:8082}")
     private String gameServiceUrl;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,

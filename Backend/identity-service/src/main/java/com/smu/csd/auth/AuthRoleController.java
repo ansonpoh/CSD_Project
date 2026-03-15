@@ -35,7 +35,7 @@ public class AuthRoleController {
     private final ContributorRepository contributorRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${player.url:http://localhost:8084}")
     private String playerServiceUrl;
 
     @GetMapping("/role/me")

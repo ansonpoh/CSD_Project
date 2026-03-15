@@ -5,6 +5,8 @@ export function initializeEditorState(scene) {
   scene.activeLayer = 'ground';
   scene.activeTool = 'paint';
   scene.selectedTile = 0;
+  scene.minZoom = 0.5;
+  scene.maxZoom = 2.5;
   scene.history = [];
   scene.historyIndex = -1;
   scene.markers = { npcs: [], monsters: [] };
@@ -13,9 +15,15 @@ export function initializeEditorState(scene) {
   scene.rectStart = null;
   scene.currentDraftId = null;
   scene.uiModal = null;
+  scene.editorRoot = null;
+  scene.leftSidebarCollapsed = false;
+  scene.rightSidebarCollapsed = false;
   scene.editorFormEl = null;
   scene.statusText = null;
   scene.currentTilesetInfo = null;
+  scene.viewportRect = null;
+  scene.hoveredTile = null;
+  scene.lastStatusMessage = 'Left click to paint. Right click drag or two-finger scroll to pan. Use +/- or Fit to zoom.';
 }
 
 export function createEmptyLayer(width, height) {
@@ -57,7 +65,9 @@ export const historyMethods = {
     };
     this.buildTilemap();
     this.refreshMarkerGraphics();
+    this.rebuildPaletteTiles?.();
     this.refreshToolbarLabel();
+    this.refreshStatusMeta?.();
     this.setStatus(`Restored snapshot (${this.historyIndex + 1}/${this.history.length})`);
   },
 

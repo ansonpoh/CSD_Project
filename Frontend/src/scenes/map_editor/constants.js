@@ -7,6 +7,14 @@ export const PALETTE_COLUMNS = 7;
 export const DEFAULT_MAP_WIDTH = 80;
 export const DEFAULT_MAP_HEIGHT = 45;
 export const LAYER_NAMES = ['ground', 'decor', 'collision'];
+export const EDITOR_LAYOUT = {
+  topBarHeight: 86,
+  leftPanelWidth: 344,
+  leftPanelCollapsedWidth: 88,
+  rightPanelWidth: 364,
+  footerHeight: 54,
+  gutter: 18
+};
 export const TILESETS = [
   'terrain_tiles_v2.1',
   'stone_tiles_v2.1',

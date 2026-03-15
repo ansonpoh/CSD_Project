@@ -5,18 +5,15 @@ export const inputMethods = {
   installInputHandlers() {
     this.input.mouse?.disableContextMenu();
 
-    this.input.on('wheel', (pointer, _gameObjects, _deltaX, deltaY) => {
-      if (this.isPointerInPalette(pointer)) {
-        this.paletteScroll = Phaser.Math.Clamp(this.paletteScroll + deltaY * 0.35, 0, this.maxPaletteScroll);
-        this.updatePaletteTransform();
-        this.updatePaletteSelection();
-        return;
-      }
-      this.zoomAtPointer(pointer, deltaY);
+    this.input.on('wheel', (pointer, _gameObjects, deltaX, deltaY, _deltaZ, event) => {
+      if (this.isPointerInEditorUI(pointer)) return;
+      event?.preventDefault?.();
+      this.panByWheel(deltaX, deltaY);
     });
 
     this.input.on('pointerdown', (pointer) => {
       if (this.isPointerInEditorUI(pointer)) return;
+      this.updateHoverFromPointer(pointer);
       if (pointer.rightButtonDown() || pointer.middleButtonDown()) {
         this.isPanning = true;
         this.panStart = {
@@ -32,6 +29,7 @@ export const inputMethods = {
     });
 
     this.input.on('pointermove', (pointer) => {
+      this.updateHoverFromPointer(pointer);
       if (this.isPanning && this.panStart) {
         const cam = this.cameras.main;
         const dx = (pointer.x - this.panStart.x) / cam.zoom;
@@ -39,6 +37,7 @@ export const inputMethods = {
         cam.scrollX = this.panStart.scrollX - dx;
         cam.scrollY = this.panStart.scrollY - dy;
         this.clampCameraScroll();
+        this.refreshViewportDecor(true);
         return;
       }
       if (this.isPainting && pointer.leftButtonDown()) {
@@ -50,6 +49,12 @@ export const inputMethods = {
       this.isPanning = false;
       this.panStart = null;
       this.isPainting = false;
+    });
+
+    this.input.on('gameout', () => {
+      this.hoveredTile = null;
+      this.refreshViewportDecor(true);
+      this.refreshStatusMeta();
     });
 
     this.input.keyboard.on('keydown-Z', (event) => {
@@ -79,14 +84,11 @@ export const inputMethods = {
   },
 
   isPointerInEditorUI(pointer) {
-    return (pointer.x < 380 && pointer.y > 64) || this.isPointerInPalette(pointer);
-  },
-
-  isPointerInPalette(pointer) {
-    return pointer.x >= this.paletteX
-      && pointer.x <= this.paletteX + this.paletteW
-      && pointer.y >= this.paletteY
-      && pointer.y <= this.paletteY + this.paletteH;
+    if (!this.viewportRect) return false;
+    return pointer.x < this.viewportRect.x
+      || pointer.x > this.viewportRect.x + this.viewportRect.width
+      || pointer.y < this.viewportRect.y
+      || pointer.y > this.viewportRect.y + this.viewportRect.height;
   },
 
   zoomAtPointer(pointerLike, deltaY) {
@@ -94,12 +96,29 @@ export const inputMethods = {
     const pointerX = pointerLike.x ?? cam.centerX;
     const pointerY = pointerLike.y ?? cam.centerY;
     const worldBefore = cam.getWorldPoint(pointerX, pointerY);
-    const nextZoom = Phaser.Math.Clamp(cam.zoom - deltaY * 0.0012, 0.5, 2.2);
+    const zoomFactor = deltaY < 0 ? 1.14 : 1 / 1.14;
+    const nextZoom = Phaser.Math.Clamp(cam.zoom * zoomFactor, this.minZoom, this.maxZoom);
+    if (Math.abs(nextZoom - cam.zoom) < 0.0001) {
+      this.refreshStatusMeta();
+      return;
+    }
     cam.setZoom(nextZoom);
     const worldAfter = cam.getWorldPoint(pointerX, pointerY);
     cam.scrollX += worldBefore.x - worldAfter.x;
     cam.scrollY += worldBefore.y - worldAfter.y;
     this.clampCameraScroll();
+    this.refreshViewportDecor(true);
+    this.refreshStatusMeta();
+  },
+
+  panByWheel(deltaX, deltaY) {
+    const cam = this.cameras.main;
+    const panBoost = 2.35;
+    cam.scrollX += (deltaX * panBoost) / cam.zoom;
+    cam.scrollY += (deltaY * panBoost) / cam.zoom;
+    this.clampCameraScroll();
+    this.refreshViewportDecor(true);
+    this.refreshStatusMeta();
   },
 
   clampCameraScroll() {
@@ -120,6 +139,7 @@ export const inputMethods = {
       if (isFirstPress && this.rectStart == null) {
         this.rectStart = { x: tileX, y: tileY };
         this.setStatus(`Rect start: (${tileX}, ${tileY}). Click second point.`);
+        this.refreshViewportDecor(true);
         return;
       }
       if (this.rectStart) {
@@ -127,6 +147,8 @@ export const inputMethods = {
         this.rectStart = null;
         this.refreshLayerRender(this.activeLayer);
         this.pushHistory('rect');
+        this.refreshStatusMeta();
+        this.refreshViewportDecor(true);
       }
       return;
     }
@@ -135,6 +157,7 @@ export const inputMethods = {
       this.applyFill(tileX, tileY);
       this.refreshLayerRender(this.activeLayer);
       this.pushHistory('fill');
+      this.refreshStatusMeta();
       return;
     }
 
@@ -143,6 +166,7 @@ export const inputMethods = {
       this.toggleMarker(this.activeTool === 'npc_spawn' ? 'npcs' : 'monsters', tileX, tileY);
       this.refreshMarkerGraphics();
       this.pushHistory('marker');
+      this.refreshStatusMeta();
       return;
     }
 
@@ -154,6 +178,35 @@ export const inputMethods = {
       tileLayer.putTileAt(value, tileX, tileY);
       if (this.activeLayer === 'collision') tileLayer.setCollisionByExclusion([-1], true);
       if (isFirstPress) this.pushHistory('paint');
+    }
+  },
+
+  updateHoverFromPointer(pointer) {
+    if (this.isPointerInEditorUI(pointer)) {
+      if (this.hoveredTile) {
+        this.hoveredTile = null;
+        this.refreshViewportDecor(true);
+        this.refreshStatusMeta();
+      }
+      return;
+    }
+
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(world.x / TILE_SIZE);
+    const tileY = Math.floor(world.y / TILE_SIZE);
+    if (tileX < 0 || tileY < 0 || tileX >= this.mapWidth || tileY >= this.mapHeight) {
+      if (this.hoveredTile) {
+        this.hoveredTile = null;
+        this.refreshViewportDecor(true);
+        this.refreshStatusMeta();
+      }
+      return;
+    }
+
+    if (!this.hoveredTile || this.hoveredTile.x !== tileX || this.hoveredTile.y !== tileY) {
+      this.hoveredTile = { x: tileX, y: tileY };
+      this.refreshViewportDecor(true);
+      this.refreshStatusMeta();
     }
   }
 };

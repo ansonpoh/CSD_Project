@@ -34,14 +34,27 @@ export const tilesetMethods = {
   },
 
   renderSelectedPreview() {
-    const frameName = this.currentTilesetInfo?.frameName(this.selectedTile);
-    if (!this.selectedPreview || !frameName) return;
+    if (!this.selectedPreview) return;
+    this.drawTileToCanvas(this.selectedPreview, this.selectedTile, this.selectedPreview.width || 96);
+  },
 
-    this.selectedPreview.setTexture(this.tilesetKey);
-    this.selectedPreview.setFrame(frameName);
-    this.selectedPreview.setCrop();
-    this.selectedPreview.setOrigin(0.5, 0.5);
-    this.selectedPreview.setDisplaySize(110, 110);
+  drawTileToCanvas(canvas, tileIndex, size = 32) {
+    const info = this.currentTilesetInfo || this.getTilesetInfo(this.tilesetKey);
+    const source = info?.source;
+    if (!source || !canvas) return;
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const clamped = Phaser.Math.Clamp(tileIndex, 0, info.maxTiles - 1);
+    const sx = (clamped % info.cols) * TILE_SIZE;
+    const sy = Math.floor(clamped / info.cols) * TILE_SIZE;
+    const width = canvas.width || size;
+    const height = canvas.height || size;
+
+    context.clearRect(0, 0, width, height);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(source, sx, sy, TILE_SIZE, TILE_SIZE, 0, 0, width, height);
   },
 
   buildVisibleEntries(source, cols, rows, tilePx) {

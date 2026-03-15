@@ -20,6 +20,7 @@ export const draftMethods = {
       const saved = await apiService.saveMapDraft(payload);
       this.currentDraftId = saved?.draftId || this.currentDraftId;
       this.setStatus(`Draft saved: ${this.currentDraftId}`);
+      this.refreshStatusMeta();
       this.pushHistory('save');
     } catch (error) {
       this.setStatus(`Save failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
@@ -31,36 +32,35 @@ export const draftMethods = {
     try {
       const rows = await apiService.getMyMapDrafts();
       const modal = document.createElement('div');
-      modal.style.position = 'absolute';
-      modal.style.left = '50%';
-      modal.style.top = '50%';
-      modal.style.transform = 'translate(-50%, -50%)';
-      modal.style.width = '520px';
-      modal.style.maxHeight = '70vh';
-      modal.style.overflowY = 'auto';
-      modal.style.padding = '14px';
-      modal.style.background = 'rgba(8,18,34,0.98)';
-      modal.style.border = '1px solid #436795';
-      modal.style.borderRadius = '8px';
-      modal.style.zIndex = '1001';
+      modal.className = 'me-surface me-modal';
 
       const list = (rows || []).map((row) => `
-        <button data-draft-id="${row.draftId}" style="width:100%;text-align:left;padding:10px;margin-bottom:8px;background:#122743;border:1px solid #35567f;color:#e7f2ff;border-radius:6px;cursor:pointer;">
-          <div style="font-weight:700;">${this.escapeHtml(row.name || 'Untitled')}</div>
-          <div style="font-size:12px;color:#a8c5e8;">${this.escapeHtml(row.description || '')}</div>
-          <div style="font-size:11px;color:#8fb1d8;">Updated: ${this.escapeHtml(String(row.updatedAt || 'unknown'))}</div>
+        <button type="button" class="me-draft-card" data-draft-id="${row.draftId}">
+          <div class="me-draft-card__title">${this.escapeHtml(row.name || 'Untitled')}</div>
+          <div class="me-draft-card__body">${this.escapeHtml(row.description || 'No description yet.')}</div>
+          <div class="me-draft-card__meta">Updated: ${this.escapeHtml(String(row.updatedAt || 'unknown'))}</div>
         </button>
       `).join('');
 
       modal.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="color:#e7f2ff;font-weight:700;">Load Draft</div>
-          <button id="me-close-load" style="padding:6px 10px;background:#3f1a1a;border:1px solid #8f5e5e;color:#ffecec;border-radius:4px;cursor:pointer;">Close</button>
+        <div class="me-modal__header">
+          <div>
+            <div class="me-sidebar__title">Draft Library</div>
+            <h3>Load a saved map</h3>
+          </div>
+          <button type="button" class="me-action me-action--ghost" id="me-close-load">Close</button>
         </div>
-        ${list || '<div style="color:#c4d9f2;">No drafts yet.</div>'}
+        <div class="me-modal__list">
+          ${list || '<div class="me-copy">No drafts yet.</div>'}
+        </div>
       `;
 
-      document.body.appendChild(modal);
+      this.modalHostEl?.classList.add('is-open');
+      this.modalHostEl.innerHTML = '<div class="me-modal-backdrop"></div>';
+      this.modalHostEl.appendChild(modal);
+      this.modalHostEl.querySelector('.me-modal-backdrop')?.addEventListener('click', () => {
+        this.closeLoadDraftModal();
+      });
       this.uiModal = modal;
 
       modal.querySelector('#me-close-load')?.addEventListener('click', (event) => {
@@ -83,6 +83,10 @@ export const draftMethods = {
   closeLoadDraftModal() {
     if (this.uiModal?.parentNode) this.uiModal.parentNode.removeChild(this.uiModal);
     this.uiModal = null;
+    if (this.modalHostEl) {
+      this.modalHostEl.innerHTML = '';
+      this.modalHostEl.classList.remove('is-open');
+    }
   },
 
   async loadDraftById(draftId) {
@@ -113,6 +117,7 @@ export const draftMethods = {
       this.setFormValue('#me-bio', row.biome || '');
       this.setFormValue('#me-diff', row.difficulty || '');
       this.setStatus(`Loaded draft: ${row.name || row.draftId}`);
+      this.refreshStatusMeta();
       this.pushHistory('load');
     } catch (error) {
       this.setStatus(`Load failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
@@ -130,6 +135,7 @@ export const draftMethods = {
         description: this.getFormValue('#me-desc')
       });
       this.setStatus(`Published map: ${published?.mapId || published?.id || 'success'}`);
+      this.refreshStatusMeta();
     } catch (error) {
       this.setStatus(`Publish failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
     }

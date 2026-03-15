@@ -8,8 +8,6 @@ export function createMapEditorScene() {
 
   this.mapWidth = DEFAULT_MAP_WIDTH;
   this.mapHeight = DEFAULT_MAP_HEIGHT;
-  this.paletteScroll = 0;
-  this.maxPaletteScroll = 0;
   this.tilesetKey = DEFAULT_TILESET;
   this.mapLayers = {
     ground: createEmptyLayer(this.mapWidth, this.mapHeight),
@@ -17,14 +15,21 @@ export function createMapEditorScene() {
     collision: createEmptyLayer(this.mapWidth, this.mapHeight)
   };
 
-  this.buildTilemap();
   this.createToolbar();
+  this.createEditorForm();
+  this.buildTilemap();
   this.createPalettePanel();
   this.createStatusLine();
-  this.createEditorForm();
   this.installInputHandlers();
   this.pushHistory('init');
+  this.setStatus(this.lastStatusMessage);
+  this.scale.on('resize', this.refreshEditorLayout, this);
 
-  this.events.once('shutdown', () => this.cleanupDom());
-  this.events.once('destroy', () => this.cleanupDom());
+  const cleanup = () => {
+    this.scale.off('resize', this.refreshEditorLayout, this);
+    this.cleanupDom();
+  };
+
+  this.events.once('shutdown', cleanup);
+  this.events.once('destroy', cleanup);
 }

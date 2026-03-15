@@ -69,3 +69,6 @@ management:
   endpoint:
     health:
       show-details: always
+
+identity:
+  url: ${IDENTITY_URL:http://localhost:8081}

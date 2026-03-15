@@ -1,6 +1,6 @@
 spring:
   application:
-    name: csd
+    name: player-service
 
   datasource:
     url: jdbc:postgresql://aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require
@@ -31,7 +31,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         '[default_schema]': public
 
-
   security:
     oauth2:
       resourceserver:
@@ -47,6 +46,9 @@ spring:
       ssl:
         enabled: ${REDIS__SSL:false}
       timeout: 2s
+
+server:
+  port: 8084
 
 supabase:
   jwt:

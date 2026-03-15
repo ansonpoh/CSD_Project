@@ -27,6 +27,9 @@ public class NPCService {
     @Value("${backend.url:http://csd-backend:8080}")
     private String backendUrl;
 
+    @Value("${learning.url:http://learning-service:8083}")
+    private String learningServiceUrl;
+
     public NPCService(NPCRepository repository, NPCMapRepository npcMapRepository,
                       MapRepository mapRepository, RestTemplate restTemplate) {
         this.npcMapRepository = npcMapRepository;
@@ -51,7 +54,7 @@ public class NPCService {
                 ContentDto c = null;
                 if (npcMap.getContentId() != null) {
                     try {
-                        String url = backendUrl + "/api/internal/contents/" + npcMap.getContentId();
+                        String url = learningServiceUrl + "/api/internal/contents/" + npcMap.getContentId();
                         c = restTemplate.getForObject(url, ContentDto.class);
                     } catch (Exception e) {
                         System.err.println("Failed to fetch content details for contentId " + npcMap.getContentId() + ": " + e.getMessage());
@@ -91,7 +94,7 @@ public class NPCService {
         
         // Verify content exists via internal API
         try {
-            String url = backendUrl + "/api/internal/contents/" + request.contentId();
+            String url = learningServiceUrl + "/api/internal/contents/" + request.contentId();
             ContentDto content = restTemplate.getForObject(url, ContentDto.class);
             if (content == null) throw new RuntimeException("Content not found");
         } catch (Exception e) {

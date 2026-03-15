@@ -35,8 +35,8 @@ public class AuthRoleController {
     private final ContributorRepository contributorRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${backend.url:http://csd-backend:8080}")
-    private String backendUrl;
+    @Value("${player.url:http://player-service:8084}")
+    private String playerServiceUrl;
 
     @GetMapping("/role/me")
     public ResponseEntity<?> myRole(Authentication authentication) {
@@ -96,13 +96,13 @@ public class AuthRoleController {
 
     private boolean checkLearnerExists(String supabaseUserId) {
         try {
-            String url = backendUrl + "/api/learner/check/" + supabaseUserId;
+            String url = playerServiceUrl + "/api/learner/check/" + supabaseUserId;
             ResponseEntity<Boolean> response = restTemplate.getForEntity(url, Boolean.class);
             return Boolean.TRUE.equals(response.getBody());
         } catch (HttpClientErrorException.NotFound e) {
             return false;
         } catch (Exception e) {
-            log.error("Failed to check learner existence for user {} at {}: {}", supabaseUserId, backendUrl, e.getMessage());
+            log.error("Failed to check learner existence for user {} at {}: {}", supabaseUserId, playerServiceUrl, e.getMessage());
             return false;
         }
     }

@@ -10,26 +10,6 @@ services:
       timeout: 3s
       retries: 20
 
-  backend:
-    build:
-      context: ./csd
-      dockerfile: Dockerfile
-    container_name: csd-backend
-    # Port 8090 is internal only — only the gateway talks to the monolith directly
-    ports:
-      - "8090:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-
   identity-service:
     build:
       context: ./identity-service
@@ -43,6 +23,7 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
 
   game-service:
     build:
@@ -54,8 +35,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      backend:
-        condition: service_started
       identity-service:
         condition: service_started
     environment:
@@ -65,6 +44,48 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      LEARNING_URL: http://learning-service:8083
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
+
+  learning-service:
+    build:
+      context: ./learning-service
+      dockerfile: Dockerfile
+    container_name: csd-learning
+    ports:
+      - "8093:8083"
+    depends_on:
+      game-service:
+        condition: service_started
+    environment:
+      SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PLAYER_URL: http://player-service:8084
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
+
+  player-service:
+    build:
+      context: ./player-service
+      dockerfile: Dockerfile
+    container_name: csd-player
+    ports:
+      - "8094:8084"
+    depends_on:
+      identity-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
 
   gateway:
     build:
@@ -74,16 +95,18 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      backend:
-        condition: service_started
       identity-service:
         condition: service_started
       game-service:
         condition: service_started
+      learning-service:
+        condition: service_started
+      player-service:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
-      # Points to the monolith's internal port (8090 on host = 8080 in container)
-      BACKEND_URL: http://csd-backend:8080
       IDENTITY_URL: http://identity-service:8081
       GAME_URL: http://game-service:8082
+      LEARNING_SERVICE_URL: http://learning-service:8083
+      PLAYER_SERVICE_URL: http://player-service:8084

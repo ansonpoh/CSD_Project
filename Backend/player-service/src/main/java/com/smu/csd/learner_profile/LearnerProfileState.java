@@ -39,13 +39,13 @@ public class LearnerProfileState {
 
     @MapsId
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "learner_id", nullable = false)
+    @JoinColumn(name = "learner_id")
     private Learner learner;
 
     @Column(name = "avatar_preset", nullable = false, length = 64)
     private String avatarPreset;
 
-    @Column(name = "daily_quest_date_key", nullable = false)
+    @Column(name = "daily_quest_date_key")
     private LocalDate dailyQuestDateKey;
 
     @Builder.Default
@@ -53,13 +53,13 @@ public class LearnerProfileState {
     @Column(name = "daily_quest_progress", nullable = false, columnDefinition = "text")
     private Map<String, Integer> dailyQuestProgress = new LinkedHashMap<>();
 
-    @Column(name = "daily_quest_streak", nullable = false)
+    @Column(name = "daily_quest_streak")
     private Integer dailyQuestStreak;
 
     @Column(name = "daily_quest_last_completed_date")
     private LocalDate dailyQuestLastCompletedDate;
 
-    @Column(name = "learning_streak", nullable = false)
+    @Column(name = "learning_streak")
     private Integer learningStreak;
 
     @Column(name = "learning_streak_last_completed_date")
@@ -70,7 +70,7 @@ public class LearnerProfileState {
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @PrePersist

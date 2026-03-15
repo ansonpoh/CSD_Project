@@ -48,6 +48,7 @@ export const flagQueueAdminMethods = {
       const reportedBy = this.escapeHtml(
         row?.reportedBy?.username ||
         row?.reportedBy?.learnerId ||
+        row?.reportedBy ||
         'Unknown learner'
       );
       const createdAt = this.escapeHtml(this.formatDate(row?.createdAt));

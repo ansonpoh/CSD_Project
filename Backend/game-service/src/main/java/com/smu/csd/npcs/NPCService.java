@@ -24,10 +24,10 @@ public class NPCService {
     private final MapRepository mapRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${backend.url:http://csd-backend:8080}")
+    @Value("${backend.url:http://localhost:8080}")
     private String backendUrl;
 
-    @Value("${learning.url:http://learning-service:8083}")
+    @Value("${learning.url:http://localhost:8083}")
     private String learningServiceUrl;
 
     public NPCService(NPCRepository repository, NPCMapRepository npcMapRepository,

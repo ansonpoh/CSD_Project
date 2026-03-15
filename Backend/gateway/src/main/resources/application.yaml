@@ -30,7 +30,7 @@ spring:
         # PHASE 2: Identity Service
         # ─────────────────────────────────────────────
         - id: identity-service
-          uri: ${IDENTITY_URL:http://identity-service:8081}
+          uri: ${IDENTITY_URL:http://localhost:8081}
           predicates:
             - Path=/api/auth/**, /api/administrators/**, /api/contributors/**
 
@@ -38,7 +38,7 @@ spring:
         # PHASE 3: Game World Service
         # ─────────────────────────────────────────────
         - id: game-service
-          uri: ${GAME_URL:http://game-service:8082}
+          uri: ${GAME_URL:http://localhost:8082}
           predicates:
             - Path=/api/maps/**, /api/npcs/**, /api/monsters/**, /api/animations/**, /api/encounters/**
 
@@ -46,7 +46,7 @@ spring:
         # PHASE 1 (Epic 1): All other traffic → monolith
         # ─────────────────────────────────────────────
         - id: learning-service
-          uri: ${LEARNING_SERVICE_URL:http://learning-service:8083}
+          uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**
 
@@ -54,7 +54,7 @@ spring:
         # PHASE 5: Player & Economy Service
         # ─────────────────────────────────────────────
         - id: player-service
-          uri: ${PLAYER_SERVICE_URL:http://player-service:8084}
+          uri: ${PLAYER_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/economy/**, /api/learner/**, /api/leaderboard/**, /api/inventory/**, /api/purchases/**
 

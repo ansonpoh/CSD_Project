@@ -1,4 +1,8 @@
 export function getErrorMessage(error, fallback) {
+  if (error?.response?.status === 403) {
+    return 'You do not have permission to view this contributor content.';
+  }
+
   return (
     error?.response?.data?.message ||
     error?.response?.data?.error ||

@@ -103,7 +103,7 @@ export const questPanelMethods = {
 
     for (let index = 0; index < ordered.length; index += 1) {
       const encounter = ordered[index];
-      const progress = this.encounterProgressByNpcKey.get(encounter.npcKey);
+      const progress = this.getEncounterMonsterState(encounter.monster);
       if (!progress?.rewardClaimed) {
         return {
           ...encounter,
@@ -135,7 +135,7 @@ export const questPanelMethods = {
       return;
     }
 
-    const claimedCount = ordered.filter((encounter) => this.encounterProgressByNpcKey.get(encounter.npcKey)?.rewardClaimed).length;
+    const claimedCount = ordered.filter((encounter) => this.getEncounterMonsterState(encounter.monster)?.rewardClaimed).length;
     const activeQuest = this.getActiveQuest();
     if (!activeQuest) {
       this.questTitleText.setText('Quest Chain Complete');
@@ -212,6 +212,6 @@ export const questPanelMethods = {
 
   isQuestChainComplete() {
     const ordered = this.getOrderedEncounters();
-    return Boolean(ordered.length) && ordered.every((entry) => this.encounterProgressByNpcKey.get(entry.npcKey)?.rewardClaimed);
+    return Boolean(ordered.length) && ordered.every((entry) => this.getEncounterMonsterState(entry.monster)?.rewardClaimed);
   }
 };

@@ -36,7 +36,7 @@ public class EncounterService {
     private final MapRepository mapRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://localhost:8084}")
+    @Value("${player.url:http://player-service:8084}")
     private String playerServiceUrl;
 
     public EncounterService(

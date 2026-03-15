@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.UuidGenerator;
 
 import com.smu.csd.learner.Learner;
 
@@ -17,14 +18,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @NoArgsConstructor
@@ -32,17 +34,18 @@ import lombok.NoArgsConstructor;
 @Builder
 @Entity
 @Table(schema = "roles", name = "learner_profile_state")
+@EqualsAndHashCode(exclude = "learner")
+@ToString(exclude = "learner")
 public class LearnerProfileState {
     @Id
     @Column(name = "learner_id")
     private UUID learnerId;
 
-    @MapsId
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "learner_id")
+    @JoinColumn(name = "learner_id", insertable = false, updatable = false)
     private Learner learner;
 
-    @Column(name = "avatar_preset", nullable = false, length = 64)
+    @Column(name = "avatar_preset", length = 64)
     private String avatarPreset;
 
     @Column(name = "daily_quest_date_key")
@@ -50,7 +53,7 @@ public class LearnerProfileState {
 
     @Builder.Default
     @Convert(converter = QuestProgressJsonConverter.class)
-    @Column(name = "daily_quest_progress", nullable = false, columnDefinition = "text")
+    @Column(name = "daily_quest_progress", columnDefinition = "text")
     private Map<String, Integer> dailyQuestProgress = new LinkedHashMap<>();
 
     @Column(name = "daily_quest_streak")
@@ -66,7 +69,7 @@ public class LearnerProfileState {
     private LocalDate learningStreakLastCompletedDate;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp

@@ -75,7 +75,10 @@ public class NPCService {
                     c.body(),
                     c.topicId(),
                     c.topicName(),
-                    c.videoUrl()
+                    c.videoUrl(),
+                    c.averageRating(),
+                    c.ratingCount(),
+                    null
                 );
             })
             .filter(java.util.Objects::nonNull)

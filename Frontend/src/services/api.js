@@ -516,6 +516,16 @@ class ApiService {
     return data;
   }
 
+  async getContentRating(contentId) {
+    const { data } = await this.api.get(`/contents/${contentId}/rating`);
+    return data;
+  }
+
+  async rateContent(contentId, rating) {
+    const { data } = await this.api.put(`/contents/${contentId}/rating`, { rating });
+    return data;
+  }
+
   // Question Bank endpoints
   async generateBankDraft(mapId) {
     const { data } = await this.api.post(`/question-bank/map/${mapId}/generate`);

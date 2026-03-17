@@ -11,6 +11,7 @@ export const dialogueSceneLayoutMethods = {
 
   cleanupSceneResources() {
     this.destroyReportModal();
+    this.destroyRatingModal();
     this.clearLessonMedia();
     this.unbindSceneHotkeys();
   },
@@ -27,6 +28,8 @@ export const dialogueSceneLayoutMethods = {
     this.drawLessonPanel(width, layout.lessonY, layout.lessonW, layout.lessonH);
     this.createLessonTexts(width, layout.lessonY, layout.lessonW, layout.lessonH);
     this.createReportButton(width, layout.lessonY, layout.lessonW, layout.lessonH);
+    this.createRatingButton(width, layout.lessonY, layout.lessonW, layout.lessonH);
+    this.createRatingSummary(width, layout.lessonY, layout.lessonW, layout.lessonH);
     this.createPageIndicator(width, layout.lessonY, layout.lessonH);
     this.createNavigationHint(width, layout.lessonY, layout.lessonW, layout.lessonH);
     this.createPortraitSection(height);
@@ -88,13 +91,41 @@ export const dialogueSceneLayoutMethods = {
     if (!gameState.getLearner() || !this.getContentId()) return;
 
     this.reportButton = this._makeActionButton(
-      width / 2 + lessonW / 2 - 132,
+      width / 2 + lessonW / 2 - 246,
       lessonY - lessonH / 2 + 18,
       104,
       30,
       'REPORT',
       () => this.openReportModal()
     );
+  },
+
+  createRatingButton(width, lessonY, lessonW, lessonH) {
+    if (!gameState.getLearner() || !this.getContentId()) return;
+
+    this.ratingButton = this._makeActionButton(
+      width / 2 + lessonW / 2 - 132,
+      lessonY - lessonH / 2 + 18,
+      104,
+      30,
+      'RATE',
+      () => this.openRatingModal()
+    );
+  },
+
+  createRatingSummary(width, lessonY, lessonW, lessonH) {
+    this.ratingSummaryText = this.add.text(
+      width / 2 - lessonW / 2 + 28,
+      lessonY - lessonH / 2 + 52,
+      '',
+      {
+        fontSize: '13px',
+        color: P.textGold,
+        stroke: '#060814',
+        strokeThickness: 3
+      }
+    );
+    this.refreshRatingSummary();
   },
 
   createPageIndicator(width, lessonY, lessonH) {

@@ -33,7 +33,7 @@ export const worldMapMapPanelMethods = {
         38,
         actionLabel,
         () => {
-          this.selectMap(map.mapId);
+          this.enterMap(map);
         },
         isLocked
       );

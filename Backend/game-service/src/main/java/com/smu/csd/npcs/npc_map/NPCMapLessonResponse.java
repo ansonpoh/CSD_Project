@@ -11,5 +11,8 @@ public record NPCMapLessonResponse(
     String contentBody,
     UUID topicId,
     String topicName,
-    String videoUrl
+    String videoUrl,
+    Double averageRating,
+    Long ratingCount,
+    Integer currentUserRating
 ) {}

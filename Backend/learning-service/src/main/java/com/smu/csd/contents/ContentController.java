@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.*;
 import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.contents.flags.ContentFlag;
 import com.smu.csd.contents.flags.ContentFlagService;
+import com.smu.csd.contents.ratings.ContentRatingRequest;
+import com.smu.csd.contents.ratings.ContentRatingResponse;
+import com.smu.csd.contents.ratings.ContentRatingService;
 import com.smu.csd.exception.ResourceNotFoundException;
 
 @RestController
@@ -25,10 +28,16 @@ public class ContentController {
 
     private final ContentService service;
     private final ContentFlagService contentFlagService;
+    private final ContentRatingService contentRatingService;
 
-    public ContentController(ContentService service, ContentFlagService contentFlagService) {
+    public ContentController(
+            ContentService service,
+            ContentFlagService contentFlagService,
+            ContentRatingService contentRatingService
+    ) {
         this.service = service;
         this.contentFlagService = contentFlagService;
+        this.contentRatingService = contentRatingService;
     }
 
     // Contributor submits content with their narration lines - triggers AI screening
@@ -102,6 +111,27 @@ public class ContentController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Content> reject(@PathVariable UUID contentId) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.rejectContent(contentId));
+    }
+
+    @GetMapping("/{contentId}/rating")
+    public ResponseEntity<ContentRatingResponse> getRating(
+            @PathVariable UUID contentId,
+            Authentication authentication
+    ) throws ResourceNotFoundException {
+        UUID currentUser = authentication == null ? null : UUID.fromString(((Jwt) authentication.getPrincipal()).getSubject());
+        return ResponseEntity.ok(contentRatingService.getRatingSummary(contentId, currentUser));
+    }
+
+    @PutMapping("/{contentId}/rating")
+    @PreAuthorize("hasRole('LEARNER')")
+    public ResponseEntity<ContentRatingResponse> rateContent(
+            @PathVariable UUID contentId,
+            @RequestBody ContentRatingRequest request,
+            Authentication authentication
+    ) throws ResourceNotFoundException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        int rating = request == null || request.rating() == null ? 0 : request.rating();
+        return ResponseEntity.ok(contentRatingService.updateRating(contentId, UUID.fromString(jwt.getSubject()), rating));
     }
 
     @PostMapping("/{contentId}/flags")

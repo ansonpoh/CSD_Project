@@ -9,5 +9,7 @@ public record ContentDto(
     UUID topicId,
     String topicName,
     String videoUrl,
-    String status
+    String status,
+    Double averageRating,
+    Long ratingCount
 ) {}

@@ -28,6 +28,7 @@ export const dialogueScenePaginationMethods = {
     this.clearLessonMedia();
     const page = this.lessonPages[this.pageIndex];
     this.visitedPages.add(this.pageIndex);
+    this.refreshRatingSummary?.();
 
     const dialogue = page.narration || '';
     this.fullCurrentText = dialogue;

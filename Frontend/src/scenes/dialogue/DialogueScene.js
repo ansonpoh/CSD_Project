@@ -29,12 +29,17 @@ export class DialogueScene extends Phaser.Scene {
     this.visitedPages = new Set();
     this.renderRequestId = 0;
     this.reportModal = null;
+    this.ratingModal = null;
     this.reportButton = null;
+    this.ratingButton = null;
+    this.ratingSummaryText = null;
     this.handleRightKey = null;
     this.handleLeftKey = null;
     this.handleSpaceKey = null;
     this.npcKey = '';
     this.npcDef = null;
+    this.currentContentRating = null;
+    this.modalInputSuspendCount = 0;
   }
 
   init(data) {
@@ -45,12 +50,19 @@ export class DialogueScene extends Phaser.Scene {
     this.lessonKey = data?.lessonKey || null;
     this.visitedPages = new Set();
     this.renderRequestId = 0;
+    this.currentContentRating = {
+      contentId: this.npc?.contentId || this.npc?.content_id || null,
+      averageRating: Number(this.npc?.averageRating || 0),
+      ratingCount: Number(this.npc?.ratingCount || 0),
+      currentUserRating: this.npc?.currentUserRating ?? null
+    };
   }
 
   create() {
     this.registerLifecycleHandlers();
     this.buildSceneUi();
     this.bindSceneHotkeys();
+    void this.hydrateContentRating();
   }
 
   closeDialogue() {
@@ -71,6 +83,7 @@ export class DialogueScene extends Phaser.Scene {
     }
 
     this.destroyReportModal();
+    this.destroyRatingModal();
     this.clearLessonMedia();
     this.scene.stop();
     this.scene.resume('GameMapScene');

@@ -127,6 +127,16 @@ class ApiService {
     return data;
   }
 
+  async setMapLike(mapId, liked) {
+    const { data } = await this.api.put(`/maps/${mapId}/like`, { liked });
+    return data;
+  }
+
+  async rateMap(mapId, rating) {
+    const { data } = await this.api.put(`/maps/${mapId}/rating`, { rating });
+    return data;
+  }
+
   // Monster endpoints
   async getAllMonsters() {
     const { data } = await this.api.get('/monsters/all');

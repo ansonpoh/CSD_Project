@@ -21,7 +21,7 @@ export const worldMapMapPanelMethods = {
       const isSelected = String(map.mapId) === String(this.selectedMapId);
       const isLocked = !map.unlocked;
       const card = this.createMapCard(0, y, cardW, cardH, map, isSelected, () => {
-        this.scene.restart({ selectedMapId: map.mapId });
+        this.selectMap(map.mapId);
       });
       c.add(card);
 
@@ -33,7 +33,7 @@ export const worldMapMapPanelMethods = {
         38,
         actionLabel,
         () => {
-          if (map.unlocked) this.enterMap(map);
+          this.selectMap(map.mapId);
         },
         isLocked
       );

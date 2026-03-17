@@ -190,6 +190,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function hasValue(value) {
+  return value !== null && value !== undefined;
+}
+
 class MapDiscoveryService {
   constructor() {
     this.state = loadState();
@@ -259,7 +263,12 @@ class MapDiscoveryService {
     const unlockLevel = defaults.unlockLevel || 1;
     const playerLevel = this.getPlayerLevel(learner);
     const isUnlocked = playerLevel >= unlockLevel || state.playerCompletions > 0;
-    const crowdRating = state.ratingCount > 0 ? Number(state.rating.toFixed(1)) : 0;
+    const rawRatingCount = hasValue(map?.ratingCount) ? toNumber(map.ratingCount, 0) : state.ratingCount;
+    const rawAverageRating = hasValue(map?.averageRating) ? clamp(toNumber(map.averageRating, 0), 0, 5) : state.rating;
+    const rawLikeCount = hasValue(map?.likeCount) ? Math.max(0, toNumber(map.likeCount, 0)) : state.likes;
+    const rawCurrentUserRating = hasValue(map?.currentUserRating) ? clamp(toNumber(map.currentUserRating, 0), 0, 5) : state.playerRating;
+    const rawCurrentUserLiked = hasValue(map?.currentUserLiked) ? Boolean(map.currentUserLiked) : Boolean(state.playerLiked);
+    const crowdRating = rawRatingCount > 0 ? Number(rawAverageRating.toFixed(1)) : 0;
 
     return {
       ...map,
@@ -280,8 +289,8 @@ class MapDiscoveryService {
       unlockText: isUnlocked ? 'Unlocked' : `Reach level ${unlockLevel} to access`,
       socialProof: {
         rating: crowdRating,
-        ratingCount: state.ratingCount,
-        likes: state.likes,
+        ratingCount: rawRatingCount,
+        likes: rawLikeCount,
         completions: state.completions,
         visits: state.visits,
         trendScore: state.trendScore,
@@ -290,8 +299,8 @@ class MapDiscoveryService {
         bonusStars: state.bonusStars
       },
       playerState: {
-        liked: Boolean(state.playerLiked),
-        rating: state.playerRating,
+        liked: rawCurrentUserLiked,
+        rating: rawCurrentUserRating,
         completions: state.playerCompletions,
         loreUnlocked: Boolean(state.unlockedLore),
         assistCharges: toNumber(state.assistCharges, 0),
@@ -377,7 +386,6 @@ class MapDiscoveryService {
 
     const rewards = option?.rewards || {};
     state.trendScore += toNumber(rewards.bonusTrend, 0);
-    state.likes += toNumber(rewards.bonusLikes, 0);
     state.bonusStars += toNumber(rewards.bonusStars, 0);
     state.creatorRep += toNumber(rewards.creatorBoost, 0) + toNumber(rewards.reputationDelta, 0);
     if (rewards.unlockLore) state.unlockedLore = true;
@@ -401,10 +409,6 @@ class MapDiscoveryService {
     state.trendScore += 3;
     state.creatorRep += 2;
     state.bonusStars += toNumber(payload.bonusStars, 0);
-    if (payload.autoLike && !state.playerLiked) {
-      state.playerLiked = true;
-      state.likes += 1;
-    }
     if (payload.featuredCompletion) state.featured = true;
     this.persist();
     return state;

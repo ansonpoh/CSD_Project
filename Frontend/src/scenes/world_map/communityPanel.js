@@ -51,19 +51,29 @@ export const worldMapCommunityPanelMethods = {
     y += 36;
 
     c.add(this.createButton(pad, y, 160, 42, map.playerState.liked ? 'Unlike Map' : 'Like Map', () => {
-      mapDiscoveryService.toggleLike(map);
-      this.scene.restart({ selectedMapId: map.mapId });
-    }));
-
-    c.add(this.createButton(pad + 174, y, 160, 42, map.playerState.rating >= 5 ? 'Rated 5\u2605' : 'Rate 5\u2605', () => {
-      mapDiscoveryService.rateMap(map, 5);
-      this.scene.restart({ selectedMapId: map.mapId });
+      void this.toggleSelectedMapLike(map);
     }));
 
     c.add(this.createButton(pad + 348, y, 180, 42, map.unlocked ? 'Enter Highlighted Gate' : map.unlockText, () => {
       if (map.unlocked) this.enterMap(map);
     }, !map.unlocked));
     y += 58;
+
+    c.add(this.add.text(pad, y, `Your rating: ${map.playerState.rating || 0}\u2605`, {
+      fontSize: '14px',
+      color: P.textMain,
+      fontStyle: 'bold',
+      stroke: '#060814',
+      strokeThickness: 4
+    }));
+    y += 28;
+
+    [1, 2, 3, 4, 5].forEach((rating, index) => {
+      c.add(this.createButton(pad + index * 72, y, 64, 38, `${rating}\u2605`, () => {
+        void this.rateSelectedMap(map, rating);
+      }, map.playerState.rating === rating));
+    });
+    y += 56;
 
     c.add(this.add.text(pad, y, 'Creator spotlight', {
       fontSize: '15px',

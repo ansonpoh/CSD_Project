@@ -35,6 +35,42 @@ export const worldMapUtilityMethods = {
     this.selectedMapId = this.selectedMap?.mapId || null;
   },
 
+  selectMap(mapId) {
+    const nextMap = this.catalog.find((map) => String(map.mapId) === String(mapId));
+    if (!nextMap) return;
+
+    this.selectedMapId = nextMap.mapId;
+    this.selectedMap = nextMap;
+    this.renderPanels(gameState.getLearner());
+  },
+
+  async reloadMapCatalog() {
+    this.rawMaps = await apiService.getAllMaps();
+    this.refreshCatalog();
+  },
+
+  async toggleSelectedMapLike(map) {
+    if (!map?.mapId) return;
+    try {
+      await apiService.setMapLike(map.mapId, !map.playerState?.liked);
+      await this.reloadMapCatalog();
+      this.renderPanels(gameState.getLearner());
+    } catch (error) {
+      console.error('Failed to update map like:', error?.response?.data || error);
+    }
+  },
+
+  async rateSelectedMap(map, rating) {
+    if (!map?.mapId) return;
+    try {
+      await apiService.rateMap(map.mapId, rating);
+      await this.reloadMapCatalog();
+      this.renderPanels(gameState.getLearner());
+    } catch (error) {
+      console.error('Failed to update map rating:', error?.response?.data || error);
+    }
+  },
+
   truncate(text, maxLen) {
     const s = String(text ?? '');
     return s.length > maxLen ? `${s.slice(0, maxLen - 1)}...` : s;

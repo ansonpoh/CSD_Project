@@ -2,6 +2,8 @@ package com.smu.csd.maps;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.maps.likes.MapLikeRequest;
+import com.smu.csd.maps.ratings.MapRatingRequest;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
@@ -35,8 +38,8 @@ public class MapController {
     }
 
     @GetMapping("/all")
-    public List<Map> getAllMaps() {
-        return service.getAllMaps();
+    public List<MapCatalogResponse> getAllMaps(Authentication authentication) {
+        return service.getMapCatalog(currentUser(authentication));
     }
 
     @GetMapping("/world/{world_id}")
@@ -49,6 +52,26 @@ public class MapController {
     @PostMapping("/add")
     public Map addMap(@RequestBody Map map) {
         return service.saveMap(map);
+    }
+
+    @PutMapping("/{mapId}/like")
+    public MapCatalogResponse updateLike(
+            Authentication authentication,
+            @PathVariable UUID mapId,
+            @RequestBody MapLikeRequest request
+    ) {
+        boolean liked = request != null && Boolean.TRUE.equals(request.liked());
+        return service.updateMapLike(mapId, currentUser(authentication), liked);
+    }
+
+    @PutMapping("/{mapId}/rating")
+    public MapCatalogResponse updateRating(
+            Authentication authentication,
+            @PathVariable UUID mapId,
+            @RequestBody MapRatingRequest request
+    ) {
+        int rating = request == null || request.rating() == null ? 0 : request.rating();
+        return service.updateMapRating(mapId, currentUser(authentication), rating);
     }
 
     @GetMapping("/editor/drafts/me")

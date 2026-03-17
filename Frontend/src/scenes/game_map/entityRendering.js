@@ -181,7 +181,7 @@ export const entityRenderingMethods = {
       if (!monsterSprite.visible || !monsterSprite.active) continue;
 
       const npcKey = monsterSprite.getData('npcKey');
-      const progress = npcKey ? this.encounterProgressByNpcKey.get(npcKey) : null;
+      const progress = this.getEncounterMonsterState(monsterSprite.getData('monster'));
       if (progress?.monsterDefeated || progress?.rewardClaimed) continue;
       if (npcKey && !this.isMonsterInteractableForNpcKey(npcKey)) continue;
 

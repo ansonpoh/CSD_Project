@@ -26,6 +26,7 @@ export const worldMapProfilePanelMethods = {
       { label: 'Total XP', value: learner.total_xp ?? learner.totalXp ?? 0 },
       { label: 'Runs Cleared', value: totalCompletions },
       { label: 'Daily Streak', value: `${dailySnapshot.streak || 0} day(s)` },
+      { label: 'Learning Streak', value: `${dailySnapshot.learningStreak || 0} day(s)` },
       { label: 'Liked Maps', value: likedCount },
       { label: 'Joined', value: joined }
     ];

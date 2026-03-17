@@ -39,7 +39,7 @@ public class QuizService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://localhost:8082}")
+    @Value("${game.url:http://game-service:8082}")
     private String gameServiceUrl;
 
     public QuizService(
@@ -177,7 +177,7 @@ public class QuizService {
 
         // If we don't have enough lines for the total questions, pad it with fallbacks.
         while (linePool.size() < totalQuestions) {
-            List<String> fallbacks = fallbackLessonLines(monsterName);
+            List<String> fallbacks = new ArrayList<>(fallbackLessonLines(monsterName));
             Collections.shuffle(fallbacks);
             linePool.add(fallbacks.get(0));
             // Ensure uniqueness temporarily if possible, otherwise just duplicates are inevitable

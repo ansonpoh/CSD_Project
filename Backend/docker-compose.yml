@@ -25,6 +25,9 @@ services:
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
+      GAME_URL: http://game-service:8082
+      LEARNING_SERVICE_URL: http://learning-service:8083
+      PLAYER_SERVICE_URL: http://player-service:8084
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
@@ -55,6 +58,8 @@ services:
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
       LEARNING_URL: http://learning-service:8083
+      IDENTITY_URL: http://identity-service:8081
+      PLAYER_SERVICE_URL: http://player-service:8084
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/actuator/health | grep -q '\"status\":\"UP\"'"]
@@ -82,7 +87,8 @@ services:
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
       IDENTITY_URL: http://identity-service:8081
-      PLAYER_URL: http://player-service:8084
+      GAME_URL: http://game-service:8082
+      PLAYER_SERVICE_URL: http://player-service:8084
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/actuator/health | grep -q '\"status\":\"UP\"'"]
@@ -113,6 +119,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
+      IDENTITY_URL: http://identity-service:8081
+      GAME_URL: http://game-service:8082
+      LEARNING_SERVICE_URL: http://learning-service:8083
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8084/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s

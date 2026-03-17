@@ -39,6 +39,11 @@ progress.md
 *.tar.gz
 *.rar
 
+# Local build output
+Frontend/dist/
+output/
+progress.md
+
 # OS
 .DS_Store
 Thumbs.db
@@ -48,3 +53,4 @@ Frontend/dist/
 
 # Local debugging artifacts
 output/
+

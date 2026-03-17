@@ -104,6 +104,12 @@ export const encounterStateMethods = {
       return;
     }
 
+    const monsterState = this.getEncounterMonsterState(monster);
+    if (monsterState?.monsterDefeated) {
+      this.showMapToast('Monster already defeated. Claim your reward from the quest panel.');
+      return;
+    }
+
     const npcId = monster?.npcId || null;
     const npcKey = npcId ? String(npcId) : null;
     if (npcKey && !this.isMonsterInteractableForNpcKey(npcKey)) {
@@ -192,6 +198,13 @@ export const encounterStateMethods = {
     return monster?.monster_id || monster?.monsterId || null;
   },
 
+  getEncounterMonsterState(monster) {
+    const monsterId = this.getMonsterId(monster);
+    if (!monsterId) return null;
+    const rows = Array.isArray(this.encounterState?.monsters) ? this.encounterState.monsters : [];
+    return rows.find((row) => String(row?.monsterId || '') === String(monsterId)) || null;
+  },
+
   applyEncounterProgress(progress) {
     if (!progress?.npcId) return;
     const npcKey = String(progress.npcId);
@@ -270,7 +283,8 @@ export const encounterStateMethods = {
     const npcKey = monsterSprite?.getData('npcKey');
     if (!npcKey) return;
 
-    const progress = this.encounterProgressByNpcKey.get(npcKey);
+    const monster = monsterSprite.getData('monster');
+    const progress = this.getEncounterMonsterState(monster);
     const nameText = monsterSprite.getData('nameText');
     const baseLabel = monsterSprite.getData('baseLabel') || monsterSprite.getData('monster')?.name || 'Monster';
     const interactable = this.isMonsterInteractableForNpcKey(npcKey);

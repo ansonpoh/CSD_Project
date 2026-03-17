@@ -1,3 +1,5 @@
+import { apiService } from './api.js';
+import { gameState } from './gameState.js';
 import { loadJsonFromStorage, saveJsonToStorage } from './storage.js';
 
 const STORAGE_KEY = 'dailyQuestState';
@@ -64,6 +66,8 @@ function createFreshState(previous = {}) {
     dateKey: todayKey(),
     streak: 0,
     lastCompletedDate: previous?.lastCompletedDate || null,
+    learningStreak: previous?.learningStreak || 0,
+    lastLessonCompletedDate: previous?.lastLessonCompletedDate || null,
     progress: {}
   };
 }
@@ -76,8 +80,25 @@ function ensureCurrentState() {
   return saveRawState({
     ...createFreshState(saved),
     streak: saved.streak || 0,
-    lastCompletedDate: saved.lastCompletedDate || null
+    lastCompletedDate: saved.lastCompletedDate || null,
+    learningStreak: saved.learningStreak || 0,
+    lastLessonCompletedDate: saved.lastLessonCompletedDate || null
   });
+}
+
+function updateLearningStreakIfNeeded(state, eventType) {
+  if (eventType !== 'lesson_completed') return state;
+  if (state.lastLessonCompletedDate === state.dateKey) return state;
+
+  const nextLearningStreak = state.lastLessonCompletedDate === yesterdayKey()
+    ? Math.max(1, Number(state.learningStreak || 0) + 1)
+    : 1;
+
+  return {
+    ...state,
+    learningStreak: nextLearningStreak,
+    lastLessonCompletedDate: state.dateKey
+  };
 }
 
 function updateStreakIfCompleted(state) {
@@ -103,7 +124,54 @@ function updateStreakIfCompleted(state) {
   };
 }
 
+function normalizeRemoteSnapshot(snapshot = null) {
+  if (!snapshot) return updateStreakIfCompleted(ensureCurrentState());
+
+  const quests = Array.isArray(snapshot.quests) ? snapshot.quests : [];
+  const progress = {};
+  quests.forEach((quest) => {
+    if (!quest?.id) return;
+    progress[quest.id] = Math.max(0, Number(quest.progress || 0));
+  });
+
+  const normalized = updateStreakIfCompleted({
+    dateKey: snapshot.dateKey || todayKey(),
+    streak: Math.max(0, Number(snapshot.streak || 0)),
+    lastCompletedDate: snapshot.lastCompletedDate || null,
+    learningStreak: Math.max(0, Number(snapshot.learningStreak || 0)),
+    lastLessonCompletedDate: snapshot.lastLessonCompletedDate || null,
+    progress
+  });
+
+  return saveRawState({
+    dateKey: normalized.dateKey,
+    streak: normalized.streak,
+    lastCompletedDate: normalized.lastCompletedDate,
+    learningStreak: normalized.learningStreak || 0,
+    lastLessonCompletedDate: normalized.lastLessonCompletedDate || null,
+    progress: normalized.progress || {}
+  });
+}
+
 export const dailyQuestService = {
+  hydrateFromSnapshot(snapshot = null) {
+    return normalizeRemoteSnapshot(snapshot);
+  },
+
+  async hydrate() {
+    if (!gameState.getLearner()) {
+      return this.getSnapshot();
+    }
+
+    try {
+      const profileState = await apiService.getMyProfileState();
+      return this.hydrateFromSnapshot(profileState?.dailyQuests || null);
+    } catch (error) {
+      console.warn('Daily quest hydration failed:', error);
+      return this.getSnapshot();
+    }
+  },
+
   getSnapshot() {
     const state = ensureCurrentState();
     return updateStreakIfCompleted(state);
@@ -124,15 +192,36 @@ export const dailyQuestService = {
       progress
     });
 
-    const withStreak = updateStreakIfCompleted(saved);
-    if (withStreak.streak !== saved.streak || withStreak.lastCompletedDate !== saved.lastCompletedDate) {
+    const withLearning = updateLearningStreakIfNeeded(saved, eventType);
+    const withStreak = updateStreakIfCompleted(withLearning);
+    if (
+      withStreak.streak !== saved.streak ||
+      withStreak.lastCompletedDate !== saved.lastCompletedDate ||
+      withStreak.learningStreak !== saved.learningStreak ||
+      withStreak.lastLessonCompletedDate !== saved.lastLessonCompletedDate
+    ) {
       saveRawState({
-        dateKey: saved.dateKey,
+        dateKey: withStreak.dateKey,
         streak: withStreak.streak,
         lastCompletedDate: withStreak.lastCompletedDate,
-        progress: saved.progress
+        learningStreak: withStreak.learningStreak || 0,
+        lastLessonCompletedDate: withStreak.lastLessonCompletedDate || null,
+        progress: withStreak.progress
       });
     }
+
+    if (gameState.getLearner()) {
+      void apiService.recordDailyQuestEvent(eventType, amount)
+        .then((profileState) => {
+          if (profileState?.dailyQuests) {
+            normalizeRemoteSnapshot(profileState.dailyQuests);
+          }
+        })
+        .catch((error) => {
+          console.warn('Daily quest sync failed:', error);
+        });
+    }
+
     return withStreak;
   }
 };

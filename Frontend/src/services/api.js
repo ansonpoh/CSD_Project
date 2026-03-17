@@ -415,6 +415,11 @@ class ApiService {
     return data;
   }
 
+  async getMyContributorAnalytics() {
+    const { data } = await this.api.get('/contributors/analytics/me');
+    return data;
+  }
+
   // Topic endpoints
   async getAllTopics() {
     const { data } = await this.api.get('/topic/all');

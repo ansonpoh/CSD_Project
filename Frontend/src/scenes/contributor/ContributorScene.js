@@ -26,6 +26,12 @@ function buildContentPreview(row) {
   return previewText(description || narrations || 'No preview available yet.', 240);
 }
 
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0.00%';
+  return `${numeric.toFixed(2)}%`;
+}
+
 export class ContributorScene extends Phaser.Scene {
   constructor() {
     super({ key: 'ContributorScene' });
@@ -35,6 +41,7 @@ export class ContributorScene extends Phaser.Scene {
       activeSection: 'overview',
       profile: null,
       contents: [],
+      analytics: null,
       topics: [],
       npcs: [],
       maps: [],
@@ -200,8 +207,9 @@ export class ContributorScene extends Phaser.Scene {
       if (!uid) throw new Error('No active contributor session');
 
       const profile = await apiService.getContributorBySupabaseId(uid);
-      const [contents, topics, npcs, maps] = await Promise.all([
+      const [contents, analytics, topics, npcs, maps] = await Promise.all([
         apiService.getContentByContributor(profile.contributorId).catch(() => []),
+        apiService.getMyContributorAnalytics().catch(() => null),
         apiService.getAllTopics().catch(() => []),
         apiService.getAllNPCs().catch(() => []),
         apiService.getAllMaps().catch(() => [])
@@ -209,6 +217,7 @@ export class ContributorScene extends Phaser.Scene {
 
       this.state.profile = profile;
       this.state.contents = Array.isArray(contents) ? contents : [];
+      this.state.analytics = analytics || null;
       this.state.topics = Array.isArray(topics) ? topics : [];
       this.state.npcs = Array.isArray(npcs) ? npcs : [];
       this.state.maps = Array.isArray(maps) ? maps : [];
@@ -257,9 +266,19 @@ export class ContributorScene extends Phaser.Scene {
       const rightTime = new Date(right?.submittedAt || 0).getTime();
       return rightTime - leftTime;
     });
+    const analytics = this.state.analytics || {};
+    const moderationRates = analytics?.moderationRates || {};
     const pendingCount = countByStatus(rows, 'PENDING_REVIEW');
-    const approvedCount = countByStatus(rows, 'APPROVED');
-    const rejectedCount = countByStatus(rows, 'REJECTED');
+    const approvedCount = Number(moderationRates?.approvedCount ?? countByStatus(rows, 'APPROVED'));
+    const rejectedCount = Number(moderationRates?.rejectedCount ?? countByStatus(rows, 'REJECTED'));
+    const totalSubmitted = Number(moderationRates?.totalSubmitted ?? rows.length);
+    const flaggedCount = Number(moderationRates?.flaggedCount ?? 0);
+    const approvalRate = formatPercent(moderationRates?.approvalRate);
+    const rejectionRate = formatPercent(moderationRates?.rejectionRate);
+    const flaggedRate = formatPercent(moderationRates?.flaggedRate);
+    const topPerforming = Array.isArray(analytics?.topPerformingContents)
+      ? analytics.topPerformingContents.slice(0, 3)
+      : [];
 
     const recentItems = rows.slice(0, 3).map((row) => `
       <div class="dash-mini-list__item">
@@ -304,23 +323,23 @@ export class ContributorScene extends Phaser.Scene {
       <div class="dash-grid dash-grid--metrics">
         <article class="dash-card dash-metric">
           <span class="dash-metric__label">Total submissions</span>
-          <span class="dash-metric__value">${rows.length}</span>
+          <span class="dash-metric__value">${totalSubmitted}</span>
           <span class="dash-metric__delta">Across all lessons</span>
         </article>
         <article class="dash-card dash-metric">
-          <span class="dash-metric__label">Pending review</span>
-          <span class="dash-metric__value">${pendingCount}</span>
-          <span class="dash-metric__delta">Awaiting moderation</span>
+          <span class="dash-metric__label">Approval Rate</span>
+          <span class="dash-metric__value">${approvalRate}</span>
+          <span class="dash-metric__delta">${approvedCount} approved</span>
         </article>
         <article class="dash-card dash-metric">
-          <span class="dash-metric__label">Approved</span>
-          <span class="dash-metric__value">${approvedCount}</span>
-          <span class="dash-metric__delta">Ready for learners</span>
+          <span class="dash-metric__label">Rejection Rate</span>
+          <span class="dash-metric__value">${rejectionRate}</span>
+          <span class="dash-metric__delta">${rejectedCount} rejected</span>
         </article>
         <article class="dash-card dash-metric">
-          <span class="dash-metric__label">Rejected</span>
-          <span class="dash-metric__value">${rejectedCount}</span>
-          <span class="dash-metric__delta">Needs revision</span>
+          <span class="dash-metric__label">Flagged Rate</span>
+          <span class="dash-metric__value">${flaggedRate}</span>
+          <span class="dash-metric__delta">${flaggedCount} flagged</span>
         </article>
       </div>
 
@@ -335,6 +354,28 @@ export class ContributorScene extends Phaser.Scene {
           </div>
         </article>
 
+        <article class="dash-card">
+          <div class="dash-card__headline">
+            <h3>Top-performing content</h3>
+            <span class="dash-muted">Top 3 by rating</span>
+          </div>
+          <div class="dash-mini-list">
+            ${topPerforming.map((item) => `
+              <div class="dash-mini-list__item">
+                <span>${escapeHtml(item?.title || 'Untitled content')}</span>
+                <strong>${Number(item?.averageRating || 0).toFixed(2)}* (${Number(item?.ratingCount || 0)})</strong>
+              </div>
+            `).join('') || renderEmptyState('No rated content yet', 'Once learners rate your approved lessons, your top-performing items will appear here.')}
+          </div>
+        </article>
+      </div>
+
+      <div class="dash-grid dash-grid--two" style="margin-top:22px;">
+        <article class="dash-card dash-metric">
+          <span class="dash-metric__label">Pending Review</span>
+          <span class="dash-metric__value">${pendingCount}</span>
+          <span class="dash-metric__delta">Awaiting moderation</span>
+        </article>
         <article class="dash-card">
           <div class="dash-card__headline">
             <h3>Suggested next step</h3>
@@ -368,6 +409,12 @@ export class ContributorScene extends Phaser.Scene {
       const rightTime = new Date(right?.submittedAt || 0).getTime();
       return rightTime - leftTime;
     });
+    const ratingsPerContent = Array.isArray(this.state.analytics?.ratingsPerContent)
+      ? this.state.analytics.ratingsPerContent
+      : [];
+    const ratingByContentId = new Map(
+      ratingsPerContent.map((item) => [String(item?.contentId || ''), item])
+    );
 
     const cards = rows.map((row) => `
       <article class="dash-row-card">
@@ -378,11 +425,29 @@ export class ContributorScene extends Phaser.Scene {
               <span>${escapeHtml(row?.topic?.topicName || 'Unknown topic')}</span>
               <span>${escapeHtml(formatDate(row?.submittedAt))}</span>
               <span>${escapeHtml(row?.contentId || 'Missing id')}</span>
+              <span>Rating ${Number(ratingByContentId.get(String(row?.contentId || ''))?.averageRating || 0).toFixed(2)}* (${Number(ratingByContentId.get(String(row?.contentId || ''))?.ratingCount || 0)})</span>
             </div>
           </div>
           ${renderBadge(row?.status || 'UNKNOWN')}
         </div>
         <div class="dash-row-card__body">${escapeHtml(buildContentPreview(row))}</div>
+      </article>
+    `).join('');
+    const ratingRows = ratingsPerContent.map((item) => `
+      <article class="dash-row-card">
+        <div class="dash-row-card__header">
+          <div>
+            <div class="dash-row-card__title">${escapeHtml(item?.title || 'Untitled content')}</div>
+            <div class="dash-row-card__meta">
+              <span>${escapeHtml(item?.contentId || 'Missing id')}</span>
+              <span>${renderBadge(item?.status || 'UNKNOWN')}</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="dash-row-card__title">${Number(item?.averageRating || 0).toFixed(2)}*</div>
+            <div class="dash-muted">${Number(item?.ratingCount || 0)} ratings</div>
+          </div>
+        </div>
       </article>
     `).join('');
 
@@ -398,6 +463,18 @@ export class ContributorScene extends Phaser.Scene {
       </div>
       <div class="dash-list">
         ${cards || renderEmptyState('No submissions yet', 'Once you publish your first lesson draft, it will appear here with moderation status.')}
+      </div>
+
+      <div class="dash-card" style="margin:22px 0 18px;">
+        <div class="dash-inline">
+          <div>
+            <h3 style="margin:0 0 8px;">Ratings per content</h3>
+            <p>Average learner rating and vote counts for each lesson you submitted.</p>
+          </div>
+        </div>
+      </div>
+      <div class="dash-list">
+        ${ratingRows || renderEmptyState('No rating data yet', 'Content ratings will show up once learners start rating approved lessons.')}
       </div>
     `;
   }

@@ -47,5 +47,18 @@ public interface LearnerLessonProgressRepository extends JpaRepository<LearnerLe
         @Param("npcIds") Collection<UUID> npcIds,
         @Param("status") LearnerLessonProgress.Status status
     );
+
+    @Query("""
+        select distinct p.contentId
+        from LearnerLessonProgress p
+        where p.learner.learnerId = :learnerId
+          and p.status = :status
+          and p.contentId in :contentIds
+    """)
+    List<UUID> findCompletedContentIdsByLearnerAndContentIds(
+        @Param("learnerId") UUID learnerId,
+        @Param("contentIds") Collection<UUID> contentIds,
+        @Param("status") LearnerLessonProgress.Status status
+    );
 }
 

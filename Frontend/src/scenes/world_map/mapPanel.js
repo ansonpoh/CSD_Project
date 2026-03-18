@@ -17,6 +17,22 @@ export const worldMapMapPanelMethods = {
     const cardH = 88;
     let y = 14;
 
+    if (!maps.length) {
+      const message = this.isMapCatalogLoading
+        ? 'Loading discovery gates...'
+        : 'No discovery gates available.';
+
+      c.add(this.add.text(0, y, message, {
+        fontSize: '16px',
+        color: P.textMain,
+        stroke: '#060814',
+        strokeThickness: 4
+      }));
+
+      this.setPanelScrollMetrics(panel, y + 80);
+      return;
+    }
+
     maps.forEach((map, index) => {
       const isSelected = String(map.mapId) === String(this.selectedMapId);
       const isLocked = !map.unlocked;

@@ -72,6 +72,7 @@ public class InternalPlayerController {
 
     // ----- Progress Service mock-endpoints -----
     public record ProgressCheckRequestDto(UUID learnerId, List<UUID> contentIds) {}
+    public record ContentCompletionBatchRequestDto(UUID learnerId, List<UUID> contentIds) {}
 
     @PostMapping("/progress/check-completed")
     public ResponseEntity<Boolean> checkAllCompleted(@RequestBody ProgressCheckRequestDto request) {
@@ -104,5 +105,20 @@ public class InternalPlayerController {
             LearnerLessonProgress.Status.COMPLETED
         );
         return ResponseEntity.ok(completed);
+    }
+
+    @PostMapping("/progress/content-completed/batch")
+    public ResponseEntity<List<UUID>> getCompletedContentIds(@RequestBody ContentCompletionBatchRequestDto request) {
+        if (request == null || request.learnerId() == null || request.contentIds() == null || request.contentIds().isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<UUID> completedContentIds = learnerLessonProgressRepository.findCompletedContentIdsByLearnerAndContentIds(
+            request.learnerId(),
+            request.contentIds(),
+            LearnerLessonProgress.Status.COMPLETED
+        );
+
+        return ResponseEntity.ok(completedContentIds);
     }
 }

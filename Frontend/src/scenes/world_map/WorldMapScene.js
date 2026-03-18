@@ -15,6 +15,7 @@ export class WorldMapScene extends Phaser.Scene {
     super({ key: 'WorldMapScene' });
     this.rawMaps = [];
     this.catalog = [];
+    this.isMapCatalogLoading = true;
     this.selectedMapId = null;
     this.selectedMap = null;
     this.uiTileSize = 56;
@@ -57,17 +58,27 @@ export class WorldMapScene extends Phaser.Scene {
     this.drawBackdrop(width, height);
     this.createHomeCloudBackdrop(width, height);
 
+    this.isMapCatalogLoading = true;
+    this.refreshCatalog();
+    this.layoutPanels(width, height);
+    this.renderPanels(learner);
+
+    void this.loadMapCatalog();
+  }
+
+  async loadMapCatalog() {
     try {
       this.rawMaps = await apiService.getAllMaps();
       if (!this.rawMaps?.length) await this.createDemoMap();
     } catch (error) {
       console.error('Failed to load maps:', error);
       this.rawMaps = this.getMockMaps();
+    } finally {
+      this.isMapCatalogLoading = false;
     }
 
     this.refreshCatalog();
-    this.layoutPanels(width, height);
-    this.renderPanels(learner);
+    this.renderPanels(gameState.getLearner());
   }
 
   layoutPanels(width, height) {

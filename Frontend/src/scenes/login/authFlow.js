@@ -59,15 +59,16 @@ function clearOAuthIntent() {
 async function hydrateLearnerSession(profile) {
   const learner = await apiService.getCurrentLearner();
   gameState.setLearner(learner);
-  const profileState = await apiService.getMyProfileState().catch(() => null);
+  const [profileState, inventory, lessonProgress] = await Promise.all([
+    apiService.getMyProfileState().catch(() => null),
+    apiService.getMyInventory().catch(() => []),
+    apiService.getMyLessonProgress().catch(() => [])
+  ]);
+
   const resolvedPreset = profileState?.avatarPreset || profile?.presetId || gameState.getPlayerProfile()?.presetId;
   gameState.setPlayerProfile(buildPlayerProfile({ presetId: resolvedPreset || getDefaultPlayerProfile().presetId }));
   dailyQuestService.hydrateFromSnapshot(profileState?.dailyQuests || null);
-
-  const inventory = await apiService.getMyInventory().catch(() => []);
   gameState.setInventory(inventory || []);
-
-  const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
   gameState.setLessonProgress(lessonProgress || []);
 }
 

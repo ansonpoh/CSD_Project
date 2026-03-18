@@ -3,6 +3,7 @@ import { supabase } from '../config/supabaseClient';
 
 class ApiService {
   constructor() {
+    this.accessToken = null;
     this.api = axios.create({
       baseURL: '/api',
       headers: {
@@ -10,10 +11,30 @@ class ApiService {
       }
     });
 
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        this.accessToken = session?.access_token || null;
+      })
+      .catch(() => {
+        this.accessToken = null;
+      });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      this.accessToken = session?.access_token || null;
+    });
+
     this.api.interceptors.request.use(async (config) => {
-      const {data: {session}} = await supabase.auth.getSession();
-      if(session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
+      let token = this.accessToken;
+
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || null;
+        this.accessToken = token;
+      }
+
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     })

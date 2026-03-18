@@ -39,7 +39,7 @@ public class InternalGameController {
                 "mapId", m.getMapId(),
                 "name", m.getName()
             ));
-        }).orElse(ResponseEntity.notFound().build());
+        }).orElseGet(() -> ResponseEntity.notFound().<Map<String, Object>>build());
     }
 
     @GetMapping("/maps/{mapId}/contents")

@@ -1,6 +1,7 @@
 package com.smu.csd.npcs;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -9,7 +10,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.annotation.Value;
 
 import com.smu.csd.dtos.ContentDto;
-import com.smu.csd.maps.Map;
 import com.smu.csd.maps.MapRepository;
 import com.smu.csd.npcs.npc_map.NPCMap;
 import com.smu.csd.npcs.npc_map.NPCMapAssignRequest;
@@ -47,19 +47,20 @@ public class NPCService {
     }
 
     public List<NPCMapLessonResponse> getNPCsByMapId(UUID map_id) {
-        return npcMapRepository.findAllByMapMapId(map_id)
+        List<NPCMap> npcMappings = npcMapRepository.findAllByMapMapId(map_id);
+        List<UUID> contentIds = npcMappings.stream()
+            .map(NPCMap::getContentId)
+            .filter(id -> id != null)
+            .distinct()
+            .toList();
+
+        Map<UUID, ContentDto> contentById = fetchContentsByIds(contentIds);
+
+        return npcMappings
             .stream()
             .map(npcMap -> {
                 NPC npc = npcMap.getNpc();
-                ContentDto c = null;
-                if (npcMap.getContentId() != null) {
-                    try {
-                        String url = learningServiceUrl + "/api/internal/contents/" + npcMap.getContentId();
-                        c = restTemplate.getForObject(url, ContentDto.class);
-                    } catch (Exception e) {
-                        System.err.println("Failed to fetch content details for contentId " + npcMap.getContentId() + ": " + e.getMessage());
-                    }
-                }
+                ContentDto c = npcMap.getContentId() == null ? null : contentById.get(npcMap.getContentId());
                 
                 // Only return approved content or just assume it is approved
                 if (c == null || !"APPROVED".equals(c.status())) {
@@ -85,6 +86,23 @@ public class NPCService {
             .collect(Collectors.toList());
     }
 
+    private Map<UUID, ContentDto> fetchContentsByIds(List<UUID> contentIds) {
+        if (contentIds == null || contentIds.isEmpty()) return java.util.Map.of();
+
+        try {
+            String url = learningServiceUrl + "/api/internal/contents/batch";
+            ContentDto[] rows = restTemplate.postForObject(url, contentIds, ContentDto[].class);
+            if (rows == null || rows.length == 0) return java.util.Map.of();
+
+            return java.util.Arrays.stream(rows)
+                .filter(content -> content != null && content.contentId() != null)
+                .collect(Collectors.toMap(ContentDto::contentId, content -> content, (first, second) -> first));
+        } catch (Exception e) {
+            System.err.println("Failed to fetch content batch for NPC map load: " + e.getMessage());
+            return java.util.Map.of();
+        }
+    }
+
     public NPC saveNPC(NPC npc) {
         return repository.save(npc);
     }
@@ -92,7 +110,7 @@ public class NPCService {
     public NPCMap assignContent(NPCMapAssignRequest request) {
         NPC npc = repository.findById(request.npcId())
             .orElseThrow(() -> new RuntimeException("NPC not found: " + request.npcId()));
-        Map map = mapRepository.findById(request.mapId())
+        com.smu.csd.maps.Map map = mapRepository.findById(request.mapId())
             .orElseThrow(() -> new RuntimeException("Map not found: " + request.mapId()));
         
         // Verify content exists via internal API

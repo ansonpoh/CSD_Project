@@ -3,7 +3,11 @@ package com.smu.csd.encounters;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -30,6 +34,8 @@ import com.smu.csd.npcs.npc_map.NPCMapLessonResponse;
 
 @Service
 public class EncounterService {
+    private record ContentCompletionBatchRequestDto(UUID learnerId, List<UUID> contentIds) {}
+
     private final NPCService npcService;
     private final MonsterService monsterService;
     private final MonsterProgressRepository monsterProgressRepository;
@@ -66,9 +72,7 @@ public class EncounterService {
             .distinct()
             .toList();
 
-        List<UUID> completedContentIds = lessonContentIds.stream()
-            .filter(contentId -> isContentCompleted(learner.learnerId(), contentId))
-            .toList();
+        Set<UUID> completedContentIds = new HashSet<>(getCompletedContentIds(learner.learnerId(), lessonContentIds));
 
         List<UUID> completedNpcIds = npcs.stream()
             .filter(npc -> npc.npcId() != null && npc.contentId() != null && completedContentIds.contains(npc.contentId()))
@@ -228,14 +232,20 @@ public class EncounterService {
         List<Monster> ordered = new ArrayList<>(monsters);
         ordered.sort(Comparator.comparing(monster -> asString(monster.getMonsterId())));
 
+        Map<UUID, MonsterProgress> progressByMonsterId = new HashMap<>();
+        monsterProgressRepository.findAllByLearnerIdAndMapMapId(learner.learnerId(), mapId)
+            .forEach(progress -> {
+                if (progress != null && progress.getMonster() != null && progress.getMonster().getMonsterId() != null) {
+                    progressByMonsterId.put(progress.getMonster().getMonsterId(), progress);
+                }
+            });
+
         List<MonsterStateDto> rows = new ArrayList<>();
         for (int i = 0; i < ordered.size(); i++) {
             Monster monster = ordered.get(i);
             if (monster == null || monster.getMonsterId() == null) continue;
 
-            MonsterProgress progress = monsterProgressRepository
-                .findByLearnerIdAndMapMapIdAndMonsterMonsterId(learner.learnerId(), mapId, monster.getMonsterId())
-                .orElse(null);
+            MonsterProgress progress = progressByMonsterId.get(monster.getMonsterId());
 
             rows.add(new MonsterStateDto(
                 monster.getMonsterId(),
@@ -294,12 +304,21 @@ public class EncounterService {
         }
     }
 
-    private boolean isContentCompleted(UUID learnerId, UUID contentId) {
+    private List<UUID> getCompletedContentIds(UUID learnerId, List<UUID> contentIds) {
+        if (learnerId == null || contentIds == null || contentIds.isEmpty()) return List.of();
+
         try {
-            String url = playerServiceUrl + "/api/internal/progress/content-completed?learnerId=" + learnerId + "&contentId=" + contentId;
-            return Boolean.TRUE.equals(restTemplate.getForObject(url, Boolean.class));
+            String url = playerServiceUrl + "/api/internal/progress/content-completed/batch";
+            UUID[] completed = restTemplate.postForObject(
+                url,
+                new ContentCompletionBatchRequestDto(learnerId, contentIds),
+                UUID[].class
+            );
+            if (completed == null || completed.length == 0) return List.of();
+            return List.of(completed);
         } catch (Exception e) {
-            return false;
+            System.err.println("Failed to fetch completed content ids in batch: " + e.getMessage());
+            return List.of();
         }
     }
 

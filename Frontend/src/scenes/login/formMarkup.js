@@ -47,23 +47,33 @@ export function buildRegisterRoleFields(role) {
   return role === 'contributor' ? buildContributorFields() : buildLearnerFields();
 }
 
-export function buildAuthFormMarkup(authMode) {
+function buildLoginTitle(role) {
+  if (role === 'admin') return 'Admin Login';
+  if (role === 'contributor') return 'Contributor Login';
+  return 'Login';
+}
+
+export function buildAuthFormMarkup(authMode, role = 'learner') {
   const isLogin = authMode === 'login';
+  const title = isLogin ? buildLoginTitle(role) : 'Register';
 
-  return `
-    <h2 style="color: white; text-align: center; margin-bottom: 20px;">
-      ${isLogin ? 'Login' : 'Register'}
-    </h2>
-
+  const registerRoleSelect = `
     <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">${isLogin ? 'Login as' : 'Register as'}</label>
+      <label style="${LABEL_STYLE}">Register as</label>
       <select id="role" style="${FIELD_STYLE}">
         <option value="learner">Learner</option>
         <option value="contributor">Contributor</option>
-        ${isLogin ? '<option value="admin">Admin</option>' : ''}
       </select>
     </div>
+  `;
 
+  return `
+    <h2 style="color: white; text-align: center; margin-bottom: 20px; position: relative;">
+      ${isLogin && role !== 'learner' ? `
+      <a href="#" id="switch-learner" style="position: absolute; left: 0; top: 35%; transform: translateY(-50%); color: white; text-decoration: none; font-size: 40px;">&#8592;</a>      ` : ''}
+      ${title}
+    </h2>
+    ${isLogin ? '' : registerRoleSelect}
     ${isLogin ? '' : `<div id="role-fields">${buildRegisterRoleFields('learner')}</div>`}
 
     <div style="${FIELD_WRAPPER_STYLE}">
@@ -89,5 +99,15 @@ export function buildAuthFormMarkup(authMode) {
     </button>
 
     <div id="message" style="color: #ff6b6b; text-align: center; margin-top: 10px; min-height: 20px;"></div>
+
+    ${isLogin ? `
+    <p style="color: white; font-size: 12px; text-align: center; margin-top: 14px; margin-bottom: 0;">
+      Login as
+      <a href="#" id="switch-contributor" style="color: white; text-decoration: underline; cursor: pointer;">contributor</a>
+      or
+      <a href="#" id="switch-admin" style="color: white; text-decoration: underline; cursor: pointer;">admin</a>
+      instead
+    </p>
+    ` : ''}
   `;
 }

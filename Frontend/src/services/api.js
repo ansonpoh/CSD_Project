@@ -309,6 +309,16 @@ class ApiService {
     return data;
   }
 
+  async getMyAchievements() {
+    const { data } = await this.api.get('/learner/me/achievements');
+    return data;
+  }
+
+  async claimMyAchievement(achievementId) {
+    const { data } = await this.api.post(`/learner/me/achievements/${achievementId}/claim`);
+    return data;
+  }
+
   async deleteLearner(id) {
     await this.api.delete(`/learner/${id}`);
   }

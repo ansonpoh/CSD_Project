@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smu.csd.achievements.AchievementService;
 import com.smu.csd.learner.Learner;
 import com.smu.csd.learner.LearnerRepository;
 
@@ -15,10 +16,16 @@ public class LearnerLessonProgressService {
 
     private final LearnerLessonProgressRepository repository;
     private final LearnerRepository learnerRepository;
+    private final AchievementService achievementService;
 
-    public LearnerLessonProgressService(LearnerLessonProgressRepository repository, LearnerRepository learnerRepository) {
+    public LearnerLessonProgressService(
+        LearnerLessonProgressRepository repository,
+        LearnerRepository learnerRepository,
+        AchievementService achievementService
+    ) {
         this.repository = repository;
         this.learnerRepository = learnerRepository;
+        this.achievementService = achievementService;
     }
 
     public List<LessonProgressResponse> getMyProgress(UUID supabaseUserId) {
@@ -73,7 +80,17 @@ public class LearnerLessonProgressService {
         if (progress.getEnrolledAt() == null) progress.setEnrolledAt(now);
         progress.setUpdatedAt(now);
 
-        return toResponse(repository.save(progress));
+        LearnerLessonProgress saved = repository.save(progress);
+        achievementService.recordEvent(
+            learner.getLearnerId(),
+            "lesson_completed",
+            1,
+            "player-service",
+            "lesson_completed:" + learner.getLearnerId() + ":" + req.contentId(),
+            null
+        );
+
+        return toResponse(saved);
     }
 
     private LessonProgressResponse toResponse(LearnerLessonProgress p) {

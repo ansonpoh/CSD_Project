@@ -114,6 +114,23 @@ export function buildHud(scene, learner) {
   });
 
   createUiButton(scene, {
+    x: leaderboardX + 298,
+    y: 29,
+    width: 132,
+    height: 30,
+    label: 'Achievements',
+    fillNormal: 0x243615,
+    fillHover: 0x335223,
+    borderNormal: 0xc8870a,
+    borderHover: 0xf0c050,
+    pressFill: 0x08031a,
+    pressBorder: 0x604008,
+    lineWidth: 1,
+    textStyle,
+    onPress: () => scene.showAchievements()
+  });
+
+  createUiButton(scene, {
     x: width - 52,
     y: 29,
     width: 56,

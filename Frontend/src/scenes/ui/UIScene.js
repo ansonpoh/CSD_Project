@@ -8,6 +8,7 @@ import { buildHud } from './hud.js';
 import { showInventory } from './inventoryModal.js';
 import { showLeaderboard } from './leaderboardModal.js';
 import { showUserProfile } from './profileModal.js';
+import { showAchievements } from './achievementsModal.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -119,6 +120,10 @@ export class UIScene extends Phaser.Scene {
 
   showUserProfile() {
     return showUserProfile(this);
+  }
+
+  showAchievements() {
+    return showAchievements(this);
   }
 
   async consumeInventoryItem(item) {

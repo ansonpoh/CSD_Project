@@ -3,10 +3,12 @@ package com.smu.csd.economy.purchase;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.smu.csd.achievements.AchievementService;
 import com.smu.csd.economy.inventory.LearnerInventory;
 import com.smu.csd.economy.inventory.LearnerInventoryRepository;
 import com.smu.csd.economy.item.Item;
@@ -23,13 +25,22 @@ public class PurchaseService {
     private final LearnerRepository learnerRepository;
     private final ItemRepository itemRepository;
     private final LearnerInventoryRepository learnerInventoryRepository;
+    private final AchievementService achievementService;
 
-    public PurchaseService(PurchaseRepository repository, PurchaseLineRepository purchaseLineRepository, LearnerRepository learnerRepository, ItemRepository itemRepository, LearnerInventoryRepository learnerInventoryRepository) {
+    public PurchaseService(
+        PurchaseRepository repository,
+        PurchaseLineRepository purchaseLineRepository,
+        LearnerRepository learnerRepository,
+        ItemRepository itemRepository,
+        LearnerInventoryRepository learnerInventoryRepository,
+        AchievementService achievementService
+    ) {
         this.repository = repository;
         this.purchaseLineRepository = purchaseLineRepository;
         this.learnerRepository = learnerRepository;
         this.itemRepository = itemRepository;
         this.learnerInventoryRepository = learnerInventoryRepository;
+        this.achievementService = achievementService;
     }
 
     @Transactional
@@ -93,6 +104,18 @@ public class PurchaseService {
             inv.setUpdated_at(now);
             learnerInventoryRepository.save(inv);
         }
+
+        achievementService.recordEvent(
+            learner.getLearnerId(),
+            "purchase_completed",
+            1,
+            "player-service",
+            "purchase_completed:" + purchase.getPurchase_id(),
+            Map.of(
+                "purchase_id", purchase.getPurchase_id().toString(),
+                "total_cost", purchase.getTotal_cost()
+            )
+        );
 
         return purchase;
 

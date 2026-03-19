@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smu.csd.achievements.AchievementService;
 import com.smu.csd.learner.Learner;
 import com.smu.csd.learner.LearnerRepository;
 
@@ -24,13 +25,16 @@ public class LearnerProfileStateService {
 
     private final LearnerProfileStateRepository repository;
     private final LearnerRepository learnerRepository;
+    private final AchievementService achievementService;
 
     public LearnerProfileStateService(
         LearnerProfileStateRepository repository,
-        LearnerRepository learnerRepository
+        LearnerRepository learnerRepository,
+        AchievementService achievementService
     ) {
         this.repository = repository;
         this.learnerRepository = learnerRepository;
+        this.achievementService = achievementService;
     }
 
     @Transactional
@@ -51,7 +55,16 @@ public class LearnerProfileStateService {
         LearnerProfileState state = ensureCurrentState(loadOrCreateState(requireLearner(supabaseUserId)));
         applyEvent(state, eventType, amount);
         updateDailyCompletion(state);
-        return toResponse(repository.save(state));
+        LearnerProfileState saved = repository.save(state);
+        achievementService.recordEvent(
+            saved.getLearnerId(),
+            eventType,
+            amount,
+            "player-service",
+            null,
+            null
+        );
+        return toResponse(saved);
     }
 
     private LearnerProfileState loadOrCreateState(Learner learner) {

@@ -60,6 +60,28 @@ public class LearnerService {
         return repository.findBySupabaseUserId(supabaseUserId);
     }
 
+    @Transactional
+    public Learner awardXpAndGoldBySupabaseUserId(UUID supabaseUserId, Integer xpAwarded, Integer goldAwarded)
+            throws ResourceNotFoundException {
+        Learner learner = getBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+
+        int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(xpAwarded);
+        int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
+        int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
+
+        learner.setTotal_xp(updatedXp);
+        learner.setGold(updatedGold);
+        learner.setLevel(updatedLevel);
+        learner.setUpdated_at(LocalDateTime.now());
+
+        Learner updated = repository.save(learner);
+        leaderboardService.upsertLearnerScore(updated);
+        return updated;
+    }
+
     public boolean existsBySupabaseUserId(UUID supabaseUserId) {
         return repository.existsBySupabaseUserId(supabaseUserId);
     }
@@ -101,5 +123,9 @@ public class LearnerService {
         }
         repository.deleteById(id);
         leaderboardService.removeLearner(id);
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 }

@@ -39,6 +39,15 @@ export function resolveItemEffect(item) {
     };
   }
 
+  if (blob.includes('insight tome') || (blob.includes('insight') && blob.includes('tome'))) {
+    const xpGain = 50;
+    return {
+      usable: true,
+      xpGain,
+      message: `Insight Tome used: +${xpGain} XP.`
+    };
+  }
+
   return {
     usable: true,
     xpGain: 25,

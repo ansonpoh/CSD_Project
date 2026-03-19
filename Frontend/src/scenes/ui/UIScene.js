@@ -137,7 +137,17 @@ export class UIScene extends Phaser.Scene {
     gameState.setInventory(updatedInventory);
 
     if (effect.xpGain > 0) {
-      gameState.updateXP(effect.xpGain);
+      try {
+        const updatedLearner = await apiService.awardMyXp(Number(effect.xpGain || 0), 0);
+        if (updatedLearner) {
+          gameState.setLearner(updatedLearner);
+        } else {
+          gameState.updateXP(effect.xpGain);
+        }
+      } catch (error) {
+        console.warn('Failed to persist XP award, applying local fallback:', error);
+        gameState.updateXP(effect.xpGain);
+      }
     }
 
     if (effect.nextCombatHpBonus > 0) {

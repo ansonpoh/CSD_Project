@@ -281,6 +281,14 @@ class ApiService {
     return data;
   }
 
+  async awardMyXp(xpAwarded = 0, goldAwarded = 0) {
+    const { data } = await this.api.post('/learner/me/award-xp', {
+      xpAwarded,
+      goldAwarded
+    });
+    return data;
+  }
+
   async getMyProfileState() {
     const { data } = await this.api.get('/learner/me/profile-state');
     return data;

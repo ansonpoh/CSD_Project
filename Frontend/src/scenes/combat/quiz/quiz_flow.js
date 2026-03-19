@@ -1,5 +1,3 @@
-import { MAX_LIFELINES } from '../constants.js';
-
 export const combatSceneQuizFlowMethods = {
   renderCurrentQuestion() {
     if (this.battleOver) return;
@@ -31,7 +29,7 @@ export const combatSceneQuizFlowMethods = {
     const current = Math.min(this.currentQuestionIndex + 1, Math.max(1, this.totalQuestions || 1));
     this.questionMetaText?.setText(`Question ${current}/${Math.max(1, this.totalQuestions || 1)}  |  Correct ${this.correctAnswers}`);
     this.questionTargetText?.setText('No target score. Keep answering until the monster falls.');
-    this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${MAX_LIFELINES}`);
+    this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${this.maxLifelines}`);
   },
 
   async handleAnswerSelection(selectedOptionIndex) {

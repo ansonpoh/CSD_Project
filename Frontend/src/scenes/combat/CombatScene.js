@@ -4,7 +4,7 @@ import { apiService } from '../../services/api.js';
 import { dailyQuestService } from '../../services/dailyQuests.js';
 import { monsterRegistry } from '../../characters/monsters/MonsterRegistry.js';
 import { combatSceneEntityMethods } from './entities.js';
-import { MAX_LIFELINES, P, UI_FONT } from './constants.js';
+import { P, UI_FONT } from './constants.js';
 import { combatSceneQuizMethods } from './quiz/index.js';
 import { combatSceneUiMethods } from './ui/index.js';
 
@@ -52,6 +52,7 @@ export class CombatScene extends Phaser.Scene {
     this.correctAnswers = 0;
     this.wrongAnswers = 0;
     this.remainingLifelines = 0;
+    this.maxLifelines = 0;
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
     this.eventAssist = null;
@@ -79,6 +80,7 @@ export class CombatScene extends Phaser.Scene {
     this.correctAnswers = 0;
     this.wrongAnswers = 0;
     this.remainingLifelines = this.getInitialLifelineCount();
+    this.maxLifelines = this.remainingLifelines;
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
     this.eventAssist = data?.eventAssist || null;
@@ -139,7 +141,7 @@ export class CombatScene extends Phaser.Scene {
     this.bindAnswerKeys();
 
     this.addLog(`Encounter started against ${titleMonsterName}.`);
-    this.addLog(`Hearts available: ${this.remainingLifelines}/${MAX_LIFELINES}`);
+    this.addLog(`Hearts available: ${this.remainingLifelines}/${this.maxLifelines}`);
     if (this.preCombatHpBonus > 0) {
       this.playerHP = Phaser.Math.Clamp(this.playerHP + this.preCombatHpBonus, 0, 150);
       this.updateHealthBars();

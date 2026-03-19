@@ -149,6 +149,25 @@ export class UIScene extends Phaser.Scene {
       });
     }
 
+    if (effect.quizHeartBonus > 0) {
+      const currentEffects = gameState.getActiveEffects();
+      const existingBonus = Number(currentEffects.quizHeartBonus || 0);
+      gameState.setActiveEffects({
+        ...currentEffects,
+        quizHeartBonus: existingBonus + effect.quizHeartBonus
+      });
+
+      const combatScene = this.scene.manager?.getScene?.('CombatScene');
+      if (combatScene && combatScene.scene?.isActive()) {
+        const bonus = Math.max(0, Number(effect.quizHeartBonus || 0));
+        combatScene.maxLifelines = Math.max(1, Number(combatScene.maxLifelines || 0) + bonus);
+        combatScene.remainingLifelines = Math.max(0, Number(combatScene.remainingLifelines || 0) + bonus);
+        combatScene.syncPlayerHealthToHearts?.();
+        combatScene.refreshQuizMeta?.();
+        combatScene.addLog?.(`Potion effect: +${bonus} heart${bonus === 1 ? '' : 's'}.`);
+      }
+    }
+
     if (effect.assistCharges > 0) {
       const currentMap = gameState.getCurrentMap();
       if (currentMap) {

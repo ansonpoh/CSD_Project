@@ -1,15 +1,18 @@
 import { MAX_LIFELINES } from '../constants.js';
+import { gameState } from '../../../services/gameState.js';
 
 export const combatSceneQuizLifelineMethods = {
   consumeHeartLifeline() {
     if (this.remainingLifelines <= 0) return false;
     this.remainingLifelines -= 1;
+    this.consumeQuizHeartBonus(1);
     this.syncPlayerHealthToHearts();
     return true;
   },
 
   syncPlayerHealthToHearts() {
-    const ratio = this.remainingLifelines / MAX_LIFELINES;
+    const maxHearts = Math.max(1, this.maxLifelines || MAX_LIFELINES);
+    const ratio = this.remainingLifelines / maxHearts;
     this.playerHP = Math.max(0, Math.min(100, ratio * 100));
     this.updateHealthBars();
   },
@@ -31,11 +34,13 @@ export const combatSceneQuizLifelineMethods = {
   },
 
   getInitialLifelineCount() {
-    return MAX_LIFELINES;
+    const effects = gameState.getActiveEffects();
+    const quizHeartBonus = Math.max(0, Number(effects.quizHeartBonus || 0));
+    return MAX_LIFELINES + quizHeartBonus;
   },
 
   getHeartInventoryCount() {
-    return MAX_LIFELINES;
+    return this.remainingLifelines;
   },
 
   findHeartInventoryItem() {
@@ -53,5 +58,17 @@ export const combatSceneQuizLifelineMethods = {
       blob.includes('revive') ||
       blob.includes('extra life')
     );
+  },
+
+  consumeQuizHeartBonus(amount = 1) {
+    const effects = gameState.getActiveEffects();
+    const currentBonus = Math.max(0, Number(effects.quizHeartBonus || 0));
+    if (currentBonus <= 0) return;
+
+    const nextBonus = Math.max(0, currentBonus - Math.max(0, Number(amount || 0)));
+    gameState.setActiveEffects({
+      ...effects,
+      quizHeartBonus: nextBonus
+    });
   }
 };

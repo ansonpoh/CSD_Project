@@ -70,6 +70,7 @@ public class LearnerController {
                 learner.getFull_name(),
                 learner.getTotal_xp(),
                 learner.getLevel(),
+                learner.getGold(),
                 learner.getIs_active()
         );
         return ResponseEntity.ok(updated);

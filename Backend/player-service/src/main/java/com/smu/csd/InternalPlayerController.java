@@ -44,20 +44,23 @@ public class InternalPlayerController {
         return ResponseEntity.ok(Map.of(
             "learnerId", learner.getLearnerId(),
             "totalXp", learner.getTotal_xp() != null ? learner.getTotal_xp() : 0,
-            "level", learner.getLevel() != null ? learner.getLevel() : 1
+            "level", learner.getLevel() != null ? learner.getLevel() : 1,
+            "gold", learner.getGold() != null ? learner.getGold() : 0
         ));
     }
 
-    public record AwardXpRequestDto(int xpAwarded) {}
+    public record AwardXpRequestDto(Integer xpAwarded, Integer goldAwarded) {}
 
     @PostMapping("/learners/{learnerId}/award-xp")
     public ResponseEntity<Map<String, Object>> awardXp(@PathVariable UUID learnerId, @RequestBody AwardXpRequestDto request) {
         return learnerRepository.findById(learnerId).map(learner -> {
-            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + request.xpAwarded();
+            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(request.xpAwarded());
             int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
+            int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(request.goldAwarded());
             
             learner.setTotal_xp(updatedXp);
             learner.setLevel(updatedLevel);
+            learner.setGold(updatedGold);
             learner.setUpdated_at(LocalDateTime.now());
             learnerRepository.save(learner);
             leaderboardService.upsertLearnerScore(learner);
@@ -65,7 +68,8 @@ public class InternalPlayerController {
             return ResponseEntity.ok(Map.<String, Object>of(
                 "learnerId", learner.getLearnerId(),
                 "totalXp", learner.getTotal_xp(),
-                "level", learner.getLevel()
+                "level", learner.getLevel(),
+                "gold", learner.getGold()
             ));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -120,5 +124,9 @@ public class InternalPlayerController {
         );
 
         return ResponseEntity.ok(completedContentIds);
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 }

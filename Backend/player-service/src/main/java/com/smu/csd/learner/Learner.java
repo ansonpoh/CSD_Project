@@ -39,6 +39,8 @@ public class Learner {
     @Column
     private Integer level;
     @Column
+    private Integer gold;
+    @Column
     @CreationTimestamp
     private LocalDateTime created_at;
     @Column

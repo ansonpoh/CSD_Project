@@ -5,5 +5,6 @@ import java.util.UUID;
 public record LearnerDto(
     UUID learnerId,
     Integer totalXp,
-    Integer level
+    Integer level,
+    Integer gold
 ) {}

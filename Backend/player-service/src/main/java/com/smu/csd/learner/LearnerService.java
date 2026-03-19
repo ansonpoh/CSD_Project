@@ -39,6 +39,7 @@ public class LearnerService {
                 .full_name(fullName)
                 .level(1)
                 .total_xp(0)
+                .gold(0)
                 .build();
         
         Learner saved = repository.save(learner);
@@ -64,7 +65,7 @@ public class LearnerService {
     }
 
     @Transactional
-    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Boolean isActive)
+    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Integer gold, Boolean isActive)
             throws ResourceNotFoundException {
         Learner learner = getById(id);
 
@@ -79,6 +80,9 @@ public class LearnerService {
         }
         if (level != null) {
             learner.setLevel(level);
+        }
+        if (gold != null) {
+            learner.setGold(gold);
         }
         if (isActive != null) {
             learner.setIs_active(isActive);

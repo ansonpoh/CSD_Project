@@ -172,18 +172,20 @@ public class EncounterService {
         }
 
         int xpAwarded = 0;
+        int goldAwarded = 0;
         LearnerDto updatedLearner = learner;
         
         if (!Boolean.TRUE.equals(progress.getRewardClaimed())) {
             xpAwarded = isBossMonster(mapId, monsterId) ? 140 : 90;
+            goldAwarded = 100;
             
             // Call internal API to award XP
             try {
                 String url = playerServiceUrl + "/api/internal/learners/" + learner.learnerId() + "/award-xp";
-                AwardXpRequestDto request = new AwardXpRequestDto(xpAwarded);
+                AwardXpRequestDto request = new AwardXpRequestDto(xpAwarded, goldAwarded);
                 updatedLearner = restTemplate.postForObject(url, request, LearnerDto.class);
             } catch (Exception e) {
-                System.err.println("Failed to award XP: " + e.getMessage());
+                System.err.println("Failed to award rewards: " + e.getMessage());
             }
 
             progress.setRewardClaimed(true);
@@ -195,8 +197,10 @@ public class EncounterService {
             mapId,
             monsterId,
             xpAwarded,
+            goldAwarded,
             updatedLearner != null ? safeInt(updatedLearner.totalXp()) : safeInt(learner.totalXp()),
             updatedLearner != null ? safeInt(updatedLearner.level()) : safeInt(learner.level()),
+            updatedLearner != null ? safeInt(updatedLearner.gold()) : safeInt(learner.gold()),
             true
         );
     }

@@ -49,7 +49,7 @@ public class AuthRoleController {
         if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "admin", "supabaseUserId", supabaseUserId));
         }
-        if (contributorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "contributor", "supabaseUserId", supabaseUserId));
         }
         
@@ -72,7 +72,7 @@ public class AuthRoleController {
 
         boolean hasRole = switch (role.toLowerCase()) {
             case "admin" -> administratorRepository.existsBySupabaseUserId(supabaseUserId);
-            case "contributor" -> contributorRepository.existsBySupabaseUserId(supabaseUserId);
+            case "contributor" -> contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId);
             case "learner" -> checkLearnerExists(supabaseUserId.toString());
             default -> false;
         };
@@ -85,7 +85,7 @@ public class AuthRoleController {
         if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "ADMIN"));
         }
-        if (contributorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "CONTRIBUTOR"));
         }
         if (checkLearnerExists(supabaseUserId.toString())) {

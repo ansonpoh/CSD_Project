@@ -36,7 +36,7 @@ public class JwtRoleConverter implements Converter<Jwt, AbstractAuthenticationTo
 
     private String determineRole(UUID supabaseUserId) {
         if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) return "ADMIN";
-        if (contributorRepository.existsBySupabaseUserId(supabaseUserId)) return "CONTRIBUTOR";
+        if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) return "CONTRIBUTOR";
         return "LEARNER";
     }
 }

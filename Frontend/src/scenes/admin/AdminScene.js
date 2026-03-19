@@ -183,6 +183,13 @@ export class AdminScene extends Phaser.Scene {
       if (action === 'show-contributor-panel') {
         this.showSection('contributors');
       }
+      return;
+    }
+    if (action === 'ban-contributor' || action === 'unban-contributor') {
+      event.preventDefault();
+      const contributorId = actionEl.dataset.contributorId;
+      if (!contributorId) return;
+      void this.toggleContributorStatus(contributorId, action === 'unban-contributor');
     }
   };
 
@@ -506,6 +513,11 @@ export class AdminScene extends Phaser.Scene {
         </div>
         <div class="dash-divider"></div>
         <p>${escapeHtml(selected.bio || 'No bio provided.')}</p>
+        <div class="dash-button-group" style="margin-top:18px;">
+          ${selected.isActive
+            ? `<button type="button" class="dash-button dash-button--danger" data-action="ban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Ban contributor</button>`
+            : `<button type="button" class="dash-button dash-button--success" data-action="unban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Unban contributor</button>`}
+        </div>
       </article>
     ` : renderEmptyState('No contributors found', 'Once contributor accounts exist, this directory will show their profile details.');
 
@@ -655,6 +667,32 @@ export class AdminScene extends Phaser.Scene {
       this.setStatus('Telemetry refreshed.', false);
     } catch (error) {
       this.setStatus(getErrorMessage(error, 'Unable to refresh telemetry'), true);
+    }
+  }
+
+  async toggleContributorStatus(contributorId, shouldActivate) {
+    this.setStatus(shouldActivate ? 'Reactivating contributor...' : 'Banning contributor...', false);
+    try {
+      if (shouldActivate) {
+        await apiService.updateContributor(contributorId, { isActive: true });
+      } else {
+        await apiService.deactivateContributor(contributorId);
+      }
+
+      this.state.contributors = this.state.contributors.map((contributor) => {
+        if (contributor?.contributorId !== contributorId) return contributor;
+        return {
+          ...contributor,
+          isActive: shouldActivate
+        };
+      });
+
+      this.renderOverview();
+      this.renderContributorsSection();
+      showToast(this.toastHost, shouldActivate ? 'Contributor reactivated.' : 'Contributor banned.');
+      this.setStatus('Contributor status updated.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to update contributor status'), true);
     }
   }
 

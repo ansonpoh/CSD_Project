@@ -7,7 +7,7 @@ function nowIso() {
 }
 
 function resolveItemId(item) {
-  return item?.item_id || item?.id || null;
+  return item?.item_id || item?.itemId || item?.id || null;
 }
 
 function normalizeLessonStatus(status) {
@@ -32,6 +32,7 @@ function normalizeInventoryEntry(item, fallbackQuantity = 1) {
   return {
     ...item,
     item_id: itemId,
+    itemId,
     quantity: item?.quantity ?? fallbackQuantity
   };
 }

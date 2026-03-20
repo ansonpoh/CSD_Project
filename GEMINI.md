@@ -90,7 +90,7 @@ cd Frontend
 npm install
 npm run dev
 ```
-*Game is available at `http://localhost:5173` (default Vite port).*
+*Game is available at `http://localhost:3000` (configured in vite.config.js).*
 
 ---
 

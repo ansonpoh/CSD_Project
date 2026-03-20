@@ -50,11 +50,16 @@ export const worldMapCommunityPanelMethods = {
     }));
     y += 36;
 
-    c.add(this.createButton(pad, y, 160, 42, map.playerState.liked ? 'Unlike Map' : 'Like Map', () => {
+    const likeButtonWidth = 160;
+    const enterButtonWidth = 220;
+    const buttonHeight = 42;
+    const enterButtonX = Math.max(pad + likeButtonWidth + 16, panel.width - pad - enterButtonWidth);
+
+    c.add(this.createButton(pad, y, likeButtonWidth, buttonHeight, map.playerState.liked ? 'Unlike Map' : 'Like Map', () => {
       void this.toggleSelectedMapLike(map);
     }));
 
-    c.add(this.createButton(pad + 348, y, 180, 42, map.unlocked ? 'Enter Highlighted Gate' : map.unlockText, () => {
+    c.add(this.createButton(enterButtonX, y, enterButtonWidth, buttonHeight, map.unlocked ? 'Enter Highlighted Gate' : map.unlockText, () => {
       if (map.unlocked) this.enterMap(map);
     }, !map.unlocked));
     y += 58;

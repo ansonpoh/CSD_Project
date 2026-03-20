@@ -22,6 +22,8 @@ export class WorldMapScene extends Phaser.Scene {
     this.cloudSet = 1;
     this.cloudLayerCount = 4;
     this.panels = {};
+    this.mapSearchQuery = '';
+    this.isMapSearchFocused = false;
   }
 
   init(data) {
@@ -51,6 +53,7 @@ export class WorldMapScene extends Phaser.Scene {
     }
 
     this.input.keyboard.on('keydown-B', () => {
+      if (this.isMapSearchFocused) return;
       this.scene.start('ScenarioQuizScene');
     });
 
@@ -62,6 +65,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.refreshCatalog();
     this.layoutPanels(width, height);
     this.renderPanels(learner);
+    this.setupMapSearchHandlers();
 
     void this.loadMapCatalog();
   }

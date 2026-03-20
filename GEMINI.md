@@ -1,67 +1,111 @@
-# GEMINI.md
+# GEMINI.md - Full Project Overview
 
-## Project Overview
-This is a full-stack game development project (Haro Group 4) featuring a Phaser-based frontend and a Spring Boot backend integrated with AI capabilities.
+## Project Mission
+**CSD Project (Haro Group 4)** is an interactive, gamified learning platform designed to teach Computer Science and Software Development concepts. It features a rich 2D game world, AI-driven adaptive learning, and a robust microservices architecture.
 
-- **Frontend:** Built with [Phaser 3](https://phaser.io/) and [Vite](https://vitejs.dev/). It uses [Supabase](https://supabase.com/) for client-side authentication and database interactions.
-- **Backend:** A [Spring Boot](https://spring.io/projects/spring-boot) (v4.0.2) application using Java 21. It integrates [Spring AI](https://spring.io/projects/spring-ai) (OpenAI GPT-4o-mini), [Spring Security](https://spring.io/projects/spring-security) with OAuth2/JWT (via Supabase), [Spring Data JPA](https://spring.io/projects/spring-data-jpa) (PostgreSQL), and [Redis](https://redis.io/).
-- **Architecture:** The game logic is primarily in the frontend scenes, while the backend provides AI-driven features (like scenario-based quizzes) and potentially more complex game state management.
+---
 
-## Project Structure
-- `CSD_Project/Frontend`: Phaser game source code, assets, and Vite configuration.
-- `CSD_Project/Backend`: Docker configuration and the `csd` Spring Boot application.
-- `Class Lecture Slides & Activities`: Supporting course materials.
+## 🏗️ System Architecture
 
-## Building and Running
+The project has transitioned from a monolith to a **decoupled microservices architecture** to ensure scalability, maintainability, and specialized scaling of AI and Game logic.
 
-### Frontend
-1. Navigate to the frontend directory:
-   ```bash
-   cd CSD_Project/Frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
+### 🌐 Frontend
+- **Framework:** [Phaser 3](https://phaser.io/) (High-performance 2D Game Engine).
+- **Build Tool:** [Vite](https://vitejs.dev/).
+- **Auth & DB:** [Supabase](https://supabase.com/) (Client-side SDK for Auth/DB interaction).
+- **Communication:** Axios-based `ApiService` routing through the Backend Gateway.
 
-### Backend
-1. Navigate to the backend directory:
-   ```bash
-   cd CSD_Project/Backend
-   ```
-2. Start the services using Docker Compose:
-   ```bash
-   docker compose up --build
-   ```
-   *Note: Ensure Docker is running. The server will be accessible at `localhost:8080`.*
-3. Run tests using Maven:
-   ```bash
-   cd csd
-   ./mvnw test
-   ```
-4. API Documentation (Swagger UI):
-   Available at `http://localhost:8080/swagger-ui.html` when the server is running.
+### ⚙️ Backend (Microservices)
+Built with **Spring Boot 4.0.2** and **Java 21**, running in **Docker** containers.
 
-### Environment Variables
-The backend requires several environment variables for full functionality (refer to `application.yaml`):
-- `SUPABASE_SERVER_PASSWORD`
-- `OPENAI_API_KEY`
-- `SUPABASE_JWT_SECRET`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_KEY`
+| Service | Port | Description | Key Technologies |
+| :--- | :--- | :--- | :--- |
+| **API Gateway** | `8080` | Entry point for all frontend requests. Handles routing and cross-cutting concerns. | Spring Cloud Gateway, Actuator |
+| **Identity Service** | `8081` | Authentication, Authorization (RBAC), and User Role management. | Spring Security, OAuth2 Resource Server, Supabase Integration |
+| **Game World Service**| `8082` | Manages game maps, NPCs, monsters, and player encounters. | Spring Data JPA, Redis (State), PostgreSQL |
+| **Learning & AI** | `8083` | AI-driven quiz generation, content moderation, and adaptive learning paths. | **Spring AI (OpenAI GPT-4o-mini)**, PGVector |
+| **Player & Economy** | `8084` | Learner profiles, inventory, items, leaderboards, and leveling logic. | Spring Data JPA, Redis (Leaderboards), PostgreSQL |
 
-## Development Conventions
-- **Backend:**
-  - **Language:** Java 21.
-  - **Framework:** Spring Boot 4.0.x.
-  - **Lombok:** Used to reduce boilerplate (requires annotation processing enabled in IDE).
-  - **Testing:** JUnit/Spring Boot Test.
-- **Frontend:**
-  - **Framework:** Phaser 3.
-  - **Module System:** ES Modules.
-  - **Styling:** Vanilla CSS.
-- **AI Integration:** Uses Spring AI with OpenAI models for intelligent game features.
+---
+
+## 🛠️ Technology Stack
+
+- **Backend:** Spring Boot 4.0.2, Java 21, Spring AI, Spring Cloud Gateway, Spring Security, Spring Data JPA.
+- **Frontend:** Phaser 3, Vite, JavaScript (ES6+), Vanilla CSS.
+- **Database:** PostgreSQL (with PGVector for AI), Redis (for Caching and Leaderboards).
+- **Infrastructure:** Docker, Docker Compose, Supabase (Auth/Managed DB).
+- **AI Models:** OpenAI GPT-4o-mini (via Spring AI).
+
+---
+
+## 📂 Project Structure
+
+```text
+CSD_Project/
+├── Frontend/                # Phaser 3 Game Source
+│   ├── src/
+│   │   ├── characters/      # Sprites and Logic for Players/Monsters
+│   │   ├── scenes/          # Game Scenes (Boot, Combat, WorldMap, etc.)
+│   │   ├── services/        # ApiService and Game Logic services
+│   │   └── config/          # Phaser and Supabase configuration
+│   └── public/assets/       # Tilesets, Spritesheets, and Media
+├── Backend/                 # Java Microservices
+│   ├── gateway/             # Spring Cloud Gateway
+│   ├── identity-service/    # Auth & Roles
+│   ├── game-service/        # Maps, NPCs, Encounters
+│   ├── learning-service/    # AI, Quizzes, Narrations
+│   ├── player-service/      # Profiles, Economy, Leaderboards
+│   ├── csd/                 # Legacy Monolith (Reference)
+│   └── docker-compose.yml   # Local orchestration
+└── GEMINI.md                # This file
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Docker & Docker Compose**
+- **Node.js (v18+)**
+- **Java 21** (for local service development)
+- A `.env` file in `Backend/` with the following:
+  ```env
+  SUPABASE_SERVER_PASSWORD=...
+  SUPABASE_JWT_SECRET=...
+  SUPABASE_URL=...
+  SUPABASE_SERVICE_KEY=...
+  OPENAI_API_KEY=...
+  ```
+
+### Running the Backend
+```bash
+cd Backend
+docker compose up --build
+```
+*Gateway is available at `http://localhost:8080`.*
+
+### Running the Frontend
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+*Game is available at `http://localhost:5173` (default Vite port).*
+
+---
+
+## 📜 Development Conventions
+
+1. **API Routing:** NEVER connect to services directly (e.g., `8081`). Always route through the Gateway (`8080/api/...`).
+2. **AI Integration:** Centralized in `learning-service`. Use Spring AI starters for model interaction.
+3. **Security:** Every request must carry a Bearer Token (JWT) from Supabase. The `identity-service` validates these tokens.
+4. **Testing:** Run tests within each service directory: `./mvnw test`.
+5. **State Management:** Critical game state is persisted in `game-service` and `player-service`. Transient state (like active encounters) is cached in **Redis**.
+
+---
+
+## 🎮 Game Features
+- **Dynamic Map System:** Maps can be drafted, reviewed, and published by contributors.
+- **AI Combat Quizzes:** Monster encounters trigger AI-generated quizzes based on learning topics.
+- **Contributor Workflow:** Users can submit educational content, which is moderated by AI and approved by admins.
+- **Economy & RPG Mechanics:** Earn currency, buy items, equip gear, and level up your learner profile.

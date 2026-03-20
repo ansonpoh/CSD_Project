@@ -11,7 +11,7 @@ export const worldMapMapPanelMethods = {
       bottom: 14
     });
 
-    const maps = this.catalog.slice(0, 4);
+    const maps = this.catalog.slice(0, 4).map(map => ({ ...map, unlocked: true })); //temp for testing
     const viewportWidth = panel.scrollState?.viewport?.width ?? (panel.width - panel.pad * 2);
     const cardW = viewportWidth;
     const cardH = 88;

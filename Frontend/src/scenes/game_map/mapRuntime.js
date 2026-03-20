@@ -55,18 +55,27 @@ export const mapRuntimeMethods = {
 
     this.collisionLayers = [];
     this.collisionBodies = [];
-    this.map.layers.forEach((layerData) => {
+    this.map.layers.forEach((layerData, layerIndex) => {
       const layer = this.map.createLayer(layerData.name, tilesets, 0, 0);
       if (!layer) return;
 
+      const isForestMap = mapKey === 'map1';
+
       const collidesByName = /collision|collide|wall|blocked|barrier/i.test(String(layerData.name || ''));
-      layer.setCollisionByProperty({ collides: true });
-      if (collidesByName) {
-        layer.setCollisionByExclusion([-1]);
+      const hasCollidesProperty = layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true);
+
+      // Forest rule: first 2 layers (0,1) no collision; layers 2..4 collide
+      const shouldCollide = isForestMap ? layerIndex >= 2 : (collidesByName || hasCollidesProperty);
+
+      //temp till i add the other maps
+      if (isForestMap) {
+        if (shouldCollide) layer.setCollisionByExclusion([-1]);
+      } else {
+        layer.setCollisionByProperty({ collides: true });
+        if (collidesByName) layer.setCollisionByExclusion([-1]);
       }
-      if (collidesByName || layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true)) {
-        this.collisionLayers.push(layer);
-      }
+
+      if (shouldCollide) this.collisionLayers.push(layer);
     });
   },
 

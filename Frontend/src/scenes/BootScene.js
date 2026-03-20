@@ -119,10 +119,12 @@ export class BootScene extends Phaser.Scene {
       });
     });
 
-    this.load.tilemapTiledJSON('map1', 'assets/forest.tiled-project.json');
+    this.load.tilemapTiledJSON('map1', 'assets/forest.json');
     this.load.tilemapTiledJSON('map2', 'assets/cave.tiled-project.json');
     this.load.tilemapTiledJSON('map3', 'assets/mountain.tiled-project.json');
     this.load.tilemapTiledJSON('map4', 'assets/test.tiled-project.json');
+
+    this.load.image('11_Camping_32x32', 'assets/modernexteriors-win/Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/11_Camping_32x32.png')
 
     this.load.image('stone_tiles_v2.1',           'assets/basic_tileset_and_assets_standard/stone_tiles_v2.1.png');
     this.load.image('tiles-all-32x32',            'assets/basic caves and dungeons 32x32 standard - v1.0/tiles/tiles-all-32x32.png');

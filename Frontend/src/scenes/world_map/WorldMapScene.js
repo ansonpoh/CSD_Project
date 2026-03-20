@@ -24,6 +24,15 @@ export class WorldMapScene extends Phaser.Scene {
     this.panels = {};
     this.mapSearchQuery = '';
     this.isMapSearchFocused = false;
+    this.friendSearchQuery = '';
+    this.isFriendSearchFocused = false;
+    this.friendSearchResults = [];
+    this.friendSearchLoading = false;
+    this.friendSearchError = '';
+    this.friendRequestsIncoming = [];
+    this.friendList = [];
+    this.friendDataLoading = false;
+    this.friendActionMessage = '';
   }
 
   init(data) {
@@ -53,7 +62,7 @@ export class WorldMapScene extends Phaser.Scene {
     }
 
     this.input.keyboard.on('keydown-B', () => {
-      if (this.isMapSearchFocused) return;
+      if (this.isMapSearchFocused || this.isFriendSearchFocused) return;
       this.scene.start('ScenarioQuizScene');
     });
 
@@ -66,6 +75,8 @@ export class WorldMapScene extends Phaser.Scene {
     this.layoutPanels(width, height);
     this.renderPanels(learner);
     this.setupMapSearchHandlers();
+    this.setupFriendSearchHandlers();
+    void this.loadFriendData();
 
     void this.loadMapCatalog();
   }

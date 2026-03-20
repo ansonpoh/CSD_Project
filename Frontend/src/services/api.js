@@ -323,6 +323,52 @@ class ApiService {
     await this.api.delete(`/learner/${id}`);
   }
 
+  // Friendship endpoints
+  async searchFriends(query, limit = 8) {
+    const { data } = await this.api.get('/learner/friends/search', {
+      params: { query, limit }
+    });
+    return data;
+  }
+
+  async sendFriendRequest(targetLearnerId) {
+    const { data } = await this.api.post('/learner/friends/requests', { targetLearnerId });
+    return data;
+  }
+
+  async getIncomingFriendRequests() {
+    const { data } = await this.api.get('/learner/friends/requests/incoming');
+    return data;
+  }
+
+  async getOutgoingFriendRequests() {
+    const { data } = await this.api.get('/learner/friends/requests/outgoing');
+    return data;
+  }
+
+  async acceptFriendRequest(friendshipId) {
+    const { data } = await this.api.post(`/learner/friends/requests/${friendshipId}/accept`);
+    return data;
+  }
+
+  async declineFriendRequest(friendshipId) {
+    const { data } = await this.api.post(`/learner/friends/requests/${friendshipId}/decline`);
+    return data;
+  }
+
+  async cancelFriendRequest(friendshipId) {
+    await this.api.delete(`/learner/friends/requests/${friendshipId}`);
+  }
+
+  async getFriendsList() {
+    const { data } = await this.api.get('/learner/friends/list');
+    return data;
+  }
+
+  async removeFriend(friendLearnerId) {
+    await this.api.delete(`/learner/friends/list/${friendLearnerId}`);
+  }
+
   // Learner Lesson
   async getMyLessonProgress() {
     const { data } = await this.api.get('/learner/progress/me');

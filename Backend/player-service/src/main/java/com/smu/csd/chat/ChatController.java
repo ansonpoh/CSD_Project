@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -63,6 +64,15 @@ public class ChatController {
             throw new IllegalArgumentException("body is required.");
         }
         return ResponseEntity.ok(chatService.sendMessage(getSupabaseUserId(authentication), chatConversationId, request.body()));
+    }
+
+    @DeleteMapping("/conversations/{chatConversationId}/messages")
+    public ResponseEntity<Void> clearMessages(
+            Authentication authentication,
+            @PathVariable UUID chatConversationId
+    ) throws ResourceNotFoundException {
+        chatService.clearConversationMessages(getSupabaseUserId(authentication), chatConversationId);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/settings/{targetLearnerId}")

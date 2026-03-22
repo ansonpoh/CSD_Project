@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -48,5 +49,17 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
         order by m.chat_conversation_id, m.created_at desc, m.chat_message_id desc
     """, nativeQuery = true)
     List<ChatMessage> findLatestByConversationIds(@Param("conversationIds") Collection<UUID> conversationIds);
+
+    @Modifying
+    @Query("""
+        update ChatMessage m
+        set m.deletedAt = :deletedAt
+        where m.chatConversationId = :conversationId
+          and m.deletedAt is null
+    """)
+    int softDeleteConversationMessages(
+            @Param("conversationId") UUID conversationId,
+            @Param("deletedAt") LocalDateTime deletedAt
+    );
 
 }

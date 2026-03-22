@@ -73,7 +73,9 @@ export function showFriends(scene) {
       active: false,
       loading: false,
       loadingOlder: false,
+      loadingHistory: false,
       sending: false,
+      clearing: false,
       focusedInput: false,
       friend: null,
       conversationId: null,
@@ -81,7 +83,11 @@ export function showFriends(scene) {
       nextCursor: null,
       draft: '',
       muted: false,
-      blocked: false
+      blocked: false,
+      scrollY: 0,
+      maxScrollY: 0,
+      scrollToBottom: true,
+      listBounds: null
     }
   };
 
@@ -100,6 +106,7 @@ export function showFriends(scene) {
     clearChatPolling();
     scene.input?.keyboard?.off('keydown', keydownHandler);
     scene.input?.off('pointerdown', pointerdownHandler);
+    scene.input?.off('wheel', wheelHandler);
     destroyList(dynamicNodes);
     destroyList(nodes);
   };
@@ -164,6 +171,7 @@ export function showFriends(scene) {
   const refreshChatMessages = async (options = {}) => {
     if (!state.chat.active || !state.chat.conversationId) return;
     const silent = options.silent === true;
+    const wasNearBottom = (state.chat.maxScrollY - state.chat.scrollY) <= 24;
     if (!silent) {
       state.chat.loading = true;
       draw();
@@ -172,6 +180,8 @@ export function showFriends(scene) {
       const page = await apiService.getConversationMessages(state.chat.conversationId, null, 30);
       state.chat.messages = mergeMessages(state.chat.messages, Array.isArray(page?.messages) ? page.messages : []);
       if (page?.nextCursor) state.chat.nextCursor = page.nextCursor;
+      else state.chat.nextCursor = null;
+      if (wasNearBottom) state.chat.scrollToBottom = true;
       const conversations = await apiService.getChatConversations();
       syncConversationMap(conversations);
     } catch (error) {
@@ -198,7 +208,9 @@ export function showFriends(scene) {
     state.chat.active = false;
     state.chat.loading = false;
     state.chat.loadingOlder = false;
+    state.chat.loadingHistory = false;
     state.chat.sending = false;
+    state.chat.clearing = false;
     state.chat.focusedInput = false;
     state.chat.friend = null;
     state.chat.conversationId = null;
@@ -207,6 +219,10 @@ export function showFriends(scene) {
     state.chat.draft = '';
     state.chat.muted = false;
     state.chat.blocked = false;
+    state.chat.scrollY = 0;
+    state.chat.maxScrollY = 0;
+    state.chat.scrollToBottom = true;
+    state.chat.listBounds = null;
     clearChatPolling();
     draw();
   };
@@ -217,11 +233,16 @@ export function showFriends(scene) {
 
     state.chat.active = true;
     state.chat.loading = true;
+    state.chat.clearing = false;
     state.chat.focusedInput = false;
     state.chat.friend = friend;
     state.chat.messages = [];
     state.chat.nextCursor = null;
     state.chat.draft = '';
+    state.chat.scrollY = 0;
+    state.chat.maxScrollY = 0;
+    state.chat.scrollToBottom = true;
+    state.chat.listBounds = null;
     draw();
 
     try {
@@ -232,8 +253,10 @@ export function showFriends(scene) {
       state.chat.muted = Boolean(summary?.muted);
       state.chat.blocked = Boolean(summary?.blocked);
       await refreshChatMessages();
+      state.chat.scrollToBottom = true;
       startChatPolling();
       setStatus(`Chat opened with ${state.chat.friend?.username || 'friend'}.`, C.textGood);
+      void loadAllChatHistory();
     } catch (error) {
       setStatus(error?.response?.data?.message || 'Unable to open chat.', C.textWarn);
       closeChat();
@@ -243,36 +266,122 @@ export function showFriends(scene) {
     }
   };
 
-  const loadOlderMessages = async () => {
+  const loadOlderMessages = async (options = {}) => {
     if (!state.chat.active || !state.chat.conversationId || !state.chat.nextCursor || state.chat.loadingOlder) return;
+    const silent = options.silent === true;
     state.chat.loadingOlder = true;
-    draw();
+    if (!silent) draw();
     try {
       const page = await apiService.getConversationMessages(state.chat.conversationId, state.chat.nextCursor, 30);
       state.chat.messages = mergeMessages(state.chat.messages, Array.isArray(page?.messages) ? page.messages : []);
       state.chat.nextCursor = page?.nextCursor || null;
     } catch (error) {
-      setStatus(error?.response?.data?.message || 'Unable to load older chat.', C.textWarn);
+      if (!silent) setStatus(error?.response?.data?.message || 'Unable to load older chat.', C.textWarn);
     } finally {
       state.chat.loadingOlder = false;
+      if (!silent) draw();
+    }
+  };
+
+  const loadAllChatHistory = async () => {
+    if (!state.chat.active || !state.chat.conversationId || state.chat.loadingHistory) return;
+    if (!state.chat.nextCursor) return;
+
+    state.chat.loadingHistory = true;
+    draw();
+    try {
+      while (state.chat.active && state.chat.conversationId && state.chat.nextCursor) {
+        const beforeCount = state.chat.messages.length;
+        await loadOlderMessages({ silent: true });
+        if (state.chat.messages.length === beforeCount) break;
+      }
+    } finally {
+      state.chat.loadingHistory = false;
       draw();
     }
   };
 
+  const scrollChatBy = (deltaY) => {
+    if (!state.chat.active) return;
+    const max = Math.max(0, Number(state.chat.maxScrollY || 0));
+    if (max <= 0) return;
+    const current = Math.max(0, Number(state.chat.scrollY || 0));
+    const next = Math.max(0, Math.min(max, current + deltaY));
+    if (next === current) return;
+    state.chat.scrollY = next;
+    state.chat.scrollToBottom = false;
+    draw();
+  };
+
   const sendChatMessage = async () => {
-    if (!state.chat.active || !state.chat.conversationId || state.chat.sending) return;
+    if (!state.chat.active || !state.chat.conversationId || state.chat.sending || state.chat.clearing) return;
+    const conversationId = state.chat.conversationId;
     const body = String(state.chat.draft || '').trim();
     if (!body) return;
+    const tempMessageId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticMessage = {
+      chatMessageId: tempMessageId,
+      chatConversationId: conversationId,
+      senderId: null,
+      body,
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+      deletedAt: null,
+      mine: true,
+      pending: true
+    };
+
     state.chat.sending = true;
+    state.chat.draft = '';
+    state.chat.messages = mergeMessages(state.chat.messages, [optimisticMessage]);
+    state.chat.scrollToBottom = true;
     draw();
     try {
-      await apiService.sendConversationMessage(state.chat.conversationId, body);
-      state.chat.draft = '';
-      await refreshChatMessages();
+      const sentMessage = await apiService.sendConversationMessage(conversationId, body);
+      state.chat.messages = state.chat.messages.map((msg) => (
+        msg?.chatMessageId === tempMessageId
+          ? { ...sentMessage, mine: true }
+          : msg
+      ));
+      state.chat.messages = mergeMessages(state.chat.messages, [sentMessage]);
+      state.chat.scrollToBottom = true;
+      const conversations = await apiService.getChatConversations();
+      syncConversationMap(conversations);
     } catch (error) {
+      state.chat.messages = state.chat.messages.filter((msg) => msg?.chatMessageId !== tempMessageId);
+      state.chat.draft = body;
       setStatus(error?.response?.data?.message || 'Unable to send message.', C.textWarn);
     } finally {
       state.chat.sending = false;
+      draw();
+    }
+  };
+
+  const clearChatHistory = async () => {
+    if (!state.chat.active || !state.chat.conversationId || state.chat.clearing) return;
+    const friendName = state.chat.friend?.username || 'this friend';
+    const shouldProceed = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+      ? window.confirm(`Clear entire chat history with ${friendName}? This cannot be undone.`)
+      : true;
+    if (!shouldProceed) return;
+
+    state.chat.clearing = true;
+    draw();
+    try {
+      await apiService.clearConversationMessages(state.chat.conversationId);
+      state.chat.messages = [];
+      state.chat.nextCursor = null;
+      state.chat.loadingHistory = false;
+      state.chat.scrollY = 0;
+      state.chat.maxScrollY = 0;
+      state.chat.scrollToBottom = true;
+      const conversations = await apiService.getChatConversations();
+      syncConversationMap(conversations);
+      setStatus('Chat history cleared.', C.textGood);
+    } catch (error) {
+      setStatus(error?.response?.data?.message || 'Unable to clear chat history.', C.textWarn);
+    } finally {
+      state.chat.clearing = false;
       draw();
     }
   };
@@ -763,18 +872,18 @@ export function showFriends(scene) {
     );
 
     dynamicNodes.push(
-      scene.add.text(panelX + PANEL_W / 2, headerY + 14, `Chat with ${truncate(friendName, 24)}`, {
+      scene.add.text(panelX + pad + 118, headerY + 14, `Chat with ${truncate(friendName, 14)}`, {
         fontSize: '18px',
         color: C.textMain,
         fontStyle: 'bold',
         stroke: '#060814',
         strokeThickness: 4
-      }).setOrigin(0.5, 0.5).setDepth(DEPTH + 4)
+      }).setOrigin(0, 0.5).setDepth(DEPTH + 4)
     );
 
     dynamicNodes.push(
       createUiButton(scene, {
-        x: panelX + PANEL_W - pad - 180,
+        x: panelX + PANEL_W - pad - 296,
         y: headerY + 16,
         width: 108,
         height: 28,
@@ -786,6 +895,23 @@ export function showFriends(scene) {
         depth: DEPTH + 6,
         textStyle: { fontSize: '11px' },
         onPress: () => { void toggleSettings({ isMuted: !state.chat.muted, isBlocked: state.chat.blocked }); }
+      })
+    );
+
+    dynamicNodes.push(
+      createUiButton(scene, {
+        x: panelX + PANEL_W - pad - 180,
+        y: headerY + 16,
+        width: 108,
+        height: 28,
+        label: state.chat.clearing ? 'Clearing...' : 'Clear Chat',
+        fillNormal: 0x3a0e0e,
+        fillHover: 0x601818,
+        borderNormal: 0x8b2020,
+        borderHover: C.borderGlow,
+        depth: DEPTH + 6,
+        textStyle: { fontSize: '11px' },
+        onPress: state.chat.clearing ? null : () => { void clearChatHistory(); }
       })
     );
 
@@ -817,6 +943,12 @@ export function showFriends(scene) {
     list.lineStyle(1, C.borderGold, 0.5);
     list.strokeRoundedRect(listX, listY, listW, listH, 6);
     dynamicNodes.push(list);
+    state.chat.listBounds = {
+      x: listX,
+      y: listY,
+      w: listW,
+      h: listH
+    };
 
     if (state.chat.nextCursor) {
       dynamicNodes.push(
@@ -832,8 +964,19 @@ export function showFriends(scene) {
           borderHover: C.borderGlow,
           depth: DEPTH + 6,
           textStyle: { fontSize: '11px' },
-          onPress: state.chat.loadingOlder ? null : () => { void loadOlderMessages(); }
+          onPress: (state.chat.loadingOlder || state.chat.clearing) ? null : () => { void loadOlderMessages(); }
         })
+      );
+    }
+
+    if (state.chat.loadingHistory) {
+      dynamicNodes.push(
+        scene.add.text(listX + listW - 180, listY + 44, 'Loading full history...', {
+          fontSize: '11px',
+          color: C.textDim,
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setDepth(DEPTH + 4)
       );
     }
 
@@ -856,23 +999,48 @@ export function showFriends(scene) {
         }).setDepth(DEPTH + 4)
       );
     } else {
-      const visible = state.chat.messages.slice(-10);
-      let y = listY + 14;
-      visible.forEach((msg) => {
+      const viewportPadding = 10;
+      const viewportX = listX + viewportPadding;
+      const viewportY = listY + viewportPadding;
+      const viewportW = listW - viewportPadding * 2;
+      const viewportH = listH - viewportPadding * 2;
+
+      const clip = scene.add.graphics().setDepth(DEPTH + 3);
+      clip.fillStyle(0xffffff, 1);
+      clip.fillRect(viewportX, viewportY, viewportW, viewportH);
+      clip.setVisible(false);
+      dynamicNodes.push(clip);
+      const mask = clip.createGeometryMask();
+
+      const messageNodes = [];
+      let contentY = viewportY + 4;
+      state.chat.messages.forEach((msg) => {
         const mine = Boolean(msg?.mine);
         const sender = mine ? 'You' : truncate(state.chat.friend?.username || 'Friend', 14);
         const stamp = msg?.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
-        const text = `${sender} [${stamp}]: ${msg?.body || ''}`;
-        const node = scene.add.text(listX + 14, y, text, {
+        const pending = Boolean(msg?.pending);
+        const text = `${sender} [${stamp}]: ${msg?.body || ''}${pending ? ' (sending...)' : ''}`;
+        const node = scene.add.text(viewportX + 4, contentY, text, {
           fontSize: '12px',
-          color: mine ? '#c7f5ff' : C.textMain,
+          color: pending ? C.textDim : (mine ? '#c7f5ff' : C.textMain),
           stroke: '#060814',
           strokeThickness: 3,
-          wordWrap: { width: listW - 28 }
+          wordWrap: { width: viewportW - 8 }
         }).setDepth(DEPTH + 4);
+        node.setMask(mask);
         dynamicNodes.push(node);
-        y += node.height + 8;
+        messageNodes.push(node);
+        contentY += node.height + 8;
       });
+
+      const contentHeight = Math.max(0, contentY - (viewportY + 4));
+      const maxScrollY = Math.max(0, contentHeight - viewportH);
+      const desiredScrollY = state.chat.scrollToBottom ? maxScrollY : state.chat.scrollY;
+      const clampedScrollY = Math.max(0, Math.min(maxScrollY, desiredScrollY));
+      state.chat.maxScrollY = maxScrollY;
+      state.chat.scrollY = clampedScrollY;
+      state.chat.scrollToBottom = false;
+      messageNodes.forEach((node) => node.setY(node.y - clampedScrollY));
     }
 
     const inputY = listY + listH + 14;
@@ -923,7 +1091,7 @@ export function showFriends(scene) {
         borderHover: C.borderGlow,
         depth: DEPTH + 6,
         textStyle: { fontSize: '12px' },
-        onPress: state.chat.sending ? null : () => { void sendChatMessage(); }
+        onPress: (state.chat.sending || state.chat.clearing) ? null : () => { void sendChatMessage(); }
       })
     );
   };
@@ -1042,8 +1210,21 @@ export function showFriends(scene) {
     draw();
   };
 
+  const wheelHandler = (pointer, _currentlyOver, _deltaX, deltaY) => {
+    if (!state.chat.active) return;
+    const bounds = state.chat.listBounds;
+    if (!bounds) return;
+    const px = Number(pointer?.x);
+    const py = Number(pointer?.y);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return;
+    if (px < bounds.x || px > bounds.x + bounds.w || py < bounds.y || py > bounds.y + bounds.h) return;
+    if (!Number.isFinite(deltaY) || Math.abs(deltaY) < 1) return;
+    scrollChatBy(deltaY);
+  };
+
   scene.input.keyboard.on('keydown', keydownHandler);
   scene.input.on('pointerdown', pointerdownHandler);
+  scene.input.on('wheel', wheelHandler);
 
   draw();
   void loadData();

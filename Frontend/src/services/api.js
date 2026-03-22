@@ -392,6 +392,10 @@ class ApiService {
     return data;
   }
 
+  async clearConversationMessages(chatConversationId) {
+    await this.api.delete(`/learner/chat/conversations/${chatConversationId}/messages`);
+  }
+
   async updateChatSettings(targetLearnerId, payload) {
     const { data } = await this.api.put(`/learner/chat/settings/${targetLearnerId}`, payload);
     return data;

@@ -191,6 +191,18 @@ public class ChatService {
     }
 
     @Transactional
+    public void clearConversationMessages(UUID requesterSupabaseUserId, UUID chatConversationId)
+            throws ResourceNotFoundException {
+        Learner current = requireActiveLearnerBySupabaseUserId(requesterSupabaseUserId);
+        ChatConversation conversation = requireOwnedConversation(current.getLearnerId(), chatConversationId);
+
+        LocalDateTime now = LocalDateTime.now();
+        chatMessageRepository.softDeleteConversationMessages(chatConversationId, now);
+        conversation.setLastMessageAt(null);
+        chatConversationRepository.save(conversation);
+    }
+
+    @Transactional
     public ChatSettingsDto updateSettings(UUID requesterSupabaseUserId, UUID targetLearnerId, Boolean isMuted, Boolean isBlocked)
             throws ResourceNotFoundException {
         Learner current = requireActiveLearnerBySupabaseUserId(requesterSupabaseUserId);

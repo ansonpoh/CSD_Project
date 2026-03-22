@@ -1,6 +1,20 @@
+import Phaser from 'phaser';
 import { WORLD_MAP_PALETTE as P } from './constants.js';
 
 export const worldMapMapPanelMethods = {
+  getSearchHitInputConfig(width, height, clickGuard = null) {
+    return {
+      useHandCursor: true,
+      hitArea: new Phaser.Geom.Rectangle(0, 0, width, height),
+      hitAreaCallback: (hitArea, x, y) => {
+        if (!hitArea.contains(x, y)) return false;
+        if (!clickGuard) return true;
+        const pointer = this.input?.activePointer;
+        return Boolean(pointer && clickGuard(pointer));
+      }
+    };
+  },
+
   setupMapSearchHandlers() {
     if (this._mapSearchHandlersReady || !this.input?.keyboard) return;
 
@@ -83,7 +97,7 @@ export const worldMapMapPanelMethods = {
     return this.catalog.filter((map) => String(map?.name || '').toLowerCase().includes(query));
   },
 
-  createMapSearchBar(x, y, width) {
+  createMapSearchBar(x, y, width, clickGuard = null) {
     const barHeight = 44;
     const query = this.mapSearchQuery || '';
     const hasQuery = Boolean(query.trim());
@@ -108,9 +122,10 @@ export const worldMapMapPanelMethods = {
     }).setOrigin(0, 0.5));
 
     const searchHit = this.add.rectangle(width / 2, barHeight / 2, width, barHeight, 0, 0)
-      .setInteractive({ useHandCursor: true })
+      .setInteractive(this.getSearchHitInputConfig(width, barHeight, clickGuard))
       .setData('map-search-hit', true);
-    searchHit.on('pointerdown', () => {
+    searchHit.on('pointerdown', (pointer) => {
+      if (clickGuard && !clickGuard(pointer)) return;
       this._skipNextMapSearchBlur = true;
       this.isMapSearchFocused = true;
       if (this.panels?.gates) this.populateMapPanel(this.panels.gates);
@@ -128,9 +143,10 @@ export const worldMapMapPanelMethods = {
       bar.add(clearLabel);
 
       const clearHit = this.add.rectangle(width - 40, barHeight / 2, 64, barHeight, 0, 0)
-        .setInteractive({ useHandCursor: true })
+        .setInteractive(this.getSearchHitInputConfig(64, barHeight, clickGuard))
         .setData('map-search-clear', true);
-      clearHit.on('pointerdown', () => {
+      clearHit.on('pointerdown', (pointer) => {
+        if (clickGuard && !clickGuard(pointer)) return;
         this._skipNextMapSearchBlur = true;
         this.mapSearchQuery = '';
         this.isMapSearchFocused = true;
@@ -154,11 +170,12 @@ export const worldMapMapPanelMethods = {
 
     const maps = this.getFilteredMaps();
     const viewportWidth = panel.scrollState?.viewport?.width ?? (panel.width - panel.pad * 2);
+    const clickGuard = (pointer) => this.isPointerInsidePanelViewport(panel, pointer);
     const cardW = viewportWidth;
     const cardH = 88;
     let y = 14;
 
-    const searchBar = this.createMapSearchBar(0, y, viewportWidth);
+    const searchBar = this.createMapSearchBar(0, y, viewportWidth, clickGuard);
     c.add(searchBar.bar);
     y += searchBar.barHeight + 12;
 
@@ -194,7 +211,7 @@ export const worldMapMapPanelMethods = {
       const isLocked = !map.unlocked;
       const card = this.createMapCard(0, y, cardW, cardH, map, isSelected, () => {
         this.selectMap(map.mapId);
-      });
+      }, clickGuard);
       c.add(card);
 
       const actionLabel = isLocked ? map.unlockText : `Open ${map.name}`;
@@ -207,7 +224,8 @@ export const worldMapMapPanelMethods = {
         () => {
           this.enterMap(map);
         },
-        isLocked
+        isLocked,
+        clickGuard
       );
       c.add(action);
 

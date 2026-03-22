@@ -153,7 +153,33 @@ export const worldMapPanelFactoryMethods = {
     panel.scrollState.content.y = panel.scrollState.viewport.y - panel.scrollState.offset;
   },
 
-  createMapCard(x, y, width, height, map, isSelected, onClick) {
+  isPointerInsidePanelViewport(panel, pointer) {
+    if (!panel?.scrollState?.viewport || !pointer) return false;
+    const headerHeight = 58;
+    const viewport = panel.scrollState.viewport;
+    const bounds = new Phaser.Geom.Rectangle(
+      panel.x + viewport.x,
+      panel.y + headerHeight + viewport.y,
+      viewport.width,
+      viewport.height
+    );
+    return bounds.contains(pointer.x, pointer.y);
+  },
+
+  getGuardedInputConfig(width, height, clickGuard = null) {
+    return {
+      useHandCursor: true,
+      hitArea: new Phaser.Geom.Rectangle(0, 0, width, height),
+      hitAreaCallback: (hitArea, x, y) => {
+        if (!hitArea.contains(x, y)) return false;
+        if (!clickGuard) return true;
+        const pointer = this.input?.activePointer;
+        return Boolean(pointer && clickGuard(pointer));
+      }
+    };
+  },
+
+  createMapCard(x, y, width, height, map, isSelected, onClick, clickGuard = null) {
     const card = this.add.container(x, y);
     const bg = this.add.graphics();
 
@@ -210,19 +236,24 @@ export const worldMapPanelFactoryMethods = {
       strokeThickness: 3
     }).setOrigin(1, 0));
 
-    const hit = this.add.rectangle(width / 2, height / 2, width, height, 0, 0).setInteractive({ useHandCursor: true });
+    const hit = this.add
+      .rectangle(width / 2, height / 2, width, height, 0, 0)
+      .setInteractive(this.getGuardedInputConfig(width, height, clickGuard));
     card.add(hit);
     hit.on('pointerover', () => draw(isSelected ? 0x27457b : 0x211b46, P.borderGlow));
     hit.on('pointerout', () => {
       draw(isSelected ? 0x20386a : 0x1a1736, isSelected ? P.borderGlow : P.borderGold, map.unlocked ? 1 : 0.88);
     });
     hit.on('pointerdown', () => draw(0x120722, P.borderDim, map.unlocked ? 1 : 0.88));
-    hit.on('pointerup', () => onClick());
+    hit.on('pointerup', (pointer) => {
+      if (clickGuard && !clickGuard(pointer)) return;
+      onClick();
+    });
 
     return card;
   },
 
-  createButton(x, y, width, height, label, onClick, disabled = false) {
+  createButton(x, y, width, height, label, onClick, disabled = false, clickGuard = null) {
     const btn = this.add.container(x, y);
     const bg = this.add.graphics();
 
@@ -257,12 +288,15 @@ export const worldMapPanelFactoryMethods = {
     }).setOrigin(0.5));
 
     if (!disabled && onClick) {
-      const hit = this.add.rectangle(width / 2, height / 2, width, height, 0, 0).setInteractive({ useHandCursor: true });
+      const hit = this.add
+        .rectangle(width / 2, height / 2, width, height, 0, 0)
+        .setInteractive(this.getGuardedInputConfig(width, height, clickGuard));
       btn.add(hit);
       hit.on('pointerover', () => draw(P.btnHover, P.borderGlow, P.accentGlow));
       hit.on('pointerout', () => draw(P.btnNormal, P.borderGold, P.accentGlow));
       hit.on('pointerdown', () => draw(P.btnPress, P.borderDim, P.borderGold));
-      hit.on('pointerup', () => {
+      hit.on('pointerup', (pointer) => {
+        if (clickGuard && !clickGuard(pointer)) return;
         draw(P.btnHover, P.borderGlow, P.accentGlow);
         onClick();
       });

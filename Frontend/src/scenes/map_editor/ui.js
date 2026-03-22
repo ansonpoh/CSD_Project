@@ -1161,6 +1161,8 @@ export const uiMethods = {
     this.workspaceEl = null;
     this.workspaceGridEl = null;
     this.hoverBoxEl = null;
+    this.paletteButtons = [];
+    this.currentTilesetInfo = null;
   },
 
   escapeHtml(value) {

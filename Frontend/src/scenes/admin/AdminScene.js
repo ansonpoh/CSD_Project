@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { supabase } from '../../config/supabaseClient.js';
 import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import {
   createDashboardRoot,
   createToastHost,
@@ -730,6 +731,6 @@ export class AdminScene extends Phaser.Scene {
   async logout() {
     await supabase.auth.signOut();
     gameState.clearState();
-    this.scene.start('LoginScene');
+    routeToLogin(this, { hardReload: true });
   }
 }

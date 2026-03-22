@@ -4,11 +4,13 @@ import { apiService } from '../../services/api.js';
 import { supabase } from '../../config/supabaseClient.js';
 import { resolveItemEffect } from '../../services/itemEffects.js';
 import { loadSharedUiAssets } from '../../services/uiAssets.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import { buildHud } from './hud.js';
 import { showInventory } from './inventoryModal.js';
 import { showLeaderboard } from './leaderboardModal.js';
 import { showUserProfile } from './profileModal.js';
 import { showAchievements } from './achievementsModal.js';
+import { showFriends } from './friendsModal.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -30,8 +32,7 @@ export class UIScene extends Phaser.Scene {
   create() {
     const learner = gameState.getLearner();
     if (!learner) {
-      this.scene.stop('WorldMapScene');
-      this.scene.start('LoginScene');
+      routeToLogin(this);
       return;
     }
 
@@ -46,16 +47,7 @@ export class UIScene extends Phaser.Scene {
       console.error('Supabase sign out failed:', error);
     } finally {
       gameState.clearState();
-
-      const activeScenes = this.scene.manager.getScenes(true);
-      activeScenes.forEach((activeScene) => {
-        const key = activeScene.scene.key;
-        if (key !== 'UIScene' && key !== 'LoginScene') {
-          this.scene.stop(key);
-        }
-      });
-
-      this.scene.start('LoginScene');
+      routeToLogin(this, { hardReload: true });
     }
   }
 
@@ -124,6 +116,10 @@ export class UIScene extends Phaser.Scene {
 
   showAchievements() {
     return showAchievements(this);
+  }
+
+  showFriends() {
+    return showFriends(this);
   }
 
   async consumeInventoryItem(item) {

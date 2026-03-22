@@ -545,58 +545,6 @@ export const worldMapCommunityPanelMethods = {
       y += trendText.height + 12;
     }
 
-    y += 10;
-    const divider = this.add.graphics();
-    divider.lineStyle(1, P.borderGold, 0.35);
-    divider.beginPath();
-    divider.moveTo(pad, y);
-    divider.lineTo(panel.width - pad, y);
-    divider.strokePath();
-    c.add(divider);
-    y += 12;
-
-    c.add(this.add.text(pad, y, 'Friends', {
-      fontSize: '16px',
-      color: P.textMain,
-      fontStyle: 'bold',
-      stroke: '#060814',
-      strokeThickness: 4
-    }));
-    y += 26;
-
-    if (this.friendDataLoading) {
-      c.add(this.add.text(pad, y, 'Loading friend data...', {
-        fontSize: '13px',
-        color: P.textDesc,
-        stroke: '#060814',
-        strokeThickness: 3
-      }));
-      y += 26;
-    }
-
-    const searchWidth = panel.width - pad * 2;
-    const searchBar = this.createFriendSearchBar(pad, y, searchWidth);
-    c.add(searchBar.bar);
-    y += searchBar.barHeight + 10;
-
-    y = this.renderFriendSearchResults(c, panel, y, textWidth);
-    y += 8;
-    y = this.renderIncomingRequests(c, panel, y, textWidth);
-    y += 8;
-    y = this.renderFriendList(c, panel, y, textWidth);
-
-    if (this.friendActionMessage) {
-      y += 8;
-      c.add(this.add.text(pad, y, this.friendActionMessage, {
-        fontSize: '12px',
-        color: P.warn,
-        stroke: '#060814',
-        strokeThickness: 3,
-        wordWrap: { width: textWidth }
-      }));
-      y += 24;
-    }
-
     this.setPanelScrollMetrics(panel, y);
   }
 };

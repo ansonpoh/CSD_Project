@@ -79,10 +79,21 @@ export function buildHud(scene, learner) {
 
   const leaderboardX = scene.usernameText.x + scene.usernameText.width + 80;
 
+  const topBtnGap = 10;
+  const leaderboardBtnW = 112;
+  const profileBtnW = 92;
+  const achievementsBtnW = 132;
+  const friendsBtnW = 96;
+
+  const leaderboardBtnX = leaderboardX + (leaderboardBtnW / 2);
+  const profileBtnX = leaderboardX + leaderboardBtnW + topBtnGap + (profileBtnW / 2);
+  const achievementsBtnX = profileBtnX + (profileBtnW / 2) + topBtnGap + (achievementsBtnW / 2);
+  const friendsBtnX = achievementsBtnX + (achievementsBtnW / 2) + topBtnGap + (friendsBtnW / 2);
+
   createUiButton(scene, {
-    x: leaderboardX + 56,
+    x: leaderboardBtnX,
     y: 29,
-    width: 112,
+    width: leaderboardBtnW,
     height: 30,
     label: 'Leaderboard',
     fillNormal: 0x1a2a52,
@@ -97,9 +108,9 @@ export function buildHud(scene, learner) {
   });
 
   createUiButton(scene, {
-    x: leaderboardX + 178,
+    x: profileBtnX,
     y: 29,
-    width: 92,
+    width: profileBtnW,
     height: 30,
     label: 'Profile',
     fillNormal: 0x17324f,
@@ -114,9 +125,9 @@ export function buildHud(scene, learner) {
   });
 
   createUiButton(scene, {
-    x: leaderboardX + 298,
+    x: achievementsBtnX,
     y: 29,
-    width: 132,
+    width: achievementsBtnW,
     height: 30,
     label: 'Achievements',
     fillNormal: 0x243615,
@@ -128,6 +139,23 @@ export function buildHud(scene, learner) {
     lineWidth: 1,
     textStyle,
     onPress: () => scene.showAchievements()
+  });
+
+  createUiButton(scene, {
+    x: friendsBtnX,
+    y: 29,
+    width: friendsBtnW,
+    height: 30,
+    label: 'Friends',
+    fillNormal: 0x1f2f17,
+    fillHover: 0x2f4923,
+    borderNormal: 0xc8870a,
+    borderHover: 0xf0c050,
+    pressFill: 0x08031a,
+    pressBorder: 0x604008,
+    lineWidth: 1,
+    textStyle,
+    onPress: () => scene.showFriends()
   });
 
   createUiButton(scene, {

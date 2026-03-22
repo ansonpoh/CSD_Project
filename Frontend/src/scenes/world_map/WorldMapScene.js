@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { apiService } from '../../services/api.js';
 import { gameState } from '../../services/gameState.js';
 import { loadSharedUiAssets } from '../../services/uiAssets.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import { worldMapBackdropMethods } from './backdrop.js';
 import { worldMapCommunityPanelMethods } from './communityPanel.js';
 import { worldMapIntelPanelMethods } from './intelPanel.js';
@@ -56,8 +57,7 @@ export class WorldMapScene extends Phaser.Scene {
     const learner = gameState.getLearner();
 
     if (!learner) {
-      this.scene.stop('UIScene');
-      this.scene.start('LoginScene');
+      routeToLogin(this);
       return;
     }
 

@@ -369,6 +369,34 @@ class ApiService {
     await this.api.delete(`/learner/friends/list/${friendLearnerId}`);
   }
 
+  // Chat endpoints
+  async openFriendConversation(friendLearnerId) {
+    const { data } = await this.api.post(`/learner/chat/friends/${friendLearnerId}/conversation`);
+    return data;
+  }
+
+  async getChatConversations() {
+    const { data } = await this.api.get('/learner/chat/conversations');
+    return data;
+  }
+
+  async getConversationMessages(chatConversationId, before = null, limit = 30) {
+    const params = { limit };
+    if (before) params.before = before;
+    const { data } = await this.api.get(`/learner/chat/conversations/${chatConversationId}/messages`, { params });
+    return data;
+  }
+
+  async sendConversationMessage(chatConversationId, body) {
+    const { data } = await this.api.post(`/learner/chat/conversations/${chatConversationId}/messages`, { body });
+    return data;
+  }
+
+  async updateChatSettings(targetLearnerId, payload) {
+    const { data } = await this.api.put(`/learner/chat/settings/${targetLearnerId}`, payload);
+    return data;
+  }
+
   // Learner Lesson
   async getMyLessonProgress() {
     const { data } = await this.api.get('/learner/progress/me');

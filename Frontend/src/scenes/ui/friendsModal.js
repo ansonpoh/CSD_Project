@@ -5,6 +5,7 @@ const DEPTH = 1100;
 const PANEL_W = 860;
 const PANEL_H = 590;
 const ROW_H = 46;
+const CHAT_POLL_MS = 4000;
 
 const C = {
   bgPanel: 0x071022,
@@ -20,6 +21,26 @@ const C = {
 function truncate(value, max = 24) {
   const text = String(value ?? '');
   return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}...` : text;
+}
+
+function toMillis(value) {
+  const time = new Date(value ?? 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function mergeMessages(existing = [], incoming = []) {
+  const map = new Map();
+  existing.forEach((msg) => {
+    if (msg?.chatMessageId) map.set(msg.chatMessageId, msg);
+  });
+  incoming.forEach((msg) => {
+    if (msg?.chatMessageId) map.set(msg.chatMessageId, msg);
+  });
+  return Array.from(map.values()).sort((a, b) => {
+    const byTime = toMillis(a?.createdAt) - toMillis(b?.createdAt);
+    if (byTime !== 0) return byTime;
+    return String(a?.chatMessageId || '').localeCompare(String(b?.chatMessageId || ''));
+  });
 }
 
 export function showFriends(scene) {
@@ -43,9 +64,32 @@ export function showFriends(scene) {
     loadingData: false,
     incoming: [],
     friends: [],
+    conversationsByFriendId: {},
     actionMessage: '',
     debounceTimer: null,
-    skipNextBlur: false
+    skipNextBlur: false,
+    chatPollTimer: null,
+    chat: {
+      active: false,
+      loading: false,
+      loadingOlder: false,
+      sending: false,
+      focusedInput: false,
+      friend: null,
+      conversationId: null,
+      messages: [],
+      nextCursor: null,
+      draft: '',
+      muted: false,
+      blocked: false
+    }
+  };
+
+  const clearChatPolling = () => {
+    if (state.chatPollTimer) {
+      state.chatPollTimer.remove(false);
+      state.chatPollTimer = null;
+    }
   };
 
   const cleanup = () => {
@@ -53,6 +97,7 @@ export function showFriends(scene) {
       state.debounceTimer.remove(false);
       state.debounceTimer = null;
     }
+    clearChatPolling();
     scene.input?.keyboard?.off('keydown', keydownHandler);
     scene.input?.off('pointerdown', pointerdownHandler);
     destroyList(dynamicNodes);
@@ -107,6 +152,145 @@ export function showFriends(scene) {
     statusText.setText(text || '');
   };
 
+  const syncConversationMap = (conversations) => {
+    const map = {};
+    (Array.isArray(conversations) ? conversations : []).forEach((conversation) => {
+      const friendId = conversation?.friend?.learnerId;
+      if (friendId) map[friendId] = conversation;
+    });
+    state.conversationsByFriendId = map;
+  };
+
+  const refreshChatMessages = async (options = {}) => {
+    if (!state.chat.active || !state.chat.conversationId) return;
+    const silent = options.silent === true;
+    if (!silent) {
+      state.chat.loading = true;
+      draw();
+    }
+    try {
+      const page = await apiService.getConversationMessages(state.chat.conversationId, null, 30);
+      state.chat.messages = mergeMessages(state.chat.messages, Array.isArray(page?.messages) ? page.messages : []);
+      if (page?.nextCursor) state.chat.nextCursor = page.nextCursor;
+      const conversations = await apiService.getChatConversations();
+      syncConversationMap(conversations);
+    } catch (error) {
+      if (!silent) setStatus(error?.response?.data?.message || 'Unable to refresh chat.', C.textWarn);
+    } finally {
+      state.chat.loading = false;
+      if (!silent) draw();
+    }
+  };
+
+  const startChatPolling = () => {
+    clearChatPolling();
+    state.chatPollTimer = scene.time.addEvent({
+      delay: CHAT_POLL_MS,
+      loop: true,
+      callback: () => {
+        if (!state.chat.active || !state.chat.conversationId || state.chat.sending) return;
+        void refreshChatMessages({ silent: true });
+      }
+    });
+  };
+
+  const closeChat = () => {
+    state.chat.active = false;
+    state.chat.loading = false;
+    state.chat.loadingOlder = false;
+    state.chat.sending = false;
+    state.chat.focusedInput = false;
+    state.chat.friend = null;
+    state.chat.conversationId = null;
+    state.chat.messages = [];
+    state.chat.nextCursor = null;
+    state.chat.draft = '';
+    state.chat.muted = false;
+    state.chat.blocked = false;
+    clearChatPolling();
+    draw();
+  };
+
+  const openChat = async (friend) => {
+    const friendId = friend?.learnerId;
+    if (!friendId) return;
+
+    state.chat.active = true;
+    state.chat.loading = true;
+    state.chat.focusedInput = false;
+    state.chat.friend = friend;
+    state.chat.messages = [];
+    state.chat.nextCursor = null;
+    state.chat.draft = '';
+    draw();
+
+    try {
+      const conversation = await apiService.openFriendConversation(friendId);
+      const summary = state.conversationsByFriendId[friendId] || {};
+      state.chat.friend = conversation?.friend || friend;
+      state.chat.conversationId = conversation?.chatConversationId;
+      state.chat.muted = Boolean(summary?.muted);
+      state.chat.blocked = Boolean(summary?.blocked);
+      await refreshChatMessages();
+      startChatPolling();
+      setStatus(`Chat opened with ${state.chat.friend?.username || 'friend'}.`, C.textGood);
+    } catch (error) {
+      setStatus(error?.response?.data?.message || 'Unable to open chat.', C.textWarn);
+      closeChat();
+    } finally {
+      state.chat.loading = false;
+      draw();
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (!state.chat.active || !state.chat.conversationId || !state.chat.nextCursor || state.chat.loadingOlder) return;
+    state.chat.loadingOlder = true;
+    draw();
+    try {
+      const page = await apiService.getConversationMessages(state.chat.conversationId, state.chat.nextCursor, 30);
+      state.chat.messages = mergeMessages(state.chat.messages, Array.isArray(page?.messages) ? page.messages : []);
+      state.chat.nextCursor = page?.nextCursor || null;
+    } catch (error) {
+      setStatus(error?.response?.data?.message || 'Unable to load older chat.', C.textWarn);
+    } finally {
+      state.chat.loadingOlder = false;
+      draw();
+    }
+  };
+
+  const sendChatMessage = async () => {
+    if (!state.chat.active || !state.chat.conversationId || state.chat.sending) return;
+    const body = String(state.chat.draft || '').trim();
+    if (!body) return;
+    state.chat.sending = true;
+    draw();
+    try {
+      await apiService.sendConversationMessage(state.chat.conversationId, body);
+      state.chat.draft = '';
+      await refreshChatMessages();
+    } catch (error) {
+      setStatus(error?.response?.data?.message || 'Unable to send message.', C.textWarn);
+    } finally {
+      state.chat.sending = false;
+      draw();
+    }
+  };
+
+  const toggleSettings = async (payload) => {
+    const targetLearnerId = state.chat.friend?.learnerId;
+    if (!targetLearnerId) return;
+    try {
+      const settings = await apiService.updateChatSettings(targetLearnerId, payload);
+      state.chat.muted = Boolean(settings?.isMuted);
+      state.chat.blocked = Boolean(settings?.isBlocked);
+      setStatus('Chat settings updated.', C.textGood);
+      draw();
+    } catch (error) {
+      setStatus(error?.response?.data?.message || 'Unable to update chat settings.', C.textWarn);
+    }
+  };
+
   const refreshSearch = async () => {
     const query = String(state.query || '').trim();
     if (query.length < 2) {
@@ -144,14 +328,16 @@ export function showFriends(scene) {
     state.loadingData = true;
     draw();
     try {
-      const [incoming, friends] = await Promise.all([
+      const [incoming, friends, conversations] = await Promise.all([
         apiService.getIncomingFriendRequests(),
-        apiService.getFriendsList()
+        apiService.getFriendsList(),
+        apiService.getChatConversations()
       ]);
       state.incoming = Array.isArray(incoming) ? incoming : [];
       state.friends = Array.isArray(friends) ? friends : [];
+      syncConversationMap(conversations);
     } catch (error) {
-      setStatus(error?.response?.data?.message || 'Failed to load friend data.', C.textWarn);
+      setStatus(error?.response?.data?.message || 'Failed to load friend/chat data.', C.textWarn);
     } finally {
       state.loadingData = false;
       draw();
@@ -494,7 +680,8 @@ export function showFriends(scene) {
       return;
     }
 
-    state.friends.slice(0, 3).forEach((friend) => {
+    state.friends.slice(0, 4).forEach((friend) => {
+      const conversation = state.conversationsByFriendId[friend?.learnerId] || null;
       const box = scene.add.graphics().setDepth(DEPTH + 3);
       box.fillStyle(C.bgCard, 0.92);
       box.fillRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, 40, 5);
@@ -502,13 +689,32 @@ export function showFriends(scene) {
       box.strokeRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, 40, 5);
       dynamicNodes.push(box);
 
+      const label = `${truncate(friend?.username || 'Unknown', 16)}  |  Lv ${friend?.level ?? '-'}`;
       dynamicNodes.push(
-        scene.add.text(panelX + pad + 12, panelY + y + 11, `${truncate(friend?.username || 'Unknown', 22)}  |  Lv ${friend?.level ?? '-'}`, {
+        scene.add.text(panelX + pad + 12, panelY + y + 11, label, {
           fontSize: '12px',
           color: C.textMain,
           stroke: '#060814',
           strokeThickness: 3
         }).setDepth(DEPTH + 4)
+      );
+
+      dynamicNodes.push(
+        createUiButton(scene, {
+          x: panelX + PANEL_W - pad - 152,
+          y: panelY + y + 20,
+          width: 96,
+          height: 26,
+          label: 'Chat',
+          fillNormal: 0x17324f,
+          fillHover: 0x24507b,
+          borderNormal: C.borderGold,
+          borderHover: C.borderGlow,
+          lineWidth: 1,
+          depth: DEPTH + 6,
+          textStyle: { fontSize: '12px' },
+          onPress: () => { void openChat(friend); }
+        })
       );
 
       dynamicNodes.push(
@@ -533,12 +739,206 @@ export function showFriends(scene) {
     });
   };
 
+  const renderChatPane = () => {
+    const pad = 24;
+    const topY = 78;
+    const headerY = panelY + topY;
+    const friendName = state.chat.friend?.username || 'Friend';
+
+    dynamicNodes.push(
+      createUiButton(scene, {
+        x: panelX + pad + 54,
+        y: headerY + 16,
+        width: 108,
+        height: 28,
+        label: 'Back',
+        fillNormal: 0x2a2f3d,
+        fillHover: 0x3a4256,
+        borderNormal: C.borderGold,
+        borderHover: C.borderGlow,
+        depth: DEPTH + 6,
+        textStyle: { fontSize: '12px' },
+        onPress: closeChat
+      })
+    );
+
+    dynamicNodes.push(
+      scene.add.text(panelX + PANEL_W / 2, headerY + 14, `Chat with ${truncate(friendName, 24)}`, {
+        fontSize: '18px',
+        color: C.textMain,
+        fontStyle: 'bold',
+        stroke: '#060814',
+        strokeThickness: 4
+      }).setOrigin(0.5, 0.5).setDepth(DEPTH + 4)
+    );
+
+    dynamicNodes.push(
+      createUiButton(scene, {
+        x: panelX + PANEL_W - pad - 180,
+        y: headerY + 16,
+        width: 108,
+        height: 28,
+        label: state.chat.muted ? 'Unmute' : 'Mute',
+        fillNormal: 0x17324f,
+        fillHover: 0x24507b,
+        borderNormal: C.borderGold,
+        borderHover: C.borderGlow,
+        depth: DEPTH + 6,
+        textStyle: { fontSize: '11px' },
+        onPress: () => { void toggleSettings({ isMuted: !state.chat.muted, isBlocked: state.chat.blocked }); }
+      })
+    );
+
+    dynamicNodes.push(
+      createUiButton(scene, {
+        x: panelX + PANEL_W - pad - 64,
+        y: headerY + 16,
+        width: 108,
+        height: 28,
+        label: state.chat.blocked ? 'Unblock' : 'Block',
+        fillNormal: 0x3a0e0e,
+        fillHover: 0x601818,
+        borderNormal: 0x8b2020,
+        borderHover: C.borderGlow,
+        depth: DEPTH + 6,
+        textStyle: { fontSize: '11px' },
+        onPress: () => { void toggleSettings({ isMuted: state.chat.muted, isBlocked: !state.chat.blocked }); }
+      })
+    );
+
+    const listX = panelX + pad;
+    const listY = panelY + topY + 40;
+    const listW = PANEL_W - pad * 2;
+    const listH = 360;
+
+    const list = scene.add.graphics().setDepth(DEPTH + 3);
+    list.fillStyle(C.bgCard, 0.95);
+    list.fillRoundedRect(listX, listY, listW, listH, 6);
+    list.lineStyle(1, C.borderGold, 0.5);
+    list.strokeRoundedRect(listX, listY, listW, listH, 6);
+    dynamicNodes.push(list);
+
+    if (state.chat.nextCursor) {
+      dynamicNodes.push(
+        createUiButton(scene, {
+          x: listX + 70,
+          y: listY + 16,
+          width: 120,
+          height: 24,
+          label: state.chat.loadingOlder ? 'Loading...' : 'Load Older',
+          fillNormal: 0x2a2f3d,
+          fillHover: 0x3a4256,
+          borderNormal: C.borderGold,
+          borderHover: C.borderGlow,
+          depth: DEPTH + 6,
+          textStyle: { fontSize: '11px' },
+          onPress: state.chat.loadingOlder ? null : () => { void loadOlderMessages(); }
+        })
+      );
+    }
+
+    if (state.chat.loading && !state.chat.messages.length) {
+      dynamicNodes.push(
+        scene.add.text(listX + 14, listY + 22, 'Loading conversation...', {
+          fontSize: '13px',
+          color: C.textDim,
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setDepth(DEPTH + 4)
+      );
+    } else if (!state.chat.messages.length) {
+      dynamicNodes.push(
+        scene.add.text(listX + 14, listY + 22, 'No messages yet. Say hi.', {
+          fontSize: '13px',
+          color: C.textDim,
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setDepth(DEPTH + 4)
+      );
+    } else {
+      const visible = state.chat.messages.slice(-10);
+      let y = listY + 14;
+      visible.forEach((msg) => {
+        const mine = Boolean(msg?.mine);
+        const sender = mine ? 'You' : truncate(state.chat.friend?.username || 'Friend', 14);
+        const stamp = msg?.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+        const text = `${sender} [${stamp}]: ${msg?.body || ''}`;
+        const node = scene.add.text(listX + 14, y, text, {
+          fontSize: '12px',
+          color: mine ? '#c7f5ff' : C.textMain,
+          stroke: '#060814',
+          strokeThickness: 3,
+          wordWrap: { width: listW - 28 }
+        }).setDepth(DEPTH + 4);
+        dynamicNodes.push(node);
+        y += node.height + 8;
+      });
+    }
+
+    const inputY = listY + listH + 14;
+    const inputH = 68;
+    const inputW = listW - 120;
+
+    const inputBg = scene.add.graphics().setDepth(DEPTH + 3);
+    inputBg.fillStyle(state.chat.focusedInput ? 0x203156 : 0x161934, 0.98);
+    inputBg.fillRoundedRect(listX, inputY, inputW, inputH, 6);
+    inputBg.lineStyle(2, state.chat.focusedInput ? C.borderGlow : C.borderGold, 1);
+    inputBg.strokeRoundedRect(listX, inputY, inputW, inputH, 6);
+    dynamicNodes.push(inputBg);
+
+    const draft = state.chat.draft || '';
+    const display = draft.length ? truncate(draft, 165) : (state.chat.focusedInput ? '' : 'Click to type a message...');
+    dynamicNodes.push(
+      scene.add.text(listX + 12, inputY + 12, display, {
+        fontSize: '13px',
+        color: draft.length ? C.textMain : C.textDim,
+        stroke: '#060814',
+        strokeThickness: 3,
+        wordWrap: { width: inputW - 24 }
+      }).setDepth(DEPTH + 4)
+    );
+
+    const inputHit = scene.add.rectangle(listX + inputW / 2, inputY + inputH / 2, inputW, inputH, 0, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(DEPTH + 5);
+    inputHit.setData('chat-input-hit', true);
+    inputHit.on('pointerdown', () => {
+      state.skipNextBlur = true;
+      state.chat.focusedInput = true;
+      state.focused = false;
+      draw();
+    });
+    dynamicNodes.push(inputHit);
+
+    dynamicNodes.push(
+      createUiButton(scene, {
+        x: listX + listW - 54,
+        y: inputY + inputH / 2,
+        width: 96,
+        height: 36,
+        label: state.chat.sending ? 'Sending' : 'Send',
+        fillNormal: 0x17324f,
+        fillHover: 0x24507b,
+        borderNormal: C.borderGold,
+        borderHover: C.borderGlow,
+        depth: DEPTH + 6,
+        textStyle: { fontSize: '12px' },
+        onPress: state.chat.sending ? null : () => { void sendChatMessage(); }
+      })
+    );
+  };
+
   const draw = () => {
     destroyList(dynamicNodes);
 
+    if (state.chat.active) {
+      renderChatPane();
+      return;
+    }
+
     if (state.loadingData) {
       dynamicNodes.push(
-        scene.add.text(panelX + 24, panelY + 84, 'Loading friend data...', {
+        scene.add.text(panelX + 24, panelY + 84, 'Loading friend/chat data...', {
           fontSize: '15px',
           color: C.textDim,
           stroke: '#060814',
@@ -557,6 +957,33 @@ export function showFriends(scene) {
     const key = String(event?.key || '');
     const isPrintable = key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
     const isDelete = key === 'Backspace';
+
+    if (state.chat.active && state.chat.focusedInput) {
+      const previousDraft = state.chat.draft || '';
+      let nextDraft = previousDraft;
+      if (key === 'Escape') {
+        state.chat.focusedInput = false;
+        if (typeof event?.preventDefault === 'function') event.preventDefault();
+        draw();
+        return;
+      }
+      if (key === 'Enter') {
+        if (typeof event?.preventDefault === 'function') event.preventDefault();
+        void sendChatMessage();
+        return;
+      }
+      if (isDelete) nextDraft = previousDraft.slice(0, -1);
+      else if (isPrintable) nextDraft = `${previousDraft}${key}`.slice(0, 1000);
+
+      if (nextDraft !== previousDraft) {
+        state.chat.draft = nextDraft;
+        if (typeof event?.preventDefault === 'function') event.preventDefault();
+        draw();
+      }
+      return;
+    }
+
+    if (state.chat.active) return;
 
     if (!state.focused) {
       if (isPrintable || isDelete) {
@@ -592,11 +1019,21 @@ export function showFriends(scene) {
       state.skipNextBlur = false;
       return;
     }
-    if (!state.focused) return;
+
     const clickedInsideModal = currentlyOver.some((obj) => {
       const depth = Number(obj?.depth ?? obj?.parentContainer?.depth ?? -1);
       return Number.isFinite(depth) && depth >= DEPTH + 1;
     });
+
+    if (state.chat.active && state.chat.focusedInput) {
+      const clickedInput = currentlyOver.some((obj) => obj?.getData?.('chat-input-hit'));
+      if (!clickedInput && !clickedInsideModal) {
+        state.chat.focusedInput = false;
+        draw();
+      }
+    }
+
+    if (!state.focused) return;
     if (clickedInsideModal) return;
     const clickedSearch = currentlyOver.some((obj) =>
       obj?.getData?.('friend-modal-search-hit') || obj?.getData?.('friend-modal-search-clear'));

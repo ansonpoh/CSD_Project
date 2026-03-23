@@ -83,7 +83,9 @@ export const shopCatalogMethods = {
       strokeThickness: 2
     }));
 
-    container.add(this.add.text(-SHOP_LAYOUT.cardWidth / 2 + 58, SHOP_LAYOUT.cardHeight / 2 - 24, `${item.price} gold`, {
+    const goldCost = this.getItemGoldCost(item);
+
+    container.add(this.add.text(-SHOP_LAYOUT.cardWidth / 2 + 58, SHOP_LAYOUT.cardHeight / 2 - 24, `${goldCost} gold`, {
       fontSize: '14px',
       fontStyle: 'bold',
       color: SHOP_PALETTE.textGold,
@@ -92,7 +94,7 @@ export const shopCatalogMethods = {
     }));
 
     const buttonX = SHOP_LAYOUT.cardWidth / 2 - 50;
-    if (this.gold >= item.price) {
+    if (this.gold >= goldCost) {
       container.add(this.createShopButton(buttonX, 0, 84, 36, 'BUY', {
         fill: SHOP_PALETTE.btnSuccess,
         hoverFill: SHOP_PALETTE.btnSuccessHover,

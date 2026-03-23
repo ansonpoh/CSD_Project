@@ -2,8 +2,15 @@ import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
 
 export const shopPurchaseMethods = {
+  getItemGoldCost(item) {
+    const price = Number(item?.price ?? 0);
+    if (!Number.isFinite(price)) return 0;
+    return Math.max(0, Math.round(price));
+  },
+
   async purchaseItem(item) {
-    if (this.gold < item.price) {
+    const goldCost = this.getItemGoldCost(item);
+    if (this.gold < goldCost) {
       return;
     }
 
@@ -23,9 +30,10 @@ export const shopPurchaseMethods = {
 
         if (refreshedLearner) {
           gameState.setLearner(refreshedLearner);
-          this.gold = Number(refreshedLearner.gold ?? this.gold);
+          const refreshedGold = Number(refreshedLearner.gold ?? this.gold);
+          this.gold = Number.isFinite(refreshedGold) ? Math.max(0, Math.floor(refreshedGold)) : this.gold;
         } else {
-          this.gold = Math.max(0, this.gold - Number(item.price || 0));
+          this.gold = Math.max(0, this.gold - goldCost);
         }
 
         this.updateGoldDisplay();

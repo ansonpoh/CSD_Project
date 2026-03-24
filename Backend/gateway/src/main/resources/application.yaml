@@ -5,6 +5,11 @@ spring:
   application:
     name: gateway
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     gateway:
       # Global CORS configuration — handles preflight OPTIONS requests for all routes
@@ -41,6 +46,11 @@ spring:
           uri: ${GAME_URL:http://localhost:8082}
           predicates:
             - Path=/api/maps/**, /api/npcs/**, /api/monsters/**, /api/animations/**, /api/encounters/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: gameServiceCircuitBreaker
+                fallbackUri: forward:/fallback/game
 
         # ─────────────────────────────────────────────
         # PHASE 1 (Epic 1): All other traffic → monolith
@@ -49,6 +59,12 @@ spring:
           uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@userKeyResolver}"
 
         # ─────────────────────────────────────────────
         # PHASE 5: Player & Economy Service
@@ -63,7 +79,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health, info, prometheus
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans

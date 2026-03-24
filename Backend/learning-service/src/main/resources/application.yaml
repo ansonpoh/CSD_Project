@@ -22,7 +22,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
     hibernate:
-      ddl-auto: validate
+      ddl-auto: ${DB_DDL_AUTO:none}
 
     properties:
       '[format_sql]': true
@@ -65,10 +65,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health, info, prometheus
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans
 
 identity:
   url: ${IDENTITY_URL:http://localhost:8081}

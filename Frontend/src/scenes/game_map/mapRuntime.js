@@ -1,0 +1,220 @@
+import { apiService } from '../../services/api.js';
+
+export const mapRuntimeMethods = {
+  createGrid() {
+    const graphics = this.add.graphics();
+    graphics.lineStyle(1, 0x3d6b1f, 0.3);
+
+    for (let x = 0; x < this.cameras.main.width; x += 64) {
+      graphics.lineBetween(x, 0, x, this.cameras.main.height);
+    }
+
+    for (let y = 0; y < this.cameras.main.height; y += 64) {
+      graphics.lineBetween(0, y, this.cameras.main.width, y);
+    }
+  },
+
+  createTilemap() {
+    if (this.editorMapData) {
+      this.createEditorTilemap();
+      return;
+    }
+
+    const mapKey = this.mapConfig?.mapKey;
+    if (!mapKey) {
+      console.error('Missing mapKey in mapConfig:', this.mapConfig);
+      this.createFallbackArena();
+      return;
+    }
+
+    try {
+      this.map = this.make.tilemap({ key: mapKey });
+    } catch (error) {
+      console.error('Failed to load tilemap:', mapKey, error);
+      this.createFallbackArena();
+      return;
+    }
+
+    if (!this.map?.tilesets?.length) {
+      this.createFallbackArena();
+      return;
+    }
+
+    const jsonSets = this.cache.tilemap.get(mapKey)?.data?.tilesets || [];
+    const tilesets = [];
+    for (const tileset of this.map.tilesets) {
+      const added = this.map.addTilesetImage(tileset.name, tileset.name);
+      if (added) {
+        const jsonTileset = jsonSets.find((entry) => entry.name === tileset.name);
+        if (jsonTileset && (jsonTileset.margin || jsonTileset.spacing)) {
+          this.fixTilesetTexCoords(added, jsonTileset);
+        }
+        tilesets.push(added);
+      }
+    }
+
+    this.collisionLayers = [];
+    this.collisionBodies = [];
+    this.map.layers.forEach((layerData) => {
+      const layer = this.map.createLayer(layerData.name, tilesets, 0, 0);
+      if (!layer) return;
+
+      const collidesByName = /collision|collide|wall|blocked|barrier/i.test(String(layerData.name || ''));
+      layer.setCollisionByProperty({ collides: true });
+      if (collidesByName) {
+        layer.setCollisionByExclusion([-1]);
+      }
+      if (collidesByName || layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true)) {
+        this.collisionLayers.push(layer);
+      }
+    });
+  },
+
+  createFallbackArena() {
+    const arenaWidth = 2200;
+    const arenaHeight = 1400;
+    this.map = {
+      widthInPixels: arenaWidth,
+      heightInPixels: arenaHeight
+    };
+    this.collisionLayers = [];
+    this.collisionBodies = [];
+
+    this.add.rectangle(arenaWidth / 2, arenaHeight / 2, arenaWidth, arenaHeight, 0x213a24).setDepth(-20);
+
+    const wallDefs = [
+      { x: arenaWidth / 2, y: 20, w: arenaWidth, h: 40 },
+      { x: arenaWidth / 2, y: arenaHeight - 20, w: arenaWidth, h: 40 },
+      { x: 20, y: arenaHeight / 2, w: 40, h: arenaHeight },
+      { x: arenaWidth - 20, y: arenaHeight / 2, w: 40, h: arenaHeight },
+      { x: arenaWidth / 2, y: arenaHeight / 2, w: 180, h: 220 },
+      { x: arenaWidth / 2 + 380, y: arenaHeight / 2 - 180, w: 160, h: 160 }
+    ];
+
+    wallDefs.forEach((wall) => {
+      const rect = this.add.rectangle(wall.x, wall.y, wall.w, wall.h, 0x314d38, 1).setDepth(-10);
+      this.physics.add.existing(rect, true);
+      this.collisionBodies.push(rect);
+    });
+  },
+
+  async tryLoadEditorMapData() {
+    const isEditorMap = this.mapConfig?.isEditorMap || String(this.mapConfig?.asset || '').startsWith('editor-draft:');
+    const mapId = this.mapConfig?.mapId || this.mapConfig?.id;
+    if (!isEditorMap || !mapId) return;
+
+    try {
+      const payload = await apiService.getEditorMapData(mapId);
+      if (payload?.layers) {
+        this.editorMapData = payload;
+      }
+    } catch (error) {
+      console.error('Failed to load editor map payload:', error);
+    }
+  },
+
+  createEditorTilemap() {
+    const payload = this.editorMapData || {};
+    const tileSize = Number(payload.tileSize || 32);
+    const width = Number(payload.width || 60);
+    const height = Number(payload.height || 34);
+    const tilesetKey = payload.tilesetKey || 'terrain_tiles_v2.1';
+
+    this.map = this.make.tilemap({
+      tileWidth: tileSize,
+      tileHeight: tileSize,
+      width,
+      height
+    });
+
+    const tileset = this.map.addTilesetImage(tilesetKey, tilesetKey, tileSize, tileSize, 0, 0);
+    this.collisionLayers = [];
+
+    [
+      ['ground', payload.layers?.ground, 1],
+      ['decor', payload.layers?.decor, 2],
+      ['collision', payload.layers?.collision, 3]
+    ].forEach(([name, data, depth]) => {
+      const layer = this.map.createBlankLayer(name, tileset, 0, 0);
+      if (!layer || !Array.isArray(data)) return;
+
+      layer.setDepth(depth);
+      if (name === 'collision') layer.setAlpha(0.6);
+
+      for (let y = 0; y < data.length; y += 1) {
+        const row = data[y];
+        if (!Array.isArray(row)) continue;
+        for (let x = 0; x < row.length; x += 1) {
+          layer.putTileAt(Number.isInteger(row[x]) ? row[x] : -1, x, y);
+        }
+      }
+
+      if (name === 'collision') {
+        layer.setCollisionByExclusion([-1], true);
+        this.collisionLayers.push(layer);
+      }
+    });
+  },
+
+  fixTilesetTexCoords(tileset, jsonTileset) {
+    const tileWidth = jsonTileset.tilewidth ?? 32;
+    const tileHeight = jsonTileset.tileheight ?? 32;
+    const margin = jsonTileset.margin ?? 0;
+    const spacing = jsonTileset.spacing ?? 0;
+    const source = tileset.image?.source?.[0];
+    const width = source?.width ?? jsonTileset.imagewidth ?? 0;
+    const height = source?.height ?? jsonTileset.imageheight ?? 0;
+    if (!width || !height) return;
+
+    const cols = Math.floor((width - margin + spacing) / (tileWidth + spacing));
+    const rows = Math.floor((height - margin + spacing) / (tileHeight + spacing));
+    tileset.rows = rows;
+    tileset.columns = cols;
+    tileset.total = cols * rows;
+    tileset.texCoordinates.length = 0;
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        tileset.texCoordinates.push({
+          x: margin + col * (tileWidth + spacing),
+          y: margin + row * (tileHeight + spacing)
+        });
+      }
+    }
+  },
+
+  createPlayer() {
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+    const hasTexture = this.textures.exists('soldier');
+
+    this.player = this.physics.add.sprite(width / 2, height / 2, hasTexture ? 'soldier' : '', 0);
+
+    if (hasTexture) {
+      this.player.setScale(4);
+    } else {
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0x4a90e2, 1);
+      graphics.fillCircle(0, 0, 20);
+      graphics.generateTexture('player', 40, 40);
+      graphics.destroy();
+      this.player.setTexture('player');
+    }
+
+    this.player.setCollideWorldBounds(true);
+    this.player.setDepth(10);
+    this.player.play('idle');
+  },
+
+  async loadEntities() {
+    try {
+      this.npcs = await apiService.getAllNPCs();
+      this.createNPCs();
+
+      this.monsters = await apiService.getAllMonsters();
+      this.createMonsters();
+    } catch (error) {
+      console.error('Failed to load entities:', error);
+    }
+  }
+};

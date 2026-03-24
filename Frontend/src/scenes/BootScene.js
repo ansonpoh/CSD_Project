@@ -4,7 +4,10 @@ import { soldier } from '../characters/soldier/Soldier';
 import { monsterRegistry } from '../characters/monsters/MonsterRegistry';
 import { NPCRegistry } from '../characters/npcs/NPCRegistry';
 import { apiService } from '../services/api';
+import { dailyQuestService } from '../services/dailyQuests.js';
 import { gameState } from '../services/gameState';
+import { buildPlayerProfile, getDefaultPlayerProfile } from '../services/playerProfile.js';
+import { loadSharedUiAssets } from '../services/uiAssets.js';
 
 const P = {
   bgDeep:     0x090f24,
@@ -135,6 +138,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('17_Garden_32x32', 'assets/map4/17_Garden_32x32.png');
 
     this.load.video('test_video', 'assets/videos/test_video.mp4', 'loadeddata', false, true);
+    loadSharedUiAssets(this, {
+      includeClose: true,
+      includePortrait: true,
+      includeArrow: true
+    });
   }
 
   // ── Tilemap sanity (unchanged) ────────────────────────────────────────────
@@ -172,10 +180,35 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  hasPendingOAuthCallback() {
+    const query = window.location.search || '';
+    const hash = window.location.hash || '';
+    const hasOAuthParams = query.includes('code=') || hash.includes('access_token') || hash.includes('error=');
+    const hasStoredIntent = Boolean(window.localStorage.getItem('google_oauth_intent'));
+    return hasOAuthParams || hasStoredIntent;
+  }
+
+  async waitForSupabaseSession(timeoutMs = 4000, intervalMs = 150) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) return session;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    return null;
+  }
+
   async create() {
     this.sanitizeTilemapCache();
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token && this.hasPendingOAuthCallback()) {
+        session = await this.waitForSupabaseSession();
+      }
+
       if (!session?.access_token) {
         gameState.clearState();
         this.scene.start('LoginScene');
@@ -188,9 +221,16 @@ export class BootScene extends Phaser.Scene {
       if (role === 'learner') {
         const learner = await apiService.getCurrentLearner();
         gameState.setLearner(learner);
-        const inventory = await apiService.getMyInventory().catch(() => []);
+        const [profileState, inventory, lessonProgress] = await Promise.all([
+          apiService.getMyProfileState().catch(() => null),
+          apiService.getMyInventory().catch(() => []),
+          apiService.getMyLessonProgress().catch(() => [])
+        ]);
+        gameState.setPlayerProfile(buildPlayerProfile({
+          presetId: profileState?.avatarPreset || gameState.getPlayerProfile()?.presetId || getDefaultPlayerProfile().presetId
+        }));
+        dailyQuestService.hydrateFromSnapshot(profileState?.dailyQuests || null);
         gameState.setInventory(inventory || []);
-        const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
         gameState.setLessonProgress(lessonProgress || []);
         this.scene.start('WorldMapScene');
         this.scene.launch('UIScene');

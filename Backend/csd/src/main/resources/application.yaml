@@ -10,13 +10,20 @@ spring:
 
     hikari:
       connection-init-sql: SET search_path TO public
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:1}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      initialization-fail-timeout: 60000
+
+  sql:
+    init:
+      mode: always
 
   jpa:
     show-sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     
     hibernate:
-      ddl-auto: validate
+      ddl-auto: ${DB_DDL_AUTO:none}
 
     properties:
       '[format_sql]': true
@@ -24,23 +31,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         '[default_schema]': public
 
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      chat:
-        options:
-          model: gpt-4o-mini
-      embedding:
-        options:
-          model: text-embedding-3-small
-    vectorstore:
-      pgvector:
-        initialize-schema: false
-        dimensions: 1536
-        distance-type: cosine_distance
-        index-type: hnsw
-        schema-name: contents
-        table-name: content_vectors
 
   security:
     oauth2:
@@ -64,3 +54,19 @@ supabase:
   url: ${SUPABASE_URL}
   service:
     key: ${SUPABASE_SERVICE_KEY}
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans

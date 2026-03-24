@@ -3,6 +3,7 @@ import { supabase } from '../config/supabaseClient';
 
 class ApiService {
   constructor() {
+    this.accessToken = null;
     this.api = axios.create({
       baseURL: '/api',
       headers: {
@@ -10,10 +11,30 @@ class ApiService {
       }
     });
 
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        this.accessToken = session?.access_token || null;
+      })
+      .catch(() => {
+        this.accessToken = null;
+      });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      this.accessToken = session?.access_token || null;
+    });
+
     this.api.interceptors.request.use(async (config) => {
-      const {data: {session}} = await supabase.auth.getSession();
-      if(session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
+      let token = this.accessToken;
+
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || null;
+        this.accessToken = token;
+      }
+
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     })
@@ -99,6 +120,76 @@ class ApiService {
 
   async addMap(map) {
     const { data } = await this.api.post('/maps/add', map);
+    return data;
+  }
+
+  async getMyMapDrafts() {
+    const { data } = await this.api.get('/maps/editor/drafts/me');
+    return data;
+  }
+
+  async getMapDraft(draftId) {
+    const { data } = await this.api.get(`/maps/editor/drafts/${draftId}`);
+    return data;
+  }
+
+  async saveMapDraft(payload) {
+    const { data } = await this.api.post('/maps/editor/drafts', payload);
+    return data;
+  }
+
+  async submitMapDraft(draftId, payload = {}) {
+    const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/submit`, payload);
+    return data;
+  }
+
+  // Backward-compatible alias.
+  async publishMapDraft(draftId, payload = {}) {
+    return this.submitMapDraft(draftId, payload);
+  }
+
+  async getMyMapSubmissions() {
+    const { data } = await this.api.get('/maps/submissions/me');
+    return data;
+  }
+
+  async getMapReviewQueue() {
+    const { data } = await this.api.get('/maps/review/queue');
+    return data;
+  }
+
+  async getApprovedUnpublishedMaps() {
+    const { data } = await this.api.get('/maps/review/approved-unpublished');
+    return data;
+  }
+
+  async approveMapSubmission(mapId) {
+    const { data } = await this.api.put(`/maps/${mapId}/approve`);
+    return data;
+  }
+
+  async rejectMapSubmission(mapId, reason) {
+    const { data } = await this.api.put(`/maps/${mapId}/reject`, { reason });
+    return data;
+  }
+
+  async publishApprovedMap(mapId, topicId) {
+    const { data } = await this.api.put(`/maps/${mapId}/publish`, { topicId });
+    return data;
+  }
+
+  async getEditorMapData(mapId) {
+    const { data } = await this.api.get(`/maps/editor-data/${mapId}`);
+    return data;
+  }
+
+  async setMapLike(mapId, liked) {
+    const { data } = await this.api.put(`/maps/${mapId}/like`, { liked });
+    return data;
+  }
+
+  async rateMap(mapId, rating) {
+    const { data } = await this.api.put(`/maps/${mapId}/rating`, { rating });
     return data;
   }
 
@@ -225,8 +316,124 @@ class ApiService {
     return data;
   }
 
+  async awardMyXp(xpAwarded = 0, goldAwarded = 0) {
+    const { data } = await this.api.post('/learner/me/award-xp', {
+      xpAwarded,
+      goldAwarded
+    });
+    return data;
+  }
+
+  async getMyProfileState() {
+    const { data } = await this.api.get('/learner/me/profile-state');
+    return data;
+  }
+
+  async updateMyAvatarPreset(avatarPreset) {
+    const { data } = await this.api.put('/learner/me/profile-state/avatar-preset', {
+      avatarPreset
+    });
+    return data;
+  }
+
+  async recordDailyQuestEvent(eventType, amount = 1) {
+    const { data } = await this.api.post('/learner/me/profile-state/daily-quests/events', {
+      eventType,
+      amount
+    });
+    return data;
+  }
+
+  async getMyAchievements() {
+    const { data } = await this.api.get('/learner/me/achievements');
+    return data;
+  }
+
+  async claimMyAchievement(achievementId) {
+    const { data } = await this.api.post(`/learner/me/achievements/${achievementId}/claim`);
+    return data;
+  }
+
   async deleteLearner(id) {
     await this.api.delete(`/learner/${id}`);
+  }
+
+  // Friendship endpoints
+  async searchFriends(query, limit = 8) {
+    const { data } = await this.api.get('/learner/friends/search', {
+      params: { query, limit }
+    });
+    return data;
+  }
+
+  async sendFriendRequest(targetLearnerId) {
+    const { data } = await this.api.post('/learner/friends/requests', { targetLearnerId });
+    return data;
+  }
+
+  async getIncomingFriendRequests() {
+    const { data } = await this.api.get('/learner/friends/requests/incoming');
+    return data;
+  }
+
+  async getOutgoingFriendRequests() {
+    const { data } = await this.api.get('/learner/friends/requests/outgoing');
+    return data;
+  }
+
+  async acceptFriendRequest(friendshipId) {
+    const { data } = await this.api.post(`/learner/friends/requests/${friendshipId}/accept`);
+    return data;
+  }
+
+  async declineFriendRequest(friendshipId) {
+    const { data } = await this.api.post(`/learner/friends/requests/${friendshipId}/decline`);
+    return data;
+  }
+
+  async cancelFriendRequest(friendshipId) {
+    await this.api.delete(`/learner/friends/requests/${friendshipId}`);
+  }
+
+  async getFriendsList() {
+    const { data } = await this.api.get('/learner/friends/list');
+    return data;
+  }
+
+  async removeFriend(friendLearnerId) {
+    await this.api.delete(`/learner/friends/list/${friendLearnerId}`);
+  }
+
+  // Chat endpoints
+  async openFriendConversation(friendLearnerId) {
+    const { data } = await this.api.post(`/learner/chat/friends/${friendLearnerId}/conversation`);
+    return data;
+  }
+
+  async getChatConversations() {
+    const { data } = await this.api.get('/learner/chat/conversations');
+    return data;
+  }
+
+  async getConversationMessages(chatConversationId, before = null, limit = 30) {
+    const params = { limit };
+    if (before) params.before = before;
+    const { data } = await this.api.get(`/learner/chat/conversations/${chatConversationId}/messages`, { params });
+    return data;
+  }
+
+  async sendConversationMessage(chatConversationId, body) {
+    const { data } = await this.api.post(`/learner/chat/conversations/${chatConversationId}/messages`, { body });
+    return data;
+  }
+
+  async clearConversationMessages(chatConversationId) {
+    await this.api.delete(`/learner/chat/conversations/${chatConversationId}/messages`);
+  }
+
+  async updateChatSettings(targetLearnerId, payload) {
+    const { data } = await this.api.put(`/learner/chat/settings/${targetLearnerId}`, payload);
+    return data;
   }
 
   // Learner Lesson
@@ -360,6 +567,11 @@ class ApiService {
     return data;
   }
 
+  async getMyContributorAnalytics() {
+    const { data } = await this.api.get('/contributors/analytics/me');
+    return data;
+  }
+
   // Topic endpoints
   async getAllTopics() {
     const { data } = await this.api.get('/topic/all');
@@ -412,6 +624,10 @@ class ApiService {
     return data;
   }
 
+  async getContentsByContributorId(contributorId) {
+    return this.getContentByContributor(contributorId);
+  }
+
   async getContentByTopic(topicId) {
     const { data } = await this.api.get(`/contents/topic/${topicId}`);
     return data;
@@ -434,6 +650,97 @@ class ApiService {
 
   async getContentModeration(id) {
     const { data } = await this.api.get(`/contents/${id}/moderation`);
+    return data;
+  }
+
+  async flagContent(contentId, payload) {
+    const { data } = await this.api.post(`/contents/${contentId}/flags`, payload);
+    return data;
+  }
+
+  async getOpenContentFlags() {
+    const { data } = await this.api.get('/contents/flags');
+    return data;
+  }
+
+  async getFlagsForContent(contentId) {
+    const { data } = await this.api.get(`/contents/${contentId}/flags`);
+    return data;
+  }
+
+  async reviewContentFlag(contentFlagId, payload) {
+    const { data } = await this.api.put(`/contents/flags/${contentFlagId}/review`, payload);
+    return data;
+  }
+
+  async getContentRating(contentId) {
+    const { data } = await this.api.get(`/contents/${contentId}/rating`);
+    return data;
+  }
+
+  async rateContent(contentId, rating) {
+    const { data } = await this.api.put(`/contents/${contentId}/rating`, { rating });
+    return data;
+  }
+
+  // Question Bank endpoints
+  async generateBankDraft(mapId) {
+    const { data } = await this.api.post(`/question-bank/map/${mapId}/generate`);
+    return data;
+  }
+
+  async saveBankQuestions(mapId, questions) {
+    const { data } = await this.api.post(`/question-bank/map/${mapId}`, questions);
+    return data;
+  }
+
+  async getAllBankQuestions() {
+    const { data } = await this.api.get('/question-bank/all');
+    return data;
+  }
+
+  async getBankQuestionsByMap(mapId) {
+    const { data } = await this.api.get(`/question-bank/map/${mapId}`);
+    return data;
+  }
+
+  async approveBankQuestion(bankQuestionId) {
+    const { data } = await this.api.put(`/question-bank/${bankQuestionId}/approve`);
+    return data;
+  }
+
+  async rejectBankQuestion(bankQuestionId) {
+    const { data } = await this.api.put(`/question-bank/${bankQuestionId}/reject`);
+    return data;
+  }
+
+  async addBankQuestionToQuiz(quizId, bankQuestionId) {
+    await this.api.post(`/question-bank/into-quiz/${quizId}/${bankQuestionId}`);
+  }
+
+  // Map Quiz (Admin) endpoints
+  async createQuiz(quizData) {
+    const { data } = await this.api.post('/map-quizzes', quizData);
+    return data;
+  }
+
+  async getQuizForAdmin(mapId) {
+    const { data } = await this.api.get(`/map-quizzes/map/${mapId}/admin`);
+    return data;
+  }
+
+  async publishQuiz(quizId) {
+    const { data } = await this.api.put(`/map-quizzes/${quizId}/publish`);
+    return data;
+  }
+
+  async unpublishQuiz(quizId) {
+    const { data } = await this.api.put(`/map-quizzes/${quizId}/unpublish`);
+    return data;
+  }
+
+  async removeQuizQuestion(quizId, questionId) {
+    const { data } = await this.api.delete(`/map-quizzes/${quizId}/questions/${questionId}`);
     return data;
   }
 }

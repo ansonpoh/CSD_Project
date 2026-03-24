@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { supabase } from '../../config/supabaseClient.js';
 import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import {
   createDashboardRoot,
   createToastHost,
@@ -21,21 +22,38 @@ function metricOrZero(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+const TILESET_IMAGE_PATHS = {
+  'terrain_tiles_v2.1': 'assets/basic_tileset_and_assets_standard/terrain_tiles_v2.1.png',
+  'stone_tiles_v2.1': 'assets/basic_tileset_and_assets_standard/stone_tiles_v2.1.png',
+  'tiles-all-32x32': 'assets/basic caves and dungeons 32x32 standard - v1.0/tiles/tiles-all-32x32.png',
+  'assets-all': 'assets/basic caves and dungeons 32x32 standard - v1.0/assets/assets-all.png',
+  'water_and_island_tiles_v2.1': 'assets/basic_tileset_and_assets_standard/water_and_island_tiles_v2.1.png',
+  'fence_tiles': 'assets/basic_tileset_and_assets_standard/fence_tiles.png',
+  '1_Terrains_and_Fences_32x32': 'assets/map4/1_Terrains_and_Fences_32x32.png',
+  '7_Villas_32x32': 'assets/map4/7_Villas_32x32.png',
+  '17_Garden_32x32': 'assets/map4/17_Garden_32x32.png'
+};
+
 export class AdminScene extends Phaser.Scene {
   constructor() {
     super({ key: 'AdminScene' });
     this.portalRoot = null;
     this.toastHost = null;
+    this.mapPreviewTilesetImageCache = new Map();
     this.state = {
       activeSection: 'overview',
       adminProfile: null,
       reviewQueue: [],
+      mapReviewQueue: [],
+      approvedUnpublishedMaps: [],
       flags: [],
       contributors: [],
       telemetry: null,
       maps: [],
+      topics: [],
       selectedContributorId: null,
-      selectedTelemetryMapId: ''
+      selectedTelemetryMapId: '',
+      mapPreviewByMapId: {}
     };
   }
 
@@ -78,17 +96,21 @@ export class AdminScene extends Phaser.Scene {
               <span><span class="dash-nav__label">Review Queue</span><br/><span class="dash-nav__hint">Moderate pending content</span></span>
               <span class="dash-nav__hint">02</span>
             </button>
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="map-review">
+              <span><span class="dash-nav__label">Map Review</span><br/><span class="dash-nav__hint">Approve, reject, then publish maps</span></span>
+              <span class="dash-nav__hint">03</span>
+            </button>
             <button type="button" class="dash-nav__button" data-action="show-section" data-section="flags">
               <span><span class="dash-nav__label">Flag Reports</span><br/><span class="dash-nav__hint">Resolve learner complaints</span></span>
-              <span class="dash-nav__hint">03</span>
+              <span class="dash-nav__hint">04</span>
             </button>
             <button type="button" class="dash-nav__button" data-action="show-section" data-section="contributors">
               <span><span class="dash-nav__label">Contributors</span><br/><span class="dash-nav__hint">Profile and status lookup</span></span>
-              <span class="dash-nav__hint">04</span>
+              <span class="dash-nav__hint">05</span>
             </button>
             <button type="button" class="dash-nav__button" data-action="show-section" data-section="telemetry">
               <span><span class="dash-nav__label">Telemetry</span><br/><span class="dash-nav__hint">Encounter funnel metrics</span></span>
-              <span class="dash-nav__hint">05</span>
+              <span class="dash-nav__hint">06</span>
             </button>
           </nav>
 
@@ -115,6 +137,7 @@ export class AdminScene extends Phaser.Scene {
             <div id="admin-status" class="dash-status"></div>
             <section class="dash-section is-active" data-section-panel="overview"><div id="admin-overview"></div></section>
             <section class="dash-section" data-section-panel="review"><div id="admin-review"></div></section>
+            <section class="dash-section" data-section-panel="map-review"><div id="admin-map-review"></div></section>
             <section class="dash-section" data-section-panel="flags"><div id="admin-flags"></div></section>
             <section class="dash-section" data-section-panel="contributors"><div id="admin-contributors"></div></section>
             <section class="dash-section" data-section-panel="telemetry"><div id="admin-telemetry"></div></section>
@@ -146,7 +169,6 @@ export class AdminScene extends Phaser.Scene {
     if (!actionEl) return;
 
     const action = actionEl.dataset.action;
-    
     if (action === 'show-section') {
       event.preventDefault();
       this.showSection(actionEl.dataset.section || 'overview');
@@ -172,6 +194,21 @@ export class AdminScene extends Phaser.Scene {
       void this.moderateContent(actionEl.dataset.contentId, action === 'approve-content' ? 'approve' : 'reject');
       return;
     }
+    if (action === 'approve-map' || action === 'reject-map') {
+      event.preventDefault();
+      void this.moderateMapSubmission(actionEl.dataset.mapId, action === 'approve-map' ? 'approve' : 'reject');
+      return;
+    }
+    if (action === 'publish-map') {
+      event.preventDefault();
+      void this.publishApprovedMap(actionEl.dataset.mapId);
+      return;
+    }
+    if (action === 'create-topic') {
+      event.preventDefault();
+      void this.createTopicForMapPublishing();
+      return;
+    }
     if (action === 'flag-review' || action === 'flag-dismiss') {
       event.preventDefault();
       void this.resolveFlag(actionEl.dataset.flagId, action === 'flag-review' ? 'REVIEWED' : 'DISMISSED');
@@ -186,16 +223,11 @@ export class AdminScene extends Phaser.Scene {
       }
       return;
     }
-    if (action === 'show-submission-history') {
+    if (action === 'ban-contributor' || action === 'unban-contributor') {
       event.preventDefault();
-      void this.showSubmissionHistory(actionEl.dataset.contributorId);
-      return;
-    }
-    if (action === 'close-history-modal') {
-      event.preventDefault();
-      const modal = this.portalRoot.querySelector('#history-modal-overlay');
-      if (modal) modal.remove();
-      return;
+      const contributorId = actionEl.dataset.contributorId;
+      if (!contributorId) return;
+      void this.toggleContributorStatus(contributorId, action === 'unban-contributor');
     }
   };
 
@@ -214,21 +246,38 @@ export class AdminScene extends Phaser.Scene {
       const uid = session?.user?.id;
       if (!uid) throw new Error('No active admin session');
 
-      const [adminProfile, reviewQueue, flags, contributors, maps, telemetry] = await Promise.all([
+      const [
+        adminProfile,
+        reviewQueue,
+        mapReviewQueue,
+        approvedUnpublishedMaps,
+        flags,
+        contributors,
+        maps,
+        topics,
+        telemetry
+      ] = await Promise.all([
         apiService.getAdministratorBySupabaseId(uid).catch(() => null),
         apiService.getContentQueue().catch(() => []),
+        apiService.getMapReviewQueue().catch(() => []),
+        apiService.getApprovedUnpublishedMaps().catch(() => []),
         apiService.getOpenContentFlags().catch(() => []),
         apiService.getAllContributors().catch(() => []),
         apiService.getAllMaps().catch(() => []),
+        apiService.getAllTopics().catch(() => []),
         apiService.getEncounterTelemetryDashboard().catch(() => null)
       ]);
 
       this.state.adminProfile = adminProfile;
       this.state.reviewQueue = Array.isArray(reviewQueue) ? reviewQueue : [];
+      this.state.mapReviewQueue = Array.isArray(mapReviewQueue) ? mapReviewQueue : [];
+      this.state.approvedUnpublishedMaps = Array.isArray(approvedUnpublishedMaps) ? approvedUnpublishedMaps : [];
       this.state.flags = Array.isArray(flags) ? flags : [];
       this.state.contributors = Array.isArray(contributors) ? contributors : [];
       this.state.maps = Array.isArray(maps) ? maps : [];
+      this.state.topics = Array.isArray(topics) ? topics : [];
       this.state.telemetry = telemetry;
+      this.primeMapPreviews(this.state.mapReviewQueue);
 
       if (!this.state.selectedContributorId && this.state.contributors[0]?.contributorId) {
         this.state.selectedContributorId = this.state.contributors[0].contributorId;
@@ -240,6 +289,7 @@ export class AdminScene extends Phaser.Scene {
       this.renderProfile();
       this.renderOverview();
       this.renderReviewSection();
+      this.renderMapReviewSection();
       this.renderFlagsSection();
       this.renderContributorsSection();
       this.renderTelemetrySection();
@@ -248,6 +298,7 @@ export class AdminScene extends Phaser.Scene {
       this.renderProfile();
       this.renderOverview(true);
       this.renderReviewSection(true);
+      this.renderMapReviewSection(true);
       this.renderFlagsSection(true);
       this.renderContributorsSection(true);
       this.renderTelemetrySection(true);
@@ -420,6 +471,123 @@ export class AdminScene extends Phaser.Scene {
     `;
   }
 
+  renderMapReviewSection(hasError = false) {
+    const container = this.portalRoot?.querySelector('#admin-map-review');
+    if (!container) return;
+
+    if (hasError) {
+      container.innerHTML = renderEmptyState('Map review unavailable', 'Map moderation queues could not be loaded.');
+      return;
+    }
+
+    const pendingCards = [...(this.state.mapReviewQueue || [])].map((row) => `
+      <article class="dash-row-card">
+        <div class="dash-row-card__header">
+          <div>
+            <div class="dash-row-card__title">${escapeHtml(row?.name || 'Untitled map')}</div>
+            <div class="dash-row-card__meta">
+              <span>${escapeHtml(row?.mapId || 'Unknown id')}</span>
+              <span>${escapeHtml(row?.asset || 'No asset')}</span>
+            </div>
+          </div>
+          ${renderBadge('PENDING_REVIEW')}
+        </div>
+        <div class="dash-row-card__body">${escapeHtml(row?.description || 'No description provided.')}</div>
+        ${this.renderMapPreviewBlock(row)}
+        <textarea class="dash-textarea" style="min-height:88px;" data-map-reject-reason="${escapeHtml(row?.mapId || '')}" placeholder="Rejection reason (required if rejecting)"></textarea>
+        <div class="dash-button-group">
+          <button type="button" class="dash-button dash-button--success" data-action="approve-map" data-map-id="${escapeHtml(row?.mapId || '')}">Approve</button>
+          <button type="button" class="dash-button dash-button--danger" data-action="reject-map" data-map-id="${escapeHtml(row?.mapId || '')}">Reject</button>
+        </div>
+      </article>
+    `).join('');
+
+    const topicOptions = (this.state.topics || []).map((topic) => (
+      `<option value="${escapeHtml(topic?.topicId || '')}">${escapeHtml(topic?.topicName || 'Untitled topic')}</option>`
+    )).join('');
+
+    const approvedCards = [...(this.state.approvedUnpublishedMaps || [])].map((row) => `
+      <article class="dash-row-card">
+        <div class="dash-row-card__header">
+          <div>
+            <div class="dash-row-card__title">${escapeHtml(row?.name || 'Untitled map')}</div>
+            <div class="dash-row-card__meta">
+              <span>${escapeHtml(row?.mapId || 'Unknown id')}</span>
+              <span>${escapeHtml(formatDate(row?.approvedAt))}</span>
+            </div>
+          </div>
+          ${renderBadge('APPROVED')}
+        </div>
+        <div class="dash-row-card__body">${escapeHtml(row?.description || 'No description provided.')}</div>
+        <div class="dash-form__grid">
+          <div class="dash-field">
+            <label>Assign topic before publish</label>
+            <select class="dash-select" data-map-topic-id="${escapeHtml(row?.mapId || '')}">
+              <option value="">Select topic</option>
+              ${topicOptions}
+            </select>
+          </div>
+        </div>
+        <div class="dash-button-group">
+          <button type="button" class="dash-button" data-action="publish-map" data-map-id="${escapeHtml(row?.mapId || '')}">Publish map</button>
+        </div>
+      </article>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="dash-card" style="margin-bottom:18px;">
+        <div class="dash-inline">
+          <div>
+            <h3 style="margin:0 0 8px;">Map moderation</h3>
+            <p>Contributors submit maps for review. Approve/reject pending maps, then assign topic and publish approved maps.</p>
+          </div>
+          <button type="button" class="dash-button dash-button--secondary" data-action="refresh-current">Refresh map queues</button>
+        </div>
+      </div>
+      <div class="dash-card" style="margin-bottom:18px;">
+        <div class="dash-inline" style="align-items:flex-start;">
+          <div>
+            <h4 style="margin:0 0 8px;">Create publishing topic</h4>
+            <p>Add a new topic so it appears in the publish dropdown for approved maps.</p>
+          </div>
+        </div>
+        <div class="dash-form__grid">
+          <div class="dash-field">
+            <label for="admin-topic-name">Topic name</label>
+            <input id="admin-topic-name" class="dash-input" type="text" placeholder="e.g. Algebra Foundations" />
+          </div>
+          <div class="dash-field">
+            <label for="admin-topic-description">Description (optional)</label>
+            <textarea id="admin-topic-description" class="dash-textarea" placeholder="Brief topic description"></textarea>
+          </div>
+        </div>
+        <div class="dash-button-group">
+          <button type="button" class="dash-button" data-action="create-topic">Create topic</button>
+        </div>
+      </div>
+      <div class="dash-grid dash-grid--two">
+        <div>
+          <div class="dash-card" style="margin-bottom:12px;">
+            <h4 style="margin:0;">Pending map submissions</h4>
+          </div>
+          <div class="dash-list">
+            ${pendingCards || renderEmptyState('No pending maps', 'All submitted maps have been processed.')}
+          </div>
+        </div>
+        <div>
+          <div class="dash-card" style="margin-bottom:12px;">
+            <h4 style="margin:0;">Approved but unpublished</h4>
+          </div>
+          <div class="dash-list">
+            ${approvedCards || renderEmptyState('No maps awaiting publish', 'Publish queue is clear right now.')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.paintReadyMapPreviews();
+  }
+
   renderFlagsSection(hasError = false) {
     const container = this.portalRoot?.querySelector('#admin-flags');
     if (!container) return;
@@ -520,7 +688,9 @@ export class AdminScene extends Phaser.Scene {
         <div class="dash-divider"></div>
         <p>${escapeHtml(selected.bio || 'No bio provided.')}</p>
         <div class="dash-button-group" style="margin-top:18px;">
-          <button type="button" class="dash-button" data-action="show-submission-history" data-contributor-id="${escapeHtml(selected.contributorId || '')}">List Submission History</button>
+          ${selected.isActive
+            ? `<button type="button" class="dash-button dash-button--danger" data-action="ban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Ban contributor</button>`
+            : `<button type="button" class="dash-button dash-button--success" data-action="unban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Unban contributor</button>`}
         </div>
       </article>
     ` : renderEmptyState('No contributors found', 'Once contributor accounts exist, this directory will show their profile details.');
@@ -542,62 +712,6 @@ export class AdminScene extends Phaser.Scene {
         <div>${details}</div>
       </div>
     `;
-  }
-
-  async showSubmissionHistory(contributorId) {
-    if (!contributorId) return;
-    this.setStatus('Loading submission history...', false);
-    
-    try {
-      const history = await apiService.getContentsByContributorId(contributorId);
-      this.renderHistoryModal(history || []);
-      this.setStatus('History loaded.', false);
-    } catch (error) {
-      this.setStatus(getErrorMessage(error, 'Unable to load submission history'), true);
-    }
-  }
-
-  renderHistoryModal(historyData) {
-    let modal = this.portalRoot?.querySelector('#history-modal-overlay');
-    if (modal) modal.remove();
-
-    const rows = historyData.map((item) => `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-        <td style="padding: 12px 8px;">${renderBadge(item.status || 'UNKNOWN')}</td>
-        <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(formatDate(item.submittedAt))}</td>
-        <td style="padding: 12px 8px;">${escapeHtml(item.topic?.topicName || 'None')}</td>
-        <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(previewText(item.body || '', 60))}</td>
-      </tr>
-    `).join('');
-
-    modal = document.createElement('div');
-    modal.id = 'history-modal-overlay';
-    // Use an overlay style that integrates closely with the dark theme
-    modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; padding: 24px;';
-    
-    modal.innerHTML = `
-      <div class="dash-card" style="width: 100%; max-width: 800px; max-height: 80vh; overflow-y: auto; background-color: #12080b; border: 1px solid rgba(255,255,255,0.1);">
-        <div class="dash-inline" style="margin-bottom: 16px;">
-          <h3 style="margin: 0;">Submission History</h3>
-          <button type="button" class="dash-button dash-button--ghost" data-action="close-history-modal">Close</button>
-        </div>
-        <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 14px;">
-          <thead>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
-              <th style="padding: 12px 8px;">Status</th>
-              <th style="padding: 12px 8px;">Submitted At</th>
-              <th style="padding: 12px 8px;">Topic</th>
-              <th style="padding: 12px 8px;">Body Preview</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || '<tr><td colspan="4" style="text-align: center; padding: 24px; color: #a1a1aa;">No submissions found for this contributor.</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    this.portalRoot?.appendChild(modal);
   }
 
   renderTelemetrySection(hasError = false) {
@@ -730,6 +844,355 @@ export class AdminScene extends Phaser.Scene {
     }
   }
 
+  async toggleContributorStatus(contributorId, shouldActivate) {
+    this.setStatus(shouldActivate ? 'Reactivating contributor...' : 'Banning contributor...', false);
+    try {
+      if (shouldActivate) {
+        await apiService.updateContributor(contributorId, { isActive: true });
+      } else {
+        await apiService.deactivateContributor(contributorId);
+      }
+
+      this.state.contributors = this.state.contributors.map((contributor) => {
+        if (contributor?.contributorId !== contributorId) return contributor;
+        return {
+          ...contributor,
+          isActive: shouldActivate
+        };
+      });
+
+      this.renderOverview();
+      this.renderContributorsSection();
+      showToast(this.toastHost, shouldActivate ? 'Contributor reactivated.' : 'Contributor banned.');
+      this.setStatus('Contributor status updated.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to update contributor status'), true);
+    }
+  }
+
+  async moderateMapSubmission(mapId, action) {
+    if (!mapId) return;
+
+    this.setStatus(action === 'approve' ? 'Approving map...' : 'Rejecting map...', false);
+    try {
+      if (action === 'approve') {
+        await apiService.approveMapSubmission(mapId);
+        showToast(this.toastHost, 'Map approved.');
+      } else {
+        const reasonEl = this.portalRoot?.querySelector(`[data-map-reject-reason="${CSS.escape(mapId)}"]`);
+        const reason = reasonEl?.value?.trim() || '';
+        if (!reason) {
+          this.setStatus('Rejection reason is required.', true);
+          return;
+        }
+        await apiService.rejectMapSubmission(mapId, reason);
+        showToast(this.toastHost, 'Map rejected.');
+      }
+      await this.loadDashboard();
+      this.showSection('map-review');
+      this.setStatus('Map moderation queue updated.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to moderate map submission'), true);
+    }
+  }
+
+  async publishApprovedMap(mapId) {
+    if (!mapId) return;
+
+    const topicEl = this.portalRoot?.querySelector(`[data-map-topic-id="${CSS.escape(mapId)}"]`);
+    const topicId = topicEl?.value?.trim() || '';
+    if (!topicId) {
+      this.setStatus('Select a topic before publishing.', true);
+      return;
+    }
+
+    this.setStatus('Publishing map...', false);
+    try {
+      await apiService.publishApprovedMap(mapId, topicId);
+      showToast(this.toastHost, 'Map published.');
+      await this.loadDashboard();
+      this.showSection('map-review');
+      this.setStatus('Map published successfully.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to publish map'), true);
+    }
+  }
+
+  async createTopicForMapPublishing() {
+    const nameEl = this.portalRoot?.querySelector('#admin-topic-name');
+    const descriptionEl = this.portalRoot?.querySelector('#admin-topic-description');
+    const topicName = nameEl?.value?.trim() || '';
+    const description = descriptionEl?.value?.trim() || '';
+
+    if (!topicName) {
+      this.setStatus('Topic name is required.', true);
+      return;
+    }
+
+    this.setStatus('Creating topic...', false);
+    try {
+      await apiService.createTopic({
+        topicName,
+        description: description || null
+      });
+      const topics = await apiService.getAllTopics().catch(() => this.state.topics);
+      this.state.topics = Array.isArray(topics) ? topics : this.state.topics;
+      if (nameEl) nameEl.value = '';
+      if (descriptionEl) descriptionEl.value = '';
+      this.renderMapReviewSection();
+      showToast(this.toastHost, 'Topic created.');
+      this.setStatus('Topic created. You can now assign it when publishing maps.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to create topic'), true);
+    }
+  }
+
+  primeMapPreviews(rows) {
+    (rows || []).forEach((row) => {
+      const mapId = row?.mapId;
+      if (!mapId) return;
+
+      const existing = this.state.mapPreviewByMapId[mapId];
+      if (existing?.status) return;
+
+      const isEditorMap = String(row?.asset || '').startsWith('editor-draft:');
+      this.state.mapPreviewByMapId[mapId] = {
+        status: isEditorMap ? 'loading' : 'unsupported',
+        payload: null,
+        error: null
+      };
+      if (!isEditorMap) return;
+      void this.loadMapPreviewPayload(mapId);
+    });
+  }
+
+  async loadMapPreviewPayload(mapId) {
+    try {
+      const payload = await apiService.getEditorMapData(mapId);
+      const previewErrorMessage = payload?.reason || payload?.message || 'Map data is missing layer information.';
+      this.state.mapPreviewByMapId[mapId] = {
+        status: payload?.layers ? 'ready' : 'error',
+        payload: payload?.layers ? payload : null,
+        error: payload?.layers ? null : previewErrorMessage
+      };
+    } catch (error) {
+      this.state.mapPreviewByMapId[mapId] = {
+        status: 'error',
+        payload: null,
+        error: getErrorMessage(error, 'Unable to load map preview.')
+      };
+    }
+
+    if (this.state.activeSection === 'map-review') {
+      this.renderMapReviewSection();
+    }
+  }
+
+  renderMapPreviewBlock(row) {
+    const mapId = row?.mapId || '';
+    if (!mapId) {
+      return '<div class="dash-row-card__body">Map preview unavailable (missing map ID).</div>';
+    }
+
+    const preview = this.state.mapPreviewByMapId[mapId];
+    const status = preview?.status || 'loading';
+    const isEditorMap = String(row?.asset || '').startsWith('editor-draft:');
+    if (!preview) {
+      this.state.mapPreviewByMapId[mapId] = {
+        status: isEditorMap ? 'loading' : 'unsupported',
+        payload: null,
+        error: null
+      };
+      if (isEditorMap) {
+        void this.loadMapPreviewPayload(mapId);
+      }
+    }
+
+    if (status === 'unsupported') {
+      return '<div class="dash-row-card__body">Preview is available only for maps submitted from the in-game editor.</div>';
+    }
+    if (status === 'loading') {
+      return '<div class="dash-row-card__body">Loading map preview...</div>';
+    }
+    if (status === 'error') {
+      return `<div class="dash-row-card__body">${escapeHtml(preview?.error || 'Unable to render map preview.')}</div>`;
+    }
+
+    const payload = preview?.payload || {};
+    return `
+      <div class="dash-row-card__body" style="padding:0; white-space:normal; line-height:1.35;">
+        <div style="padding:6px 10px 0;">
+          <strong>Map preview</strong>
+          <div class="dash-row-card__meta" style="margin-top:2px;">
+            <span>${escapeHtml(`${Number(payload.width || 0)} x ${Number(payload.height || 0)}`)}</span>
+            <span>${escapeHtml(payload.tilesetKey || 'Unknown tileset')}</span>
+            <span>${escapeHtml(`NPC ${Array.isArray(payload?.spawns?.npcs) ? payload.spawns.npcs.length : 0} | Monster ${Array.isArray(payload?.spawns?.monsters) ? payload.spawns.monsters.length : 0}`)}</span>
+          </div>
+        </div>
+        <canvas
+          data-map-preview-canvas="${escapeHtml(mapId)}"
+          style="display:block; width:100%; max-height:180px; border-radius:10px; background:#11151f; margin-top:6px;"
+        ></canvas>
+      </div>
+    `;
+  }
+
+  paintReadyMapPreviews() {
+    const canvases = this.portalRoot?.querySelectorAll('canvas[data-map-preview-canvas]');
+    if (!canvases?.length) return;
+
+    canvases.forEach((canvasEl) => {
+      const mapId = canvasEl.getAttribute('data-map-preview-canvas');
+      if (!mapId) return;
+
+      const preview = this.state.mapPreviewByMapId[mapId];
+      if (preview?.status !== 'ready' || !preview.payload) return;
+      void this.drawMapPreviewCanvas(canvasEl, preview.payload);
+    });
+  }
+
+  async drawMapPreviewCanvas(canvasEl, payload) {
+    const tileSize = Math.max(1, Number(payload?.tileSize || 32));
+    const width = Math.max(1, Number(payload?.width || 1));
+    const height = Math.max(1, Number(payload?.height || 1));
+    const worldWidth = width * tileSize;
+    const worldHeight = height * tileSize;
+
+    const maxPreviewWidth = 540;
+    const maxPreviewHeight = 220;
+    const scale = Math.min(maxPreviewWidth / worldWidth, maxPreviewHeight / worldHeight, 1);
+    const previewWidth = Math.max(1, Math.floor(worldWidth * scale));
+    const previewHeight = Math.max(1, Math.floor(worldHeight * scale));
+
+    canvasEl.width = previewWidth;
+    canvasEl.height = previewHeight;
+
+    const ctx = canvasEl.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, previewWidth, previewHeight);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = worldWidth;
+    offscreen.height = worldHeight;
+    const offCtx = offscreen.getContext('2d');
+    if (!offCtx) return;
+
+    offCtx.fillStyle = '#0f1724';
+    offCtx.fillRect(0, 0, worldWidth, worldHeight);
+
+    const layers = [
+      payload?.layers?.ground,
+      payload?.layers?.decor
+    ];
+
+    const tilesetImage = await this.loadMapPreviewTilesetImage(payload?.tilesetKey || 'terrain_tiles_v2.1');
+    if (tilesetImage) {
+      this.drawTiledLayers(offCtx, layers, tilesetImage, tileSize);
+      this.drawTiledLayers(offCtx, [payload?.layers?.collision], tilesetImage, tileSize, 0.5);
+    } else {
+      this.drawFallbackLayers(offCtx, layers, tileSize);
+      this.drawFallbackLayers(offCtx, [payload?.layers?.collision], tileSize, 'rgba(255, 90, 90, 0.45)');
+    }
+
+    this.drawSpawnMarkers(offCtx, payload?.spawns, tileSize);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(offscreen, 0, 0, previewWidth, previewHeight);
+  }
+
+  async loadMapPreviewTilesetImage(tilesetKey) {
+    const cacheKey = tilesetKey || 'terrain_tiles_v2.1';
+    const cached = this.mapPreviewTilesetImageCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const relativePath = TILESET_IMAGE_PATHS[cacheKey];
+    if (!relativePath) {
+      this.mapPreviewTilesetImageCache.set(cacheKey, null);
+      return null;
+    }
+
+    const image = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = `/${relativePath}`;
+    });
+
+    this.mapPreviewTilesetImageCache.set(cacheKey, image);
+    return image;
+  }
+
+  drawTiledLayers(ctx, layers, tilesetImage, tileSize, alpha = 1) {
+    if (!tilesetImage || !tilesetImage.width || !tilesetImage.height) return;
+
+    const columns = Math.max(1, Math.floor(tilesetImage.width / tileSize));
+    const originalAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha;
+
+    (layers || []).forEach((layer) => {
+      if (!Array.isArray(layer)) return;
+      for (let y = 0; y < layer.length; y += 1) {
+        const row = layer[y];
+        if (!Array.isArray(row)) continue;
+        for (let x = 0; x < row.length; x += 1) {
+          const tileId = Number(row[x]);
+          if (!Number.isInteger(tileId) || tileId < 0) continue;
+          const sx = (tileId % columns) * tileSize;
+          const sy = Math.floor(tileId / columns) * tileSize;
+          ctx.drawImage(
+            tilesetImage,
+            sx,
+            sy,
+            tileSize,
+            tileSize,
+            x * tileSize,
+            y * tileSize,
+            tileSize,
+            tileSize
+          );
+        }
+      }
+    });
+
+    ctx.globalAlpha = originalAlpha;
+  }
+
+  drawFallbackLayers(ctx, layers, tileSize, color = 'rgba(120, 176, 255, 0.65)') {
+    ctx.fillStyle = color;
+    (layers || []).forEach((layer) => {
+      if (!Array.isArray(layer)) return;
+      for (let y = 0; y < layer.length; y += 1) {
+        const row = layer[y];
+        if (!Array.isArray(row)) continue;
+        for (let x = 0; x < row.length; x += 1) {
+          const tileId = Number(row[x]);
+          if (!Number.isInteger(tileId) || tileId < 0) continue;
+          ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+        }
+      }
+    });
+  }
+
+  drawSpawnMarkers(ctx, spawns, tileSize) {
+    const npcSpawns = Array.isArray(spawns?.npcs) ? spawns.npcs : [];
+    const monsterSpawns = Array.isArray(spawns?.monsters) ? spawns.monsters : [];
+
+    ctx.fillStyle = '#5ef4a7';
+    npcSpawns.forEach(({ x, y }) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      ctx.beginPath();
+      ctx.arc((x + 0.5) * tileSize, (y + 0.5) * tileSize, Math.max(2, tileSize * 0.18), 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.fillStyle = '#ff9752';
+    monsterSpawns.forEach(({ x, y }) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      ctx.beginPath();
+      ctx.arc((x + 0.5) * tileSize, (y + 0.5) * tileSize, Math.max(2, tileSize * 0.18), 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
   setStatus(message, isError) {
     const statusEl = this.portalRoot?.querySelector('#admin-status');
     if (!statusEl) return;
@@ -742,6 +1205,7 @@ export class AdminScene extends Phaser.Scene {
     const config = {
       overview: ['Overview', 'A modern moderation workspace that keeps operational bottlenecks visible.'],
       review: ['Review Queue', 'Approve or reject submitted lesson content in a cleaner flow.'],
+      'map-review': ['Map Review', 'Approve submitted maps, then assign topics and publish them.'],
       flags: ['Flag Reports', 'Resolve learner reports and keep audit notes attached to the decision.'],
       contributors: ['Contributors', 'Inspect contributor profiles and active status without modal sprawl.'],
       telemetry: ['Telemetry', 'Inspect encounter funnel metrics with optional map filtering.']
@@ -764,6 +1228,6 @@ export class AdminScene extends Phaser.Scene {
   async logout() {
     await supabase.auth.signOut();
     gameState.clearState();
-    this.scene.start('LoginScene');
+    routeToLogin(this, { hardReload: true });
   }
 }

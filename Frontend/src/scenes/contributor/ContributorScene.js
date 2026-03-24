@@ -1007,13 +1007,26 @@ export class ContributorScene extends Phaser.Scene {
     const cards = rows.map((row) => {
       const status = String(row?.status || 'UNKNOWN').toUpperCase();
       const published = Boolean(row?.published);
+      const rejectionReason = row?.rejectionReason || 'No rejection reason provided.';
       const detail = status === 'REJECTED'
-        ? (row?.rejectionReason || 'Rejected by admin.')
+        ? rejectionReason
         : published
           ? 'Approved and published.'
           : status === 'APPROVED'
             ? 'Approved and awaiting publish.'
             : 'Pending admin review.';
+      const metadata = status === 'REJECTED'
+        ? `
+            <div class="dash-mini-list__item">
+              <span>Reason for rejection</span>
+              <strong>${escapeHtml(rejectionReason)}</strong>
+            </div>
+          `
+        : `
+            <div class="dash-mini-list__item"><span>Approved at</span><strong>${escapeHtml(formatDate(row?.approvedAt))}</strong></div>
+            <div class="dash-mini-list__item"><span>Published at</span><strong>${escapeHtml(formatDate(row?.publishedAt))}</strong></div>
+            <div class="dash-mini-list__item"><span>Topic</span><strong>${escapeHtml(row?.topicName || row?.topicId || 'Not assigned')}</strong></div>
+          `;
 
       return `
         <article class="dash-row-card">
@@ -1032,9 +1045,7 @@ export class ContributorScene extends Phaser.Scene {
           </div>
           <div class="dash-row-card__body">${escapeHtml(detail)}</div>
           <div class="dash-mini-list">
-            <div class="dash-mini-list__item"><span>Approved at</span><strong>${escapeHtml(formatDate(row?.approvedAt))}</strong></div>
-            <div class="dash-mini-list__item"><span>Published at</span><strong>${escapeHtml(formatDate(row?.publishedAt))}</strong></div>
-            <div class="dash-mini-list__item"><span>Topic</span><strong>${escapeHtml(row?.topicName || row?.topicId || 'Not assigned')}</strong></div>
+            ${metadata}
           </div>
         </article>
       `;

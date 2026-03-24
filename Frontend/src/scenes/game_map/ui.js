@@ -56,6 +56,16 @@ function createHudButton(scene, cx, cy, label, fillNormal, fillHover, onClick) {
 }
 
 export const uiMethods = {
+  handleBackNavigation() {
+    const returnSceneKey = this.mapConfig?.returnSceneKey;
+    if (returnSceneKey) {
+      this.scene.start(returnSceneKey);
+      return;
+    }
+
+    this.scene.start('WorldMapScene', { selectedMapId: this.mapConfig?.mapId || this.mapConfig?.id });
+  },
+
   layoutMissionPanel() {
     if (!this.missionCard || !this.missionCardBounds || !this.missionText) return;
 
@@ -80,7 +90,7 @@ export const uiMethods = {
       this.scene.pause();
     });
     createHudButton(this, 80, 90, 'BACK', HUD.btnPurple, HUD.btnPurpleHover, () => {
-      this.scene.start('WorldMapScene', { selectedMapId: this.mapConfig?.mapId || this.mapConfig?.id });
+      this.handleBackNavigation();
     });
 
     const missionWidth = Math.min(700, Math.max(380, width - 120));

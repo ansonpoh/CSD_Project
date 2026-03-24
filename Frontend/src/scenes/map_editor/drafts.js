@@ -146,7 +146,8 @@ export const draftMethods = {
     this.scene.start('GameMapScene', {
       mapConfig: {
         name: this.getFormValue('#me-name') || 'Playtest Map',
-        editorMapData: runtime
+        editorMapData: runtime,
+        returnSceneKey: 'MapEditorScene'
       }
     });
   }

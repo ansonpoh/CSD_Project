@@ -8,6 +8,8 @@ const PALETTE = {
   bgPanel: 0x071022,
   bgCard: 0x11213f,
   bgUnlocked: 0x253410,
+  bgTab: 0x172949,
+  bgTabActive: 0x2d4f1e,
   borderGold: 0xc8870a,
   borderGlow: 0xf0b030,
   borderUnlocked: 0x8fd45e,
@@ -100,8 +102,33 @@ export async function showAchievements(scene) {
   const panelY = height / 2 - panelHeight / 2;
 
   const nodes = [];
-  const cleanup = () => nodes.forEach((node) => node?.destroy());
+  const tabNodes = [];
+  const contentNodes = [];
+  let wheelHandler = null;
+  const cleanup = () => {
+    if (wheelHandler) {
+      scene.input.off('wheel', wheelHandler);
+      wheelHandler = null;
+    }
+    [...new Set([...nodes, ...tabNodes, ...contentNodes])].forEach((node) => node?.destroy());
+  };
   let isClaiming = false;
+  let activeTab = 'unlocked';
+  let allAchievements = [];
+  const tabScrollIndex = {
+    unlocked: 0,
+    locked: 0
+  };
+
+  const clearTabNodes = () => {
+    tabNodes.forEach((node) => node?.destroy());
+    tabNodes.length = 0;
+  };
+
+  const clearContentNodes = () => {
+    contentNodes.forEach((node) => node?.destroy());
+    contentNodes.length = 0;
+  };
 
   const overlay = stopPointerPropagation(
     scene.add.rectangle(0, 0, width, height, 0x000000, 0.8)
@@ -154,14 +181,176 @@ export async function showAchievements(scene) {
   }).setDepth(DEPTH + 4);
   nodes.push(statusText);
 
+  const drawTabs = (totalUnlocked, totalLocked, renderContent) => {
+    clearTabNodes();
+    const tabY = panelY + 102;
+    const tabWidth = 140;
+    const tabHeight = 30;
+    const tabGap = 12;
+    const startX = panelX + panelWidth / 2 - tabWidth - (tabGap / 2);
+
+    const addTab = (label, value, key, x) => {
+      const isActive = activeTab === key;
+      const tab = createUiButton(scene, {
+        x,
+        y: tabY,
+        width: tabWidth,
+        height: tabHeight,
+        label: `${label} (${value})`,
+        fillNormal: isActive ? PALETTE.bgTabActive : PALETTE.bgTab,
+        fillHover: isActive ? 0x3f6e2b : 0x223a66,
+        borderNormal: isActive ? PALETTE.borderUnlocked : 0x6c8fc9,
+        borderHover: isActive ? 0xbff59a : PALETTE.borderGlow,
+        pressFill: isActive ? 0x29481c : 0x162949,
+        pressBorder: isActive ? PALETTE.borderUnlocked : PALETTE.borderGold,
+        lineWidth: 1,
+        depth: DEPTH + 5,
+        textStyle: {
+          fontSize: '12px',
+          color: isActive ? '#ebffdf' : '#d4e2fa',
+          stroke: '#071022',
+          strokeThickness: 3
+        },
+        onPress: () => {
+          if (activeTab === key) return;
+          activeTab = key;
+          renderContent();
+        }
+      });
+      tabNodes.push(tab);
+    };
+
+    addTab('Unlocked', totalUnlocked, 'unlocked', startX);
+    addTab('Locked', totalLocked, 'locked', startX + tabWidth + tabGap);
+  };
+
+  const renderAchievementRows = () => {
+    clearContentNodes();
+
+    const selected = allAchievements.filter((row) => {
+      if (activeTab === 'unlocked') return Boolean(row?.isUnlocked);
+      return !row?.isUnlocked;
+    });
+
+    if (selected.length === 0) {
+      contentNodes.push(
+        scene.add.text(panelX + panelWidth / 2, panelY + panelHeight / 2 + 18, `No ${activeTab} achievements.`, {
+          fontSize: '18px',
+          color: '#9eb7d7',
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setOrigin(0.5).setDepth(DEPTH + 3)
+      );
+      return;
+    }
+
+    const rowStartY = panelY + 126;
+    const rowGap = 58;
+    const maxRows = 6;
+    const maxStartIndex = Math.max(0, selected.length - maxRows);
+    const startIndex = Math.min(tabScrollIndex[activeTab] || 0, maxStartIndex);
+    tabScrollIndex[activeTab] = startIndex;
+    const visible = selected.slice(startIndex, startIndex + maxRows);
+
+    visible.forEach((item, index) => {
+      const rowX = panelX + 20;
+      const rowY = rowStartY + (index * rowGap);
+      const rowW = panelWidth - 40;
+      drawAchievementRow(scene, item, rowX, rowY, rowW, contentNodes);
+
+      if (item?.isUnlocked && !item?.isRewardClaimed) {
+        const claimButton = createUiButton(scene, {
+          x: rowX + rowW - 56,
+          y: rowY + 26,
+          width: 92,
+          height: 24,
+          label: 'CLAIM',
+          fillNormal: 0x2b4b1e,
+          fillHover: 0x3b6b2b,
+          borderNormal: 0x8fd45e,
+          borderHover: 0xbff59a,
+          pressFill: 0x1a2d11,
+          pressBorder: 0x8fd45e,
+          lineWidth: 1,
+          depth: DEPTH + 6,
+          textStyle: {
+            fontSize: '12px',
+            color: '#ecffe2',
+            stroke: '#071022',
+            strokeThickness: 3
+          },
+          onPress: async () => {
+            if (isClaiming) return;
+            isClaiming = true;
+            statusText.setColor('#9eb7d7');
+            statusText.setText('Claiming reward...');
+            try {
+              await apiService.claimMyAchievement(item.achievementId);
+              const learner = await apiService.getCurrentLearner().catch(() => null);
+              if (learner) {
+                gameState.setLearner(learner);
+              }
+
+              item.isRewardClaimed = true;
+              statusText.setColor('#8fd45e');
+              statusText.setText('Reward claimed.');
+              renderAchievementRows();
+            } catch (error) {
+              console.error('Failed to claim achievement reward:', error);
+              const message = error?.response?.data?.message || 'Failed to claim reward.';
+              statusText.setColor('#ff7e7e');
+              statusText.setText(message);
+            } finally {
+              isClaiming = false;
+            }
+          }
+        });
+        contentNodes.push(claimButton);
+      } else if (item?.isRewardClaimed) {
+        contentNodes.push(
+          scene.add.text(rowX + rowW - 12, rowY + 29, 'CLAIMED', {
+            fontSize: '12px',
+            color: '#8fd45e',
+            fontStyle: 'bold',
+            stroke: '#071022',
+            strokeThickness: 3
+          }).setOrigin(1, 0.5).setDepth(DEPTH + 6)
+        );
+      } else {
+        contentNodes.push(
+          scene.add.text(rowX + rowW - 12, rowY + 29, 'LOCKED', {
+            fontSize: '12px',
+            color: '#8393ad',
+            fontStyle: 'bold',
+            stroke: '#071022',
+            strokeThickness: 3
+          }).setOrigin(1, 0.5).setDepth(DEPTH + 6)
+        );
+      }
+    });
+
+    if (selected.length > maxRows) {
+      contentNodes.push(
+        scene.add.text(panelX + panelWidth / 2, panelY + panelHeight - 74, `Scroll to view more (${startIndex + 1}-${startIndex + visible.length} of ${selected.length})`, {
+          fontSize: '13px',
+          color: '#90a3bf',
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setOrigin(0.5).setDepth(DEPTH + 3)
+      );
+    }
+  };
+
   try {
     const achievements = await apiService.getMyAchievements();
     loadingText.destroy();
 
     const sorted = Array.isArray(achievements) ? [...achievements] : [];
     sorted.sort((a, b) => Number(Boolean(b?.isUnlocked)) - Number(Boolean(a?.isUnlocked)));
+    allAchievements = sorted;
 
     const unlockedCount = sorted.filter((row) => row?.isUnlocked).length;
+    const lockedCount = sorted.length - unlockedCount;
     nodes.push(
       scene.add.text(panelX + 22, panelY + 68, `Unlocked ${unlockedCount}/${sorted.length}`, {
         fontSize: '14px',
@@ -182,105 +371,33 @@ export async function showAchievements(scene) {
         }).setOrigin(0.5).setDepth(DEPTH + 3)
       );
     } else {
-      const rowStartY = panelY + 96;
-      const rowGap = 58;
-      const maxRows = 7;
-      sorted.slice(0, maxRows).forEach((item, index) => {
-        const rowX = panelX + 20;
-        const rowY = rowStartY + (index * rowGap);
-        const rowW = panelWidth - 40;
-        drawAchievementRow(scene, item, rowX, rowY, rowW, nodes);
+      const renderContent = () => {
+        drawTabs(unlockedCount, lockedCount, renderContent);
+        renderAchievementRows();
+      };
+      renderContent();
 
-        if (item?.isUnlocked && !item?.isRewardClaimed) {
-          const claimButton = createUiButton(scene, {
-            x: rowX + rowW - 56,
-            y: rowY + 26,
-            width: 92,
-            height: 24,
-            label: 'CLAIM',
-            fillNormal: 0x2b4b1e,
-            fillHover: 0x3b6b2b,
-            borderNormal: 0x8fd45e,
-            borderHover: 0xbff59a,
-            pressFill: 0x1a2d11,
-            pressBorder: 0x8fd45e,
-            lineWidth: 1,
-            depth: DEPTH + 6,
-            textStyle: {
-              fontSize: '12px',
-              color: '#ecffe2',
-              stroke: '#071022',
-              strokeThickness: 3
-            },
-            onPress: async () => {
-              if (isClaiming) return;
-              isClaiming = true;
-              statusText.setColor('#9eb7d7');
-              statusText.setText('Claiming reward...');
-              try {
-                await apiService.claimMyAchievement(item.achievementId);
-                const learner = await apiService.getCurrentLearner().catch(() => null);
-                if (learner) {
-                  gameState.setLearner(learner);
-                }
+      wheelHandler = (pointer, gameObjects, deltaX, deltaY, deltaZ, event) => {
+        const px = pointer?.x ?? 0;
+        const py = pointer?.y ?? 0;
+        const insidePanel = px >= panelX && px <= (panelX + panelWidth) && py >= panelY && py <= (panelY + panelHeight);
+        if (!insidePanel) return;
 
-                item.isRewardClaimed = true;
-                claimButton.destroy();
-                nodes.push(
-                  scene.add.text(rowX + rowW - 12, rowY + 29, 'CLAIMED', {
-                    fontSize: '12px',
-                    color: '#8fd45e',
-                    fontStyle: 'bold',
-                    stroke: '#071022',
-                    strokeThickness: 3
-                  }).setOrigin(1, 0.5).setDepth(DEPTH + 6)
-                );
-                statusText.setColor('#8fd45e');
-                statusText.setText('Reward claimed.');
-              } catch (error) {
-                console.error('Failed to claim achievement reward:', error);
-                const message = error?.response?.data?.message || 'Failed to claim reward.';
-                statusText.setColor('#ff7e7e');
-                statusText.setText(message);
-              } finally {
-                isClaiming = false;
-              }
-            }
-          });
-          nodes.push(claimButton);
-        } else if (item?.isRewardClaimed) {
-          nodes.push(
-            scene.add.text(rowX + rowW - 12, rowY + 29, 'CLAIMED', {
-              fontSize: '12px',
-              color: '#8fd45e',
-              fontStyle: 'bold',
-              stroke: '#071022',
-              strokeThickness: 3
-            }).setOrigin(1, 0.5).setDepth(DEPTH + 6)
-          );
-        } else {
-          nodes.push(
-            scene.add.text(rowX + rowW - 12, rowY + 29, 'LOCKED', {
-              fontSize: '12px',
-              color: '#8393ad',
-              fontStyle: 'bold',
-              stroke: '#071022',
-              strokeThickness: 3
-            }).setOrigin(1, 0.5).setDepth(DEPTH + 6)
-          );
-        }
-      });
+        const selected = allAchievements.filter((row) => (activeTab === 'unlocked' ? Boolean(row?.isUnlocked) : !row?.isUnlocked));
+        const maxRows = 6;
+        const maxStartIndex = Math.max(0, selected.length - maxRows);
+        if (maxStartIndex <= 0) return;
 
-      if (sorted.length > maxRows) {
-        nodes.push(
-          scene.add.text(panelX + panelWidth / 2, panelY + panelHeight - 74, `+${sorted.length - maxRows} more achievements`, {
-            fontSize: '13px',
-            color: '#90a3bf',
-            stroke: '#060814',
-            strokeThickness: 3
-          }).setOrigin(0.5).setDepth(DEPTH + 3)
-        );
-      }
+        const direction = deltaY > 0 ? 1 : -1;
+        const current = tabScrollIndex[activeTab] || 0;
+        const next = Math.max(0, Math.min(maxStartIndex, current + direction));
+        if (next === current) return;
+
+        tabScrollIndex[activeTab] = next;
+        renderAchievementRows();
+        event?.preventDefault?.();
+      };
+      scene.input.on('wheel', wheelHandler);
     }
   } catch (error) {
     loadingText.setText('Failed to load achievements.');

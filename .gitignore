@@ -54,3 +54,7 @@ Frontend/dist/
 # Local debugging artifacts
 output/
 
+# Project management files
+GEMINI.md
+areas_for_improvement.md
+task.md

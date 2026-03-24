@@ -223,6 +223,17 @@ export class AdminScene extends Phaser.Scene {
       }
       return;
     }
+    if (action === 'show-submission-history') {
+      event.preventDefault();
+      void this.showSubmissionHistory(actionEl.dataset.contributorId);
+      return;
+    }
+    if (action === 'close-history-modal') {
+      event.preventDefault();
+      const modal = this.portalRoot.querySelector('#history-modal-overlay');
+      if (modal) modal.remove();
+      return;
+    }
     if (action === 'ban-contributor' || action === 'unban-contributor') {
       event.preventDefault();
       const contributorId = actionEl.dataset.contributorId;
@@ -688,6 +699,7 @@ export class AdminScene extends Phaser.Scene {
         <div class="dash-divider"></div>
         <p>${escapeHtml(selected.bio || 'No bio provided.')}</p>
         <div class="dash-button-group" style="margin-top:18px;">
+          <button type="button" class="dash-button dash-button--secondary" data-action="show-submission-history" data-contributor-id="${escapeHtml(selected.contributorId || '')}">List Submission History</button>
           ${selected.isActive
             ? `<button type="button" class="dash-button dash-button--danger" data-action="ban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Ban contributor</button>`
             : `<button type="button" class="dash-button dash-button--success" data-action="unban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Unban contributor</button>`}
@@ -712,6 +724,62 @@ export class AdminScene extends Phaser.Scene {
         <div>${details}</div>
       </div>
     `;
+  }
+
+  async showSubmissionHistory(contributorId) {
+    if (!contributorId) return;
+    this.setStatus('Loading submission history...', false);
+    
+    try {
+      const history = await apiService.getContentsByContributorId(contributorId);
+      this.renderHistoryModal(history || []);
+      this.setStatus('History loaded.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to load submission history'), true);
+    }
+  }
+
+  renderHistoryModal(historyData) {
+    let modal = this.portalRoot?.querySelector('#history-modal-overlay');
+    if (modal) modal.remove();
+
+    const rows = historyData.map((item) => `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <td style="padding: 12px 8px;">${renderBadge(item.status || 'UNKNOWN')}</td>
+        <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(formatDate(item.submittedAt))}</td>
+        <td style="padding: 12px 8px;">${escapeHtml(item.topic?.topicName || 'None')}</td>
+        <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(previewText(item.body || '', 60))}</td>
+      </tr>
+    `).join('');
+
+    modal = document.createElement('div');
+    modal.id = 'history-modal-overlay';
+    // Use an overlay style that integrates closely with the dark theme
+    modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; padding: 24px;';
+    
+    modal.innerHTML = `
+      <div class="dash-card" style="width: 100%; max-width: 800px; max-height: 80vh; overflow-y: auto; background-color: #12080b; border: 1px solid rgba(255,255,255,0.1);">
+        <div class="dash-inline" style="margin-bottom: 16px;">
+          <h3 style="margin: 0;">Submission History</h3>
+          <button type="button" class="dash-button dash-button--ghost" data-action="close-history-modal">Close</button>
+        </div>
+        <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 14px;">
+          <thead>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+              <th style="padding: 12px 8px;">Status</th>
+              <th style="padding: 12px 8px;">Submitted At</th>
+              <th style="padding: 12px 8px;">Topic</th>
+              <th style="padding: 12px 8px;">Body Preview</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="4" style="text-align: center; padding: 24px; color: #a1a1aa;">No submissions found for this contributor.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    this.portalRoot?.appendChild(modal);
   }
 
   renderTelemetrySection(hasError = false) {

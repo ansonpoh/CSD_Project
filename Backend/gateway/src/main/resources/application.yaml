@@ -62,8 +62,8 @@ spring:
           filters:
             - name: RequestRateLimiter
               args:
-                redis-rate-limiter.replenishRate: 5
-                redis-rate-limiter.burstCapacity: 10
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
                 key-resolver: "#{@userKeyResolver}"
 
         # ─────────────────────────────────────────────
@@ -89,3 +89,19 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans
+
+resilience4j:
+  timelimiter:
+    instances:
+      gameServiceCircuitBreaker:
+        timeoutDuration: 60s
+        cancelRunningFuture: true
+  circuitbreaker:
+    instances:
+      gameServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s

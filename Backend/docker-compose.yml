@@ -176,6 +176,8 @@ services:
       GAME_URL: http://game-service:8082
       LEARNING_SERVICE_URL: http://learning-service:8083
       PLAYER_SERVICE_URL: http://player-service:8084
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ZIPKIN_URL: http://zipkin:9411
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"]

@@ -45,6 +45,7 @@ export class ContributorScene extends Phaser.Scene {
       profile: null,
       contents: [],
       analytics: null,
+      mapSubmissions: [],
       topics: [],
       npcs: [],
       maps: [],
@@ -110,12 +111,19 @@ export class ContributorScene extends Phaser.Scene {
               </span>
               <span class="dash-nav__hint">02</span>
             </button>
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="maps">
+              <span>
+                <span class="dash-nav__label">My Maps</span><br/>
+                <span class="dash-nav__hint">Submitted maps and review outcome</span>
+              </span>
+              <span class="dash-nav__hint">03</span>
+            </button>
             <button type="button" class="dash-nav__button" data-action="show-section" data-section="submit">
               <span>
                 <span class="dash-nav__label">New Submission</span><br/>
                 <span class="dash-nav__hint">Create fresh lesson content</span>
               </span>
-              <span class="dash-nav__hint">03</span>
+              <span class="dash-nav__hint">04</span>
             </button>
           </nav>
 
@@ -141,6 +149,7 @@ export class ContributorScene extends Phaser.Scene {
             <div id="contributor-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
             <section class="dash-section is-active" data-section-panel="overview"><div id="contributor-overview"></div></section>
             <section class="dash-section" data-section-panel="content"><div id="contributor-content"></div></section>
+            <section class="dash-section" data-section-panel="maps"><div id="contributor-maps"></div></section>
             <section class="dash-section" data-section-panel="submit"><div id="contributor-submit"></div></section>
           </div>
         </section>
@@ -345,17 +354,19 @@ export class ContributorScene extends Phaser.Scene {
       if (!uid) throw new Error('No active contributor session');
 
       const profile = await apiService.getContributorBySupabaseId(uid);
-      const [contents, analytics, topics, npcs, maps] = await Promise.all([
+      const [contents, analytics, topics, npcs, maps, mapSubmissions] = await Promise.all([
         apiService.getContentByContributor(profile.contributorId).catch(() => []),
         apiService.getMyContributorAnalytics().catch(() => null),
         apiService.getAllTopics().catch(() => []),
         apiService.getAllNPCs().catch(() => []),
-        apiService.getAllMaps().catch(() => [])
+        apiService.getAllMaps().catch(() => []),
+        apiService.getMyMapSubmissions().catch(() => [])
       ]);
 
       this.state.profile = profile;
       this.state.contents = Array.isArray(contents) ? contents : [];
       this.state.analytics = analytics || null;
+      this.state.mapSubmissions = Array.isArray(mapSubmissions) ? mapSubmissions : [];
       this.state.topics = Array.isArray(topics) ? topics : [];
       this.state.npcs = Array.isArray(npcs) ? npcs : [];
       this.state.maps = Array.isArray(maps) ? maps : [];
@@ -373,12 +384,14 @@ export class ContributorScene extends Phaser.Scene {
       this.renderProfile();
       this.renderOverview();
       this.renderContentSection();
+      this.renderMapSubmissionsSection();
       this.renderSubmitSection();
       this.setStatus('Workspace updated.', false);
     } catch (error) {
       this.renderProfile();
       this.renderOverview(true);
       this.renderContentSection(true);
+      this.renderMapSubmissionsSection(true);
       this.renderSubmitSection(true);
       this.setStatus(getErrorMessage(error, 'Unable to load contributor workspace'), true);
     }
@@ -976,6 +989,73 @@ export class ContributorScene extends Phaser.Scene {
     statusEl.style.color = isError ? '#ffb8c6' : '';
   }
 
+  renderMapSubmissionsSection(hasError = false) {
+    const container = this.portalRoot?.querySelector('#contributor-maps');
+    if (!container) return;
+
+    if (hasError) {
+      container.innerHTML = renderEmptyState('Map submissions unavailable', 'We could not load your map submission history.');
+      return;
+    }
+
+    const rows = [...(this.state.mapSubmissions || [])].sort((left, right) => {
+      const leftTime = new Date(left?.publishedAt || left?.approvedAt || 0).getTime();
+      const rightTime = new Date(right?.publishedAt || right?.approvedAt || 0).getTime();
+      return rightTime - leftTime;
+    });
+
+    const cards = rows.map((row) => {
+      const status = String(row?.status || 'UNKNOWN').toUpperCase();
+      const published = Boolean(row?.published);
+      const detail = status === 'REJECTED'
+        ? (row?.rejectionReason || 'Rejected by admin.')
+        : published
+          ? 'Approved and published.'
+          : status === 'APPROVED'
+            ? 'Approved and awaiting publish.'
+            : 'Pending admin review.';
+
+      return `
+        <article class="dash-row-card">
+          <div class="dash-row-card__header">
+            <div>
+              <div class="dash-row-card__title">${escapeHtml(row?.name || 'Untitled map')}</div>
+              <div class="dash-row-card__meta">
+                <span>${escapeHtml(row?.mapId || 'No map id')}</span>
+                <span>${escapeHtml(row?.asset || 'No asset')}</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              ${renderBadge(status)}
+              ${published ? renderBadge('PUBLISHED') : ''}
+            </div>
+          </div>
+          <div class="dash-row-card__body">${escapeHtml(detail)}</div>
+          <div class="dash-mini-list">
+            <div class="dash-mini-list__item"><span>Approved at</span><strong>${escapeHtml(formatDate(row?.approvedAt))}</strong></div>
+            <div class="dash-mini-list__item"><span>Published at</span><strong>${escapeHtml(formatDate(row?.publishedAt))}</strong></div>
+            <div class="dash-mini-list__item"><span>Topic</span><strong>${escapeHtml(row?.topicName || row?.topicId || 'Not assigned')}</strong></div>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="dash-card" style="margin-bottom:18px;">
+        <div class="dash-inline">
+          <div>
+            <h3 style="margin:0 0 8px;">My map submissions</h3>
+            <p>Track pending, rejected, approved, and published maps from the editor submission flow.</p>
+          </div>
+          <button type="button" class="dash-button dash-button--secondary" data-action="open-map-editor">Open map editor</button>
+        </div>
+      </div>
+      <div class="dash-list">
+        ${cards || renderEmptyState('No map submissions yet', 'Submit a map from the editor and its review status will appear here.')}
+      </div>
+    `;
+  }
+
   setSubmitStatus(message, isError) {
     const statusEl = this.portalRoot?.querySelector('#contributor-submit-status');
     if (!statusEl) return;
@@ -1026,6 +1106,7 @@ export class ContributorScene extends Phaser.Scene {
     const config = {
       overview: ['Overview', 'Track your content pipeline and jump straight into the next submission.'],
       content: ['My Content', 'Everything you have submitted, sorted by freshness and moderation status.'],
+      maps: ['My Maps', 'Track map review and publish status from contributor submissions.'],
       submit: ['New Submission', 'Build a new lesson with AI-assisted narrations and media support.']
     };
 

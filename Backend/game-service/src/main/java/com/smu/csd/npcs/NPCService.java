@@ -117,6 +117,9 @@ public class NPCService {
             .orElseThrow(() -> new RuntimeException("NPC not found: " + request.npcId()));
         com.smu.csd.maps.Map map = mapRepository.findById(request.mapId())
             .orElseThrow(() -> new RuntimeException("Map not found: " + request.mapId()));
+        if (!Boolean.TRUE.equals(map.getPublished())) {
+            throw new IllegalStateException("Map is not published and cannot accept NPC/content assignments.");
+        }
         
         // Verify content exists via internal API
         try {

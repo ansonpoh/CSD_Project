@@ -1,6 +1,5 @@
 package com.smu.csd.maps;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
@@ -18,14 +17,14 @@ import java.util.stream.Stream;
 
 @Service
 public class MapEditorDraftStore {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final Path rootDir;
 
-    public MapEditorDraftStore() {
+    public MapEditorDraftStore(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
         String base = System.getenv().getOrDefault("MAP_EDITOR_STORAGE_DIR", "");
-        this.rootDir = base.isBlank()
-                ? Paths.get(System.getProperty("java.io.tmpdir"), "csd-map-editor-drafts")
-                : Paths.get(base);
+        String defaultDir = Paths.get(System.getProperty("user.home"), ".csd-map-editor-drafts").toString();
+        this.rootDir = base.isBlank() ? Paths.get(defaultDir) : Paths.get(base);
     }
 
     public DraftRecord save(UUID ownerSupabaseUserId, SaveDraftRequest request) {
@@ -154,7 +153,7 @@ public class MapEditorDraftStore {
             String description,
             String biome,
             String difficulty,
-            JsonNode mapData
+            Object mapData
     ) {}
 
     public record PublishDraftRequest(
@@ -178,7 +177,7 @@ public class MapEditorDraftStore {
             String description,
             String biome,
             String difficulty,
-            JsonNode mapData,
+            Object mapData,
             Instant createdAt,
             Instant updatedAt,
             boolean published,

@@ -1,6 +1,5 @@
 package com.smu.csd.maps;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.maps.likes.MapLikeRequest;
 import com.smu.csd.maps.ratings.MapRatingRequest;
@@ -9,7 +8,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,7 +40,8 @@ public class MapController {
 
     @GetMapping("/all")
     public List<MapCatalogResponse> getAllMaps(Authentication authentication) {
-        return service.getMapCatalog(currentUser(authentication));
+        boolean includeUnpublished = hasRole(authentication, "ROLE_ADMIN");
+        return service.getMapCatalog(currentUser(authentication), includeUnpublished);
     }
 
     @GetMapping("/world/{world_id}")
@@ -50,6 +52,7 @@ public class MapController {
 
     
     @PostMapping("/add")
+    @PreAuthorize("hasRole('ADMIN')")
     public Map addMap(@RequestBody Map map) {
         return service.saveMap(map);
     }
@@ -75,12 +78,14 @@ public class MapController {
     }
 
     @GetMapping("/editor/drafts/me")
+    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
     public List<MapEditorDraftStore.DraftSummary> getMyDrafts(Authentication authentication) {
         UUID supabaseUserId = currentUser(authentication);
         return service.listDrafts(supabaseUserId);
     }
 
     @GetMapping("/editor/drafts/{draftId}")
+    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
     public MapEditorDraftStore.DraftRecord getMyDraft(
             Authentication authentication,
             @PathVariable UUID draftId
@@ -90,6 +95,7 @@ public class MapController {
     }
 
     @PostMapping("/editor/drafts")
+    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
     public MapEditorDraftStore.DraftRecord saveDraft(
             Authentication authentication,
             @RequestBody MapEditorDraftStore.SaveDraftRequest request
@@ -98,8 +104,9 @@ public class MapController {
         return service.saveDraft(supabaseUserId, request);
     }
 
-    @PostMapping("/editor/drafts/{draftId}/publish")
-    public Map publishDraft(
+    @PostMapping("/editor/drafts/{draftId}/submit")
+    @PreAuthorize("hasRole('CONTRIBUTOR')")
+    public Map submitDraft(
             Authentication authentication,
             @PathVariable UUID draftId,
             @RequestBody(required = false) MapEditorDraftStore.PublishDraftRequest request
@@ -107,11 +114,68 @@ public class MapController {
         UUID supabaseUserId = currentUser(authentication);
         MapEditorDraftStore.PublishDraftRequest payload =
                 request == null ? new MapEditorDraftStore.PublishDraftRequest(null, null) : request;
-        return service.publishDraft(supabaseUserId, draftId, payload);
+        return service.submitDraft(supabaseUserId, draftId, payload);
+    }
+
+    // Backward-compatible alias; now follows submit-for-review flow.
+    @PostMapping("/editor/drafts/{draftId}/publish")
+    @PreAuthorize("hasRole('CONTRIBUTOR')")
+    public Map submitDraftCompat(
+            Authentication authentication,
+            @PathVariable UUID draftId,
+            @RequestBody(required = false) MapEditorDraftStore.PublishDraftRequest request
+    ) throws ResourceNotFoundException {
+        return submitDraft(authentication, draftId, request);
+    }
+
+    @GetMapping("/submissions/me")
+    @PreAuthorize("hasRole('CONTRIBUTOR')")
+    public List<MapSubmissionResponse> getMySubmissions(Authentication authentication) {
+        return service.getContributorSubmissionResponses(currentUser(authentication));
+    }
+
+    @GetMapping("/review/queue")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Map> getReviewQueue() {
+        return service.getReviewQueue();
+    }
+
+    @GetMapping("/review/approved-unpublished")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Map> getApprovedUnpublishedQueue() {
+        return service.getApprovedUnpublishedMaps();
+    }
+
+    @PutMapping("/{mapId}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map approveMap(Authentication authentication, @PathVariable UUID mapId) {
+        return service.approveMap(mapId, currentUser(authentication));
+    }
+
+    @PutMapping("/{mapId}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map rejectMap(
+            Authentication authentication,
+            @PathVariable UUID mapId,
+            @RequestBody RejectMapRequest request
+    ) {
+        String reason = request == null ? null : request.reason();
+        return service.rejectMap(mapId, currentUser(authentication), reason);
+    }
+
+    @PutMapping("/{mapId}/publish")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map publishMap(
+            Authentication authentication,
+            @PathVariable UUID mapId,
+            @RequestBody PublishMapRequest request
+    ) {
+        UUID topicId = request == null ? null : request.topicId();
+        return service.publishApprovedMap(mapId, currentUser(authentication), topicId);
     }
 
     @GetMapping("/editor-data/{mapId}")
-    public ResponseEntity<JsonNode> getEditorRuntimeData(@PathVariable UUID mapId) throws ResourceNotFoundException {
+    public ResponseEntity<Object> getEditorRuntimeData(@PathVariable UUID mapId) throws ResourceNotFoundException {
         return ResponseEntity.ok(service.getEditorRuntimeData(mapId));
     }
 
@@ -119,4 +183,14 @@ public class MapController {
         Jwt jwt = (Jwt) authentication.getPrincipal();
         return UUID.fromString(jwt.getSubject());
     }
+
+    private boolean hasRole(Authentication authentication, String role) {
+        if (authentication == null || authentication.getAuthorities() == null) return false;
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role::equals);
+    }
+
+    public record RejectMapRequest(String reason) {}
+    public record PublishMapRequest(UUID topicId) {}
 }

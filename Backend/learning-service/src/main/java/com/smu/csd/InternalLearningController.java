@@ -17,6 +17,9 @@ import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentRepository;
 import com.smu.csd.contents.ratings.ContentRatingResponse;
 import com.smu.csd.contents.ratings.ContentRatingService;
+import com.smu.csd.contents.topics.Topic;
+import com.smu.csd.contents.topics.TopicService;
+import com.smu.csd.exception.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +33,7 @@ public class InternalLearningController {
 
     private final ContentRepository contentRepository;
     private final ContentRatingService contentRatingService;
+    private final TopicService topicService;
 
     @GetMapping("/contents/{id}")
     public ResponseEntity<Map<String, Object>> getContent(@PathVariable UUID id) {
@@ -48,6 +52,20 @@ public class InternalLearningController {
             .map(this::buildContentPayload)
             .toList();
         return ResponseEntity.ok(payload);
+    }
+
+    @GetMapping("/topics/{id}")
+    public ResponseEntity<Map<String, Object>> getTopic(@PathVariable UUID id) {
+        try {
+            Topic topic = topicService.getById(id);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("topicId", topic.getTopicId());
+            payload.put("topicName", topic.getTopicName());
+            payload.put("description", topic.getDescription());
+            return ResponseEntity.ok(payload);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     private Map<String, Object> buildContentPayload(Content c) {

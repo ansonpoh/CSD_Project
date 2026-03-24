@@ -126,18 +126,18 @@ export const draftMethods = {
 
   async publishDraft() {
     if (!this.currentDraftId) {
-      this.setStatus('Save draft first before publishing.');
+      this.setStatus('Save draft first before submitting.');
       return;
     }
     try {
-      const published = await apiService.publishMapDraft(this.currentDraftId, {
+      const submitted = await apiService.submitMapDraft(this.currentDraftId, {
         name: this.getFormValue('#me-name') || 'Contributor Map',
         description: this.getFormValue('#me-desc')
       });
-      this.setStatus(`Published map: ${published?.mapId || published?.id || 'success'}`);
+      this.setStatus(`Submitted for admin review: ${submitted?.mapId || submitted?.id || 'success'}`);
       this.refreshStatusMeta();
     } catch (error) {
-      this.setStatus(`Publish failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
+      this.setStatus(`Submission failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
     }
   },
 

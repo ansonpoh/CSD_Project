@@ -138,8 +138,43 @@ class ApiService {
     return data;
   }
 
+  async submitMapDraft(draftId, payload = {}) {
+    const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/submit`, payload);
+    return data;
+  }
+
+  // Backward-compatible alias.
   async publishMapDraft(draftId, payload = {}) {
-    const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/publish`, payload);
+    return this.submitMapDraft(draftId, payload);
+  }
+
+  async getMyMapSubmissions() {
+    const { data } = await this.api.get('/maps/submissions/me');
+    return data;
+  }
+
+  async getMapReviewQueue() {
+    const { data } = await this.api.get('/maps/review/queue');
+    return data;
+  }
+
+  async getApprovedUnpublishedMaps() {
+    const { data } = await this.api.get('/maps/review/approved-unpublished');
+    return data;
+  }
+
+  async approveMapSubmission(mapId) {
+    const { data } = await this.api.put(`/maps/${mapId}/approve`);
+    return data;
+  }
+
+  async rejectMapSubmission(mapId, reason) {
+    const { data } = await this.api.put(`/maps/${mapId}/reject`, { reason });
+    return data;
+  }
+
+  async publishApprovedMap(mapId, topicId) {
+    const { data } = await this.api.put(`/maps/${mapId}/publish`, { topicId });
     return data;
   }
 

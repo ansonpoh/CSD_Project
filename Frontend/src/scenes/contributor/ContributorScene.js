@@ -33,6 +33,8 @@ function formatPercent(value) {
   return `${numeric.toFixed(2)}%`;
 }
 
+const MAX_APPROVED_NPCS_PER_MAP = 5;
+
 export class ContributorScene extends Phaser.Scene {
   constructor() {
     super({ key: 'ContributorScene' });
@@ -46,6 +48,8 @@ export class ContributorScene extends Phaser.Scene {
       topics: [],
       npcs: [],
       maps: [],
+      availableMaps: [],
+      mapApprovedNpcCounts: {},
       contentFilters: {
         query: '',
         status: 'ALL',
@@ -355,6 +359,13 @@ export class ContributorScene extends Phaser.Scene {
       this.state.topics = Array.isArray(topics) ? topics : [];
       this.state.npcs = Array.isArray(npcs) ? npcs : [];
       this.state.maps = Array.isArray(maps) ? maps : [];
+
+      const mapAvailability = await this.resolveMapAvailability(this.state.maps);
+      this.state.availableMaps = this.state.maps.filter((map) => {
+        const mapId = String(map?.mapId || '');
+        return mapId && !mapAvailability.fullMapIds.has(mapId);
+      });
+      this.state.mapApprovedNpcCounts = mapAvailability.approvedNpcCountByMapId;
 
       gameState.setContributor(profile);
       gameState.setRole('contributor');
@@ -690,6 +701,13 @@ export class ContributorScene extends Phaser.Scene {
       );
       return;
     }
+    if (!this.state.availableMaps.length) {
+      container.innerHTML = renderEmptyState(
+        'No map slots available',
+        `All maps already have ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs. Pick another NPC/map pairing after moderation changes or map updates.`
+      );
+      return;
+    }
 
     const topicOptions = this.state.topics.map((topic) => (
       `<option value="${escapeHtml(topic?.topicId || '')}">${escapeHtml(topic?.topicName || 'Untitled Topic')}</option>`
@@ -697,8 +715,8 @@ export class ContributorScene extends Phaser.Scene {
     const npcOptions = this.state.npcs.map((npc) => (
       `<option value="${escapeHtml(npc?.npc_id || '')}">${escapeHtml(npc?.name || 'Unnamed NPC')}</option>`
     )).join('');
-    const mapOptions = this.state.maps.map((map) => (
-      `<option value="${escapeHtml(map?.mapId || '')}">${escapeHtml(map?.name || 'Unnamed Map')}</option>`
+    const mapOptions = this.state.availableMaps.map((map) => (
+      `<option value="${escapeHtml(map?.mapId || '')}">${escapeHtml(map?.name || 'Unnamed Map')} (${Number(this.state.mapApprovedNpcCounts[String(map?.mapId || '')] || 0)}/${MAX_APPROVED_NPCS_PER_MAP})</option>`
     )).join('');
 
     container.innerHTML = `
@@ -851,6 +869,10 @@ export class ContributorScene extends Phaser.Scene {
       this.setSubmitStatus('Topic, NPC, map, title, and description are required.', true);
       return;
     }
+    if (!this.isMapSelectable(mapId)) {
+      this.setSubmitStatus(`Selected map is no longer available. Maps with ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs cannot be used for new content.`, true);
+      return;
+    }
     if (!narrations.length) {
       this.setSubmitStatus('Add at least one narration line before submitting.', true);
       return;
@@ -960,6 +982,43 @@ export class ContributorScene extends Phaser.Scene {
     statusEl.setAttribute('aria-live', isError ? 'assertive' : 'polite');
     statusEl.textContent = message ? (isError ? `Error: ${message}` : message) : '';
     statusEl.style.color = isError ? '#ffb8c6' : '';
+  }
+
+  isMapSelectable(mapId) {
+    if (!mapId) return false;
+    const target = String(mapId);
+    return this.state.availableMaps.some((map) => String(map?.mapId || '') === target);
+  }
+
+  async resolveMapAvailability(maps) {
+    const approvedNpcCountByMapId = {};
+    const fullMapIds = new Set();
+    if (!Array.isArray(maps) || !maps.length) {
+      return { approvedNpcCountByMapId, fullMapIds };
+    }
+
+    await Promise.all(maps.map(async (map) => {
+      const mapId = String(map?.mapId || '').trim();
+      if (!mapId) return;
+
+      try {
+        const rows = await apiService.getNPCsByMap(mapId);
+        const npcIds = new Set(
+          (Array.isArray(rows) ? rows : [])
+            .map((row) => String(row?.npcId || '').trim())
+            .filter(Boolean)
+        );
+        const approvedCount = npcIds.size;
+        approvedNpcCountByMapId[mapId] = approvedCount;
+        if (approvedCount >= MAX_APPROVED_NPCS_PER_MAP) {
+          fullMapIds.add(mapId);
+        }
+      } catch (_error) {
+        approvedNpcCountByMapId[mapId] = 0;
+      }
+    }));
+
+    return { approvedNpcCountByMapId, fullMapIds };
   }
 
   showSection(section) {

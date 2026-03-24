@@ -2,6 +2,7 @@ package com.smu.csd.npcs;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -18,6 +19,7 @@ import com.smu.csd.npcs.npc_map.NPCMapRepository;
 
 @Service
 public class NPCService {
+    private static final String APPROVED_STATUS = "APPROVED";
 
     private final NPCMapRepository npcMapRepository;
     private final NPCRepository repository;
@@ -29,6 +31,9 @@ public class NPCService {
 
     @Value("${learning.url:http://localhost:8083}")
     private String learningServiceUrl;
+
+    @Value("${game.limits.max-npcs-per-map:5}")
+    private int maxNpcsPerMap;
 
     public NPCService(NPCRepository repository, NPCMapRepository npcMapRepository,
                       MapRepository mapRepository, RestTemplate restTemplate) {
@@ -122,12 +127,67 @@ public class NPCService {
             throw new RuntimeException("Content not found or unavailable: " + request.contentId());
         }
 
+        List<NPCMap> existingMappings = npcMapRepository.findAllByMapMapIdAndNpcNpcId(request.mapId(), request.npcId());
+        if (!existingMappings.isEmpty()) {
+            NPCMap current = existingMappings.get(0);
+            current.setContentId(request.contentId());
+            return npcMapRepository.save(current);
+        }
+
+        long approvedNpcCount = countApprovedNpcsOnMap(request.mapId());
+        if (approvedNpcCount >= maxNpcsPerMap) {
+            throw new IllegalStateException("Map has reached the maximum number of approved NPCs (" + maxNpcsPerMap + ").");
+        }
+
         NPCMap npcMap = NPCMap.builder()
             .npc(npc)
             .map(map)
             .contentId(request.contentId())
             .build();
         return npcMapRepository.save(npcMap);
+    }
+
+    private long countApprovedNpcsOnMap(UUID mapId) {
+        List<NPCMap> npcMappings = npcMapRepository.findAllByMapMapId(mapId);
+        List<UUID> contentIds = npcMappings.stream()
+            .map(NPCMap::getContentId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+
+        if (contentIds.isEmpty()) return 0L;
+
+        Map<UUID, ContentDto> contentById = fetchContentsByIdsStrict(contentIds);
+
+        return npcMappings.stream()
+            .filter(mapping -> mapping.getNpc() != null && mapping.getNpc().getNpcId() != null)
+            .filter(mapping -> {
+                UUID contentId = mapping.getContentId();
+                if (contentId == null) return false;
+                ContentDto content = contentById.get(contentId);
+                return content != null && APPROVED_STATUS.equals(content.status());
+            })
+            .map(mapping -> mapping.getNpc().getNpcId())
+            .distinct()
+            .count();
+    }
+
+    private Map<UUID, ContentDto> fetchContentsByIdsStrict(List<UUID> contentIds) {
+        if (contentIds == null || contentIds.isEmpty()) return java.util.Map.of();
+
+        try {
+            String url = learningServiceUrl + "/api/internal/contents/batch";
+            ContentDto[] rows = restTemplate.postForObject(url, contentIds, ContentDto[].class);
+            if (rows == null) {
+                throw new IllegalStateException("Learning service returned no content payload.");
+            }
+
+            return java.util.Arrays.stream(rows)
+                .filter(content -> content != null && content.contentId() != null)
+                .collect(Collectors.toMap(ContentDto::contentId, content -> content, (first, second) -> first));
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to validate approved NPC limit from learning content statuses.", e);
+        }
     }
 
     public NPC updateNPC(UUID npc_id, NPC npc) {

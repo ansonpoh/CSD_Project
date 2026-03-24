@@ -46,6 +46,16 @@ export class ContributorScene extends Phaser.Scene {
       topics: [],
       npcs: [],
       maps: [],
+      contentFilters: {
+        query: '',
+        status: 'ALL',
+        topicId: 'ALL',
+        sort: 'submitted_desc'
+      },
+      contentPagination: {
+        page: 1,
+        pageSize: 10
+      },
       isGenerating: false,
       isSubmitting: false
     };
@@ -124,7 +134,7 @@ export class ContributorScene extends Phaser.Scene {
           </header>
 
           <div class="dash-scroll">
-            <div id="contributor-status" class="dash-status"></div>
+            <div id="contributor-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
             <section class="dash-section is-active" data-section-panel="overview"><div id="contributor-overview"></div></section>
             <section class="dash-section" data-section-panel="content"><div id="contributor-content"></div></section>
             <section class="dash-section" data-section-panel="submit"><div id="contributor-submit"></div></section>
@@ -139,12 +149,16 @@ export class ContributorScene extends Phaser.Scene {
 
     this.portalRoot.addEventListener('click', this.handleClick);
     this.portalRoot.addEventListener('submit', this.handleSubmitEvent);
+    this.portalRoot.addEventListener('input', this.handleInputEvent);
+    this.portalRoot.addEventListener('change', this.handleChangeEvent);
   }
 
   destroyPortal() {
     if (this.portalRoot) {
       this.portalRoot.removeEventListener('click', this.handleClick);
       this.portalRoot.removeEventListener('submit', this.handleSubmitEvent);
+      this.portalRoot.removeEventListener('input', this.handleInputEvent);
+      this.portalRoot.removeEventListener('change', this.handleChangeEvent);
     }
     destroyDashboardRoot(this.portalRoot);
     this.portalRoot = null;
@@ -189,6 +203,39 @@ export class ContributorScene extends Phaser.Scene {
     if (action === 'generate-narrations') {
       event.preventDefault();
       void this.generateNarrations();
+      return;
+    }
+
+    if (action === 'clear-content-filters') {
+      event.preventDefault();
+      this.state.contentFilters = {
+        query: '',
+        status: 'ALL',
+        topicId: 'ALL',
+        sort: 'submitted_desc'
+      };
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+
+    if (action === 'content-prev-page') {
+      event.preventDefault();
+      const currentPage = Number(this.state.contentPagination.page || 1);
+      this.state.contentPagination.page = Math.max(1, currentPage - 1);
+      this.renderContentSection();
+      return;
+    }
+
+    if (action === 'content-next-page') {
+      event.preventDefault();
+      const currentPage = Number(this.state.contentPagination.page || 1);
+      const pageSize = Math.max(1, Number(this.state.contentPagination.pageSize || 10));
+      const totalItems = this.getFilteredContentRows().length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+      this.state.contentPagination.page = Math.min(totalPages, currentPage + 1);
+      this.renderContentSection();
+      return;
     }
   };
 
@@ -198,6 +245,92 @@ export class ContributorScene extends Phaser.Scene {
       void this.submitContent();
     }
   };
+
+  handleInputEvent = (event) => {
+    if (event.target?.id !== 'content-filter-query') return;
+    this.state.contentFilters.query = event.target.value || '';
+    this.state.contentPagination.page = 1;
+    this.renderContentSection();
+  };
+
+  handleChangeEvent = (event) => {
+    const target = event.target;
+    if (!target) return;
+
+    if (target.id === 'content-filter-status') {
+      this.state.contentFilters.status = target.value || 'ALL';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+    if (target.id === 'content-filter-topic') {
+      this.state.contentFilters.topicId = target.value || 'ALL';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+    if (target.id === 'content-filter-sort') {
+      this.state.contentFilters.sort = target.value || 'submitted_desc';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+    if (target.id === 'content-page-size') {
+      const parsed = Number(target.value);
+      this.state.contentPagination.pageSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+    }
+  };
+
+  getFilteredContentRows() {
+    const rows = [...this.state.contents].sort((left, right) => {
+      const leftTime = new Date(left?.submittedAt || 0).getTime();
+      const rightTime = new Date(right?.submittedAt || 0).getTime();
+      return rightTime - leftTime;
+    });
+    const filters = this.state.contentFilters || {};
+    const query = String(filters.query || '').trim().toLowerCase();
+    const selectedStatus = filters.status || 'ALL';
+    const selectedTopicId = filters.topicId || 'ALL';
+    const selectedSort = filters.sort || 'submitted_desc';
+
+    let filteredRows = rows.filter((row) => {
+      const status = String(row?.status || '').trim();
+      const topicId = String(row?.topic?.topicId || '').trim();
+      const title = String(row?.title || '');
+      const topicName = String(row?.topic?.topicName || '');
+      const preview = buildContentPreview(row);
+
+      if (selectedStatus !== 'ALL' && status !== selectedStatus) return false;
+      if (selectedTopicId !== 'ALL' && topicId !== selectedTopicId) return false;
+      if (query) {
+        const haystack = `${title} ${topicName} ${preview}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return true;
+    });
+
+    if (selectedSort === 'submitted_asc') {
+      filteredRows = filteredRows.sort((left, right) => (
+        new Date(left?.submittedAt || 0).getTime() - new Date(right?.submittedAt || 0).getTime()
+      ));
+    } else if (selectedSort === 'title_asc') {
+      filteredRows = filteredRows.sort((left, right) => (
+        String(left?.title || '').localeCompare(String(right?.title || ''), undefined, { sensitivity: 'base' })
+      ));
+    } else if (selectedSort === 'title_desc') {
+      filteredRows = filteredRows.sort((left, right) => (
+        String(right?.title || '').localeCompare(String(left?.title || ''), undefined, { sensitivity: 'base' })
+      ));
+    } else {
+      filteredRows = filteredRows.sort((left, right) => (
+        new Date(right?.submittedAt || 0).getTime() - new Date(left?.submittedAt || 0).getTime()
+      ));
+    }
+
+    return filteredRows;
+  }
 
   async loadInitialData() {
     this.setStatus('Loading contributor workspace...', false);
@@ -410,6 +543,37 @@ export class ContributorScene extends Phaser.Scene {
       const rightTime = new Date(right?.submittedAt || 0).getTime();
       return rightTime - leftTime;
     });
+    const filters = this.state.contentFilters || {};
+    const selectedStatus = filters.status || 'ALL';
+    const selectedTopicId = filters.topicId || 'ALL';
+    const selectedSort = filters.sort || 'submitted_desc';
+
+    const topicOptions = new Map();
+    this.state.topics.forEach((topic) => {
+      const id = String(topic?.topicId || '').trim();
+      if (!id) return;
+      topicOptions.set(id, topic?.topicName || id);
+    });
+    rows.forEach((row) => {
+      const id = String(row?.topic?.topicId || '').trim();
+      if (!id || topicOptions.has(id)) return;
+      topicOptions.set(id, row?.topic?.topicName || id);
+    });
+
+    const statusValues = Array.from(new Set(
+      rows
+        .map((row) => String(row?.status || '').trim())
+        .filter(Boolean)
+    )).sort((left, right) => left.localeCompare(right));
+
+    const filteredRows = this.getFilteredContentRows();
+    const pageSize = Math.max(1, Number(this.state.contentPagination.pageSize || 10));
+    const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+    const currentPage = Math.min(totalPages, Math.max(1, Number(this.state.contentPagination.page || 1)));
+    this.state.contentPagination.page = currentPage;
+    const startIndex = (currentPage - 1) * pageSize;
+    const pagedRows = filteredRows.slice(startIndex, startIndex + pageSize);
+
     const ratingsPerContent = Array.isArray(this.state.analytics?.ratingsPerContent)
       ? this.state.analytics.ratingsPerContent
       : [];
@@ -417,7 +581,7 @@ export class ContributorScene extends Phaser.Scene {
       ratingsPerContent.map((item) => [String(item?.contentId || ''), item])
     );
 
-    const cards = rows.map((row) => `
+    const cards = pagedRows.map((row) => `
       <article class="dash-row-card">
         <div class="dash-row-card__header">
           <div>
@@ -434,48 +598,79 @@ export class ContributorScene extends Phaser.Scene {
         <div class="dash-row-card__body">${escapeHtml(buildContentPreview(row))}</div>
       </article>
     `).join('');
-    const ratingRows = ratingsPerContent.map((item) => `
-      <article class="dash-row-card">
-        <div class="dash-row-card__header">
-          <div>
-            <div class="dash-row-card__title">${escapeHtml(item?.title || 'Untitled content')}</div>
-            <div class="dash-row-card__meta">
-              <span>${escapeHtml(item?.contentId || 'Missing id')}</span>
-              <span>${renderBadge(item?.status || 'UNKNOWN')}</span>
-            </div>
-          </div>
-          <div style="text-align:right;">
-            <div class="dash-row-card__title">${Number(item?.averageRating || 0).toFixed(2)}*</div>
-            <div class="dash-muted">${Number(item?.ratingCount || 0)} ratings</div>
-          </div>
-        </div>
-      </article>
-    `).join('');
-
     container.innerHTML = `
       <div class="dash-card" style="margin-bottom:18px;">
         <div class="dash-inline">
           <div>
             <h3 style="margin:0 0 8px;">All submitted content</h3>
-            <p>Recent lessons first, with moderation state surfaced right where you need it.</p>
+            <p>Search, filter, and sort your lessons while keeping moderation state front and center.</p>
           </div>
           <button type="button" class="dash-button dash-button--secondary" data-action="refresh-content">Refresh list</button>
         </div>
       </div>
-      <div class="dash-list">
-        ${cards || renderEmptyState('No submissions yet', 'Once you publish your first lesson draft, it will appear here with moderation status.')}
-      </div>
-
-      <div class="dash-card" style="margin:22px 0 18px;">
-        <div class="dash-inline">
-          <div>
-            <h3 style="margin:0 0 8px;">Ratings per content</h3>
-            <p>Average learner rating and vote counts for each lesson you submitted.</p>
+      <div class="dash-card" style="margin-bottom:18px;">
+        <div class="dash-form__grid">
+          <div class="dash-field">
+            <label for="content-filter-query">Search</label>
+            <input id="content-filter-query" class="dash-input" type="search" placeholder="Title, topic, or description..." value="${escapeHtml(filters.query || '')}" />
+          </div>
+          <div class="dash-field">
+            <label for="content-filter-status">Status</label>
+            <select id="content-filter-status" class="dash-select">
+              <option value="ALL"${selectedStatus === 'ALL' ? ' selected' : ''}>All statuses</option>
+              ${statusValues.map((status) => (
+                `<option value="${escapeHtml(status)}"${selectedStatus === status ? ' selected' : ''}>${escapeHtml(status)}</option>`
+              )).join('')}
+            </select>
+          </div>
+          <div class="dash-field">
+            <label for="content-filter-topic">Topic</label>
+            <select id="content-filter-topic" class="dash-select">
+              <option value="ALL"${selectedTopicId === 'ALL' ? ' selected' : ''}>All topics</option>
+              ${Array.from(topicOptions.entries())
+                .sort((left, right) => String(left[1]).localeCompare(String(right[1]), undefined, { sensitivity: 'base' }))
+                .map(([id, name]) => (
+                  `<option value="${escapeHtml(id)}"${selectedTopicId === id ? ' selected' : ''}>${escapeHtml(name)}</option>`
+                ))
+                .join('')}
+            </select>
+          </div>
+          <div class="dash-field">
+            <label for="content-filter-sort">Sort</label>
+            <select id="content-filter-sort" class="dash-select">
+              <option value="submitted_desc"${selectedSort === 'submitted_desc' ? ' selected' : ''}>Newest first</option>
+              <option value="submitted_asc"${selectedSort === 'submitted_asc' ? ' selected' : ''}>Oldest first</option>
+              <option value="title_asc"${selectedSort === 'title_asc' ? ' selected' : ''}>Title A-Z</option>
+              <option value="title_desc"${selectedSort === 'title_desc' ? ' selected' : ''}>Title Z-A</option>
+            </select>
+          </div>
+        </div>
+        <div class="dash-inline" style="margin-top:14px;">
+          <span class="dash-muted">Showing ${filteredRows.length} of ${rows.length} submissions</span>
+          <div class="dash-button-group">
+            <div class="dash-field" style="min-width:130px;">
+              <label for="content-page-size">Rows</label>
+              <select id="content-page-size" class="dash-select">
+                <option value="10"${pageSize === 10 ? ' selected' : ''}>10 per page</option>
+                <option value="20"${pageSize === 20 ? ' selected' : ''}>20 per page</option>
+                <option value="50"${pageSize === 50 ? ' selected' : ''}>50 per page</option>
+              </select>
+            </div>
+            <button type="button" class="dash-link-button" data-action="clear-content-filters">Clear filters</button>
           </div>
         </div>
       </div>
       <div class="dash-list">
-        ${ratingRows || renderEmptyState('No rating data yet', 'Content ratings will show up once learners start rating approved lessons.')}
+        ${cards || renderEmptyState('No matching submissions', 'Try a different search term or clear the active filters.')}
+      </div>
+      <div class="dash-card" style="margin-top:18px;">
+        <div class="dash-inline">
+          <span class="dash-muted">Page ${currentPage} of ${totalPages}</span>
+          <div class="dash-button-group">
+            <button type="button" class="dash-button dash-button--secondary" data-action="content-prev-page"${currentPage <= 1 ? ' disabled' : ''}>Previous</button>
+            <button type="button" class="dash-button dash-button--secondary" data-action="content-next-page"${currentPage >= totalPages ? ' disabled' : ''}>Next</button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -561,7 +756,7 @@ export class ContributorScene extends Phaser.Scene {
           <div id="contributor-narrations" class="dash-list"></div>
         </div>
 
-        <div id="contributor-submit-status" class="dash-status"></div>
+        <div id="contributor-submit-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <div class="dash-button-group">
           <button id="contributor-submit-button" type="submit" class="dash-button"${this.state.isSubmitting ? ' disabled' : ''}>${this.state.isSubmitting ? 'Submitting...' : 'Submit lesson'}</button>
@@ -754,14 +949,16 @@ export class ContributorScene extends Phaser.Scene {
   setStatus(message, isError) {
     const statusEl = this.portalRoot?.querySelector('#contributor-status');
     if (!statusEl) return;
-    statusEl.textContent = message || '';
+    statusEl.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+    statusEl.textContent = message ? (isError ? `Error: ${message}` : message) : '';
     statusEl.style.color = isError ? '#ffb8c6' : '';
   }
 
   setSubmitStatus(message, isError) {
     const statusEl = this.portalRoot?.querySelector('#contributor-submit-status');
     if (!statusEl) return;
-    statusEl.textContent = message || '';
+    statusEl.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+    statusEl.textContent = message ? (isError ? `Error: ${message}` : message) : '';
     statusEl.style.color = isError ? '#ffb8c6' : '';
   }
 

@@ -58,7 +58,9 @@ export class AdminScene extends Phaser.Scene {
       bankQuestions: [],
       bankDraft: [],
       mapQuiz: null,
-      quizDraftLoading: false
+      quizDraftLoading: false,
+      missions: [],
+      flaggedReflections: []
     };
   }
 
@@ -121,6 +123,10 @@ export class AdminScene extends Phaser.Scene {
               <span><span class="dash-nav__label">Quiz Bank</span><br/><span class="dash-nav__hint">Build and publish map quizzes</span></span>
               <span class="dash-nav__hint">07</span>
             </button>
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="missions">
+              <span><span class="dash-nav__label">Real-World Missions</span><br/><span class="dash-nav__hint">Manage Gen Alpha observation missions</span></span>
+              <span class="dash-nav__hint">08</span>
+            </button>
           </nav>
 
           <div class="dash-sidebar__actions">
@@ -151,6 +157,7 @@ export class AdminScene extends Phaser.Scene {
             <section class="dash-section" data-section-panel="contributors"><div id="admin-contributors"></div></section>
             <section class="dash-section" data-section-panel="telemetry"><div id="admin-telemetry"></div></section>
             <section class="dash-section" data-section-panel="question-bank"><div id="admin-question-bank"></div></section>
+            <section class="dash-section" data-section-panel="missions"><div id="admin-missions"></div></section>
           </div>
         </section>
       </div>
@@ -325,6 +332,21 @@ export class AdminScene extends Phaser.Scene {
       void this.unpublishMapQuiz();
       return;
     }
+    if (action === 'create-mission') {
+      event.preventDefault();
+      void this.createMission();
+      return;
+    }
+    if (action === 'toggle-mission-active') {
+      event.preventDefault();
+      void this.toggleMissionActive(actionEl.dataset.missionId, actionEl.dataset.value === 'true');
+      return;
+    }
+    if (action === 'approve-reflection' || action === 'reject-reflection') {
+      event.preventDefault();
+      void this.reviewReflection(actionEl.dataset.attemptId, action === 'approve-reflection');
+      return;
+    }
   };
 
   handleChange = (event) => {
@@ -354,7 +376,9 @@ export class AdminScene extends Phaser.Scene {
         contributors,
         maps,
         topics,
-        telemetry
+        telemetry,
+        missions,
+        flaggedReflections
       ] = await Promise.all([
         apiService.getAdministratorBySupabaseId(uid).catch(() => null),
         apiService.getContentQueue().catch(() => []),
@@ -364,7 +388,9 @@ export class AdminScene extends Phaser.Scene {
         apiService.getAllContributors().catch(() => []),
         apiService.getAllMaps().catch(() => []),
         apiService.getAllTopics().catch(() => []),
-        apiService.getEncounterTelemetryDashboard().catch(() => null)
+        apiService.getEncounterTelemetryDashboard().catch(() => null),
+        apiService.getAllMissions().catch(() => []),
+        apiService.getFlaggedReflections().catch(() => [])
       ]);
 
       this.state.adminProfile = adminProfile;
@@ -376,6 +402,8 @@ export class AdminScene extends Phaser.Scene {
       this.state.maps = Array.isArray(maps) ? maps : [];
       this.state.topics = Array.isArray(topics) ? topics : [];
       this.state.telemetry = telemetry;
+      this.state.missions = Array.isArray(missions) ? missions : [];
+      this.state.flaggedReflections = Array.isArray(flaggedReflections) ? flaggedReflections : [];
       this.primeMapPreviews(this.state.mapReviewQueue);
 
       if (!this.state.selectedContributorId && this.state.contributors[0]?.contributorId) {
@@ -393,6 +421,7 @@ export class AdminScene extends Phaser.Scene {
       this.renderContributorsSection();
       this.renderTelemetrySection();
       this.renderQuestionBankSection();
+      this.renderMissionsSection();
       this.setStatus('Dashboard refreshed.', false);
     } catch (error) {
       this.renderProfile();
@@ -403,6 +432,7 @@ export class AdminScene extends Phaser.Scene {
       this.renderContributorsSection(true);
       this.renderTelemetrySection(true);
       this.renderQuestionBankSection();
+      this.renderMissionsSection();
       this.setStatus(getErrorMessage(error, 'Unable to load admin dashboard'), true);
     }
   }
@@ -992,6 +1022,10 @@ export class AdminScene extends Phaser.Scene {
       await this.loadQuizMapData();
       return;
     }
+    if (this.state.activeSection === 'missions') {
+      await this.refreshMissions();
+      return;
+    }
     await this.loadDashboard();
   }
 
@@ -1371,7 +1405,8 @@ export class AdminScene extends Phaser.Scene {
       flags: ['Flag Reports', 'Resolve learner reports and keep audit notes attached to the decision.'],
       contributors: ['Contributors', 'Inspect contributor profiles and active status without modal sprawl.'],
       telemetry: ['Telemetry', 'Inspect encounter funnel metrics with optional map filtering.'],
-      'question-bank': ['Quiz Bank', 'Generate, approve, and publish quiz questions for each map.']
+      'question-bank': ['Quiz Bank', 'Generate, approve, and publish quiz questions for each map.'],
+      'missions': ['Real-World Missions', 'Manage offline missions and review flagged reflections.']
     };
 
     this.portalRoot?.querySelectorAll('.dash-nav__button[data-section]').forEach((button) => {
@@ -1713,6 +1748,168 @@ export class AdminScene extends Phaser.Scene {
       this.setStatus('', false);
     } catch (error) {
       this.setStatus(getErrorMessage(error, 'Failed to unpublish quiz'), true);
+    }
+  }
+
+  renderMissionsSection() {
+    const container = this.portalRoot?.querySelector('#admin-missions');
+    if (!container) return;
+
+    const missions = this.state.missions;
+    const flagged = this.state.flaggedReflections;
+
+    const missionRows = missions.map((m) => `
+      <article class="dash-row-card">
+        <div class="dash-row-card__header">
+          <div>
+            <div class="dash-row-card__title">${escapeHtml(m.title || 'Untitled')}</div>
+            <div class="dash-row-card__meta">
+              <span>${escapeHtml(m.type || '')}</span>
+              <span>${m.rewardXp} XP · ${m.rewardGold} Gold</span>
+            </div>
+          </div>
+          ${renderBadge(m.isActive ? 'ACTIVE' : 'INACTIVE')}
+        </div>
+        <div class="dash-row-card__body">${escapeHtml(m.description || '')}</div>
+        <div class="dash-button-group">
+          ${m.isActive
+            ? `<button type="button" class="dash-button dash-button--secondary" data-action="toggle-mission-active" data-mission-id="${escapeHtml(m.missionId || '')}" data-value="false">Deactivate</button>`
+            : `<button type="button" class="dash-button dash-button--success" data-action="toggle-mission-active" data-mission-id="${escapeHtml(m.missionId || '')}" data-value="true">Activate</button>`}
+        </div>
+      </article>
+    `).join('');
+
+    const flaggedRows = flagged.map((a) => `
+      <article class="dash-row-card">
+        <div class="dash-row-card__header">
+          <div>
+            <div class="dash-row-card__title">${escapeHtml(a.mission?.title || 'Unknown mission')}</div>
+            <div class="dash-row-card__meta">
+              <span>Learner: ${escapeHtml(String(a.learnerId || ''))}</span>
+              <span>${escapeHtml(formatDate(a.submittedAt))}</span>
+            </div>
+          </div>
+          ${renderBadge('FLAGGED_FOR_REVIEW')}
+        </div>
+        <div class="dash-row-card__body" style="font-style:italic;">"${escapeHtml(a.reflection || '')}"</div>
+        <div class="dash-detail-list" style="margin-bottom:8px;">
+          <span>AI note: ${escapeHtml(a.aiReviewNote || 'None')}</span>
+        </div>
+        <div class="dash-button-group">
+          <button type="button" class="dash-button dash-button--success" data-action="approve-reflection" data-attempt-id="${escapeHtml(a.attemptId || '')}">Approve &amp; Reward</button>
+          <button type="button" class="dash-button dash-button--danger" data-action="reject-reflection" data-attempt-id="${escapeHtml(a.attemptId || '')}">Reject</button>
+        </div>
+      </article>
+    `).join('');
+
+    container.innerHTML = `
+      <article class="dash-card" style="margin-bottom:20px;">
+        <div class="dash-card__headline">
+          <h3>Create New Mission</h3>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <input id="mission-title" type="text" placeholder="Mission title" style="padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
+          <select id="mission-type" style="padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
+            <option value="OBSERVATION">Observation</option>
+            <option value="INTERACTION">Interaction</option>
+          </select>
+          <textarea id="mission-description" rows="3" placeholder="Describe the mission..." style="padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;resize:vertical;"></textarea>
+          <div style="display:flex;gap:10px;">
+            <input id="mission-xp" type="number" placeholder="XP reward" style="width:115px;padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
+            <input id="mission-gold" type="number" placeholder="Gold reward" style="width:115px;padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
+            <button type="button" class="dash-button" data-action="create-mission" style="margin-left:auto;">Add Mission</button>
+          </div>
+        </div>
+      </article>
+
+      <div class="dash-grid dash-grid--two" style="align-items:start;">
+        <article class="dash-card">
+          <div class="dash-card__headline">
+            <h3>Mission Pool</h3>
+            <span class="dash-muted">${missions.length} missions</span>
+          </div>
+          <div class="dash-list">
+            ${missionRows || renderEmptyState('No missions yet', 'Add missions above')}
+          </div>
+        </article>
+        <article class="dash-card">
+          <div class="dash-card__headline">
+            <h3>Flagged Reflections</h3>
+            <span class="dash-muted">${flagged.length} awaiting review</span>
+          </div>
+          <div class="dash-list">
+            ${flaggedRows || renderEmptyState('No flagged reflections', 'AI-approved reflections appear here when confidence is low.')}
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  async refreshMissions() {
+    this.setStatus('Refreshing missions...', false);
+    try {
+      const [missions, flaggedReflections] = await Promise.all([
+        apiService.getAllMissions().catch(() => []),
+        apiService.getFlaggedReflections().catch(() => [])
+      ]);
+      this.state.missions = Array.isArray(missions) ? missions : [];
+      this.state.flaggedReflections = Array.isArray(flaggedReflections) ? flaggedReflections : [];
+      this.renderMissionsSection();
+      this.setStatus('Missions refreshed.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Unable to refresh missions'), true);
+    }
+  }
+
+  async createMission() {
+    const title = this.portalRoot?.querySelector('#mission-title')?.value?.trim() || '';
+    const description = this.portalRoot?.querySelector('#mission-description')?.value?.trim() || '';
+    const type = this.portalRoot?.querySelector('#mission-type')?.value || 'OBSERVATION';
+    const rewardXp = Number(this.portalRoot?.querySelector('#mission-xp')?.value) || 50;
+    const rewardGold = Number(this.portalRoot?.querySelector('#mission-gold')?.value) || 20;
+
+    if (!title || !description) {
+      this.setStatus('Title and description are required.', true);
+      return;
+    }
+
+    this.setStatus('Creating mission...', false);
+    try {
+      const mission = await apiService.createMission({ title, description, type, rewardXp, rewardGold });
+      this.state.missions = [...this.state.missions, mission];
+      this.renderMissionsSection();
+      showToast(this.toastHost, 'Mission created.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to create mission'), true);
+    }
+  }
+
+  async toggleMissionActive(missionId, active) {
+    if (!missionId) return;
+    this.setStatus(active ? 'Activating mission...' : 'Deactivating mission...', false);
+    try {
+      const updated = await apiService.setMissionActive(missionId, active);
+      this.state.missions = this.state.missions.map((m) => m.missionId === missionId ? updated : m);
+      this.renderMissionsSection();
+      showToast(this.toastHost, active ? 'Mission activated.' : 'Mission deactivated.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to update mission'), true);
+    }
+  }
+
+  async reviewReflection(attemptId, approve) {
+    if (!attemptId) return;
+    this.setStatus(approve ? 'Approving reflection...' : 'Rejecting reflection...', false);
+    try {
+      await apiService.reviewReflection(attemptId, approve, approve ? 'Approved by admin.' : 'Rejected by admin.');
+      this.state.flaggedReflections = this.state.flaggedReflections.filter((a) => a.attemptId !== attemptId);
+      this.renderMissionsSection();
+      showToast(this.toastHost, approve ? 'Reflection approved — reward granted.' : 'Reflection rejected.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to review reflection'), true);
     }
   }
 

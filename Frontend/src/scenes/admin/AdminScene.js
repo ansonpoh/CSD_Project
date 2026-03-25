@@ -124,7 +124,7 @@ export class AdminScene extends Phaser.Scene {
               <span class="dash-nav__hint">07</span>
             </button>
             <button type="button" class="dash-nav__button" data-action="show-section" data-section="missions">
-              <span><span class="dash-nav__label">Real-World Missions</span><br/><span class="dash-nav__hint">Manage Gen Alpha observation missions</span></span>
+              <span><span class="dash-nav__label">Real-World Missions</span><br/><span class="dash-nav__hint">Manage offline missions</span></span>
               <span class="dash-nav__hint">08</span>
             </button>
           </nav>
@@ -1768,11 +1768,11 @@ export class AdminScene extends Phaser.Scene {
               <span>${m.rewardXp} XP · ${m.rewardGold} Gold</span>
             </div>
           </div>
-          ${renderBadge(m.isActive ? 'ACTIVE' : 'INACTIVE')}
+          ${renderBadge((m.active ?? m.isActive) ? 'ACTIVE' : 'INACTIVE')}
         </div>
         <div class="dash-row-card__body">${escapeHtml(m.description || '')}</div>
         <div class="dash-button-group">
-          ${m.isActive
+          ${(m.active ?? m.isActive)
             ? `<button type="button" class="dash-button dash-button--secondary" data-action="toggle-mission-active" data-mission-id="${escapeHtml(m.missionId || '')}" data-value="false">Deactivate</button>`
             : `<button type="button" class="dash-button dash-button--success" data-action="toggle-mission-active" data-mission-id="${escapeHtml(m.missionId || '')}" data-value="true">Activate</button>`}
         </div>

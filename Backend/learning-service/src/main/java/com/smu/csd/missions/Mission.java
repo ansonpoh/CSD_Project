@@ -1,5 +1,6 @@
 package com.smu.csd.missions;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -43,6 +44,7 @@ public class Mission {
     private int rewardGold = 20;
 
     @Builder.Default
+    @JsonProperty("isActive")
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 

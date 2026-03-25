@@ -53,7 +53,12 @@ export class AdminScene extends Phaser.Scene {
       topics: [],
       selectedContributorId: null,
       selectedTelemetryMapId: '',
-      mapPreviewByMapId: {}
+      mapPreviewByMapId: {},
+      selectedQuizMapId: '',
+      bankQuestions: [],
+      bankDraft: [],
+      mapQuiz: null,
+      quizDraftLoading: false
     };
   }
 
@@ -112,6 +117,10 @@ export class AdminScene extends Phaser.Scene {
               <span><span class="dash-nav__label">Telemetry</span><br/><span class="dash-nav__hint">Encounter funnel metrics</span></span>
               <span class="dash-nav__hint">06</span>
             </button>
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="question-bank">
+              <span><span class="dash-nav__label">Quiz Bank</span><br/><span class="dash-nav__hint">Build and publish map quizzes</span></span>
+              <span class="dash-nav__hint">07</span>
+            </button>
           </nav>
 
           <div class="dash-sidebar__actions">
@@ -141,6 +150,7 @@ export class AdminScene extends Phaser.Scene {
             <section class="dash-section" data-section-panel="flags"><div id="admin-flags"></div></section>
             <section class="dash-section" data-section-panel="contributors"><div id="admin-contributors"></div></section>
             <section class="dash-section" data-section-panel="telemetry"><div id="admin-telemetry"></div></section>
+            <section class="dash-section" data-section-panel="question-bank"><div id="admin-question-bank"></div></section>
           </div>
         </section>
       </div>
@@ -240,12 +250,90 @@ export class AdminScene extends Phaser.Scene {
       if (!contributorId) return;
       void this.toggleContributorStatus(contributorId, action === 'unban-contributor');
     }
+    if (action === 'load-quiz-map') {
+      event.preventDefault();
+      void this.loadQuizMapData();
+      return;
+    }
+    if (action === 'generate-bank-draft') {
+      event.preventDefault();
+      void this.generateBankDraft();
+      return;
+    }
+    if (action === 'add-blank-question') {
+      event.preventDefault();
+      this._readDraftFromForm();
+      this.state.bankDraft.push({ scenarioText: '', options: [{ optionText: '', isCorrect: false }, { optionText: '', isCorrect: false }, { optionText: '', isCorrect: false }] });
+      this.renderQuestionBankSection();
+      return;
+    }
+    if (action === 'add-draft-option') {
+      event.preventDefault();
+      this._readDraftFromForm();
+      const idx = Number(actionEl.dataset.questionIndex);
+      if (this.state.bankDraft[idx]) {
+        this.state.bankDraft[idx].options.push({ optionText: '', isCorrect: false });
+        this.renderQuestionBankSection();
+      }
+      return;
+    }
+    if (action === 'remove-draft-question') {
+      event.preventDefault();
+      this._readDraftFromForm();
+      const idx = Number(actionEl.dataset.questionIndex);
+      this.state.bankDraft.splice(idx, 1);
+      this.renderQuestionBankSection();
+      return;
+    }
+    if (action === 'save-bank-draft') {
+      event.preventDefault();
+      void this.saveBankDraft();
+      return;
+    }
+    if (action === 'approve-bank-question') {
+      event.preventDefault();
+      void this.approveBankQuestion(actionEl.dataset.bankQuestionId);
+      return;
+    }
+    if (action === 'reject-bank-question') {
+      event.preventDefault();
+      void this.rejectBankQuestion(actionEl.dataset.bankQuestionId);
+      return;
+    }
+    if (action === 'create-map-quiz') {
+      event.preventDefault();
+      void this.createMapQuiz();
+      return;
+    }
+    if (action === 'add-to-quiz') {
+      event.preventDefault();
+      void this.addBankQuestionToQuiz(actionEl.dataset.bankQuestionId);
+      return;
+    }
+    if (action === 'remove-from-quiz') {
+      event.preventDefault();
+      void this.removeFromMapQuiz(actionEl.dataset.questionId);
+      return;
+    }
+    if (action === 'publish-map-quiz') {
+      event.preventDefault();
+      void this.publishMapQuiz();
+      return;
+    }
+    if (action === 'unpublish-map-quiz') {
+      event.preventDefault();
+      void this.unpublishMapQuiz();
+      return;
+    }
   };
 
   handleChange = (event) => {
     if (event.target?.id === 'telemetry-map-select') {
       this.state.selectedTelemetryMapId = event.target.value || '';
       void this.refreshTelemetry();
+    }
+    if (event.target?.id === 'quiz-map-select') {
+      this.state.selectedQuizMapId = event.target.value || '';
     }
   };
 
@@ -304,6 +392,7 @@ export class AdminScene extends Phaser.Scene {
       this.renderFlagsSection();
       this.renderContributorsSection();
       this.renderTelemetrySection();
+      this.renderQuestionBankSection();
       this.setStatus('Dashboard refreshed.', false);
     } catch (error) {
       this.renderProfile();
@@ -313,6 +402,7 @@ export class AdminScene extends Phaser.Scene {
       this.renderFlagsSection(true);
       this.renderContributorsSection(true);
       this.renderTelemetrySection(true);
+      this.renderQuestionBankSection();
       this.setStatus(getErrorMessage(error, 'Unable to load admin dashboard'), true);
     }
   }
@@ -898,6 +988,10 @@ export class AdminScene extends Phaser.Scene {
       await this.refreshTelemetry();
       return;
     }
+    if (this.state.activeSection === 'question-bank') {
+      await this.loadQuizMapData();
+      return;
+    }
     await this.loadDashboard();
   }
 
@@ -1276,7 +1370,8 @@ export class AdminScene extends Phaser.Scene {
       'map-review': ['Map Review', 'Approve submitted maps, then assign topics and publish them.'],
       flags: ['Flag Reports', 'Resolve learner reports and keep audit notes attached to the decision.'],
       contributors: ['Contributors', 'Inspect contributor profiles and active status without modal sprawl.'],
-      telemetry: ['Telemetry', 'Inspect encounter funnel metrics with optional map filtering.']
+      telemetry: ['Telemetry', 'Inspect encounter funnel metrics with optional map filtering.'],
+      'question-bank': ['Quiz Bank', 'Generate, approve, and publish quiz questions for each map.']
     };
 
     this.portalRoot?.querySelectorAll('.dash-nav__button[data-section]').forEach((button) => {
@@ -1291,6 +1386,334 @@ export class AdminScene extends Phaser.Scene {
     const subtitleEl = this.portalRoot?.querySelector('#admin-main-subtitle');
     if (titleEl) titleEl.textContent = title;
     if (subtitleEl) subtitleEl.textContent = subtitle;
+  }
+
+  renderQuestionBankSection() {
+    const container = this.portalRoot?.querySelector('#admin-question-bank');
+    if (!container) return;
+
+    const maps = this.state.maps || [];
+    const mapOptions = maps.map((m) =>
+      `<option value="${escapeHtml(m.mapId)}" ${this.state.selectedQuizMapId === m.mapId ? 'selected' : ''}>${escapeHtml(m.name || m.mapId)}</option>`
+    ).join('');
+
+    const bankQuestions = this.state.bankQuestions || [];
+    const mapQuiz = this.state.mapQuiz;
+    const draft = this.state.bankDraft || [];
+
+    const approvedQuestions = bankQuestions.filter((q) => q.status === 'APPROVED');
+    const quizQuestionIds = new Set((mapQuiz?.questions || []).map((q) => q.questionId));
+
+    const bankHtml = bankQuestions.length === 0
+      ? renderEmptyState('No questions in bank', 'Generate a draft or add questions for this map.')
+      : bankQuestions.map((q) => `
+        <div class="dash-card" style="margin-bottom:10px;padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div style="flex:1;">
+              <p style="margin:0 0 8px;font-size:14px;">${escapeHtml(q.scenarioText)}</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+                ${(q.options || []).map((o) => `
+                  <span style="font-size:12px;padding:2px 8px;border-radius:4px;background:${o.isCorrect ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)'};border:1px solid ${o.isCorrect ? '#4ade80' : 'rgba(255,255,255,0.12)'};">
+                    ${escapeHtml(o.optionText)}${o.isCorrect ? ' ✓' : ''}
+                  </span>`).join('')}
+              </div>
+              <span style="font-size:11px;color:#b58d84;">${q.isMultiSelect ? 'Multi-select' : 'Single-select'}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;align-items:flex-end;">
+              ${renderBadge(q.status)}
+              ${q.status === 'PENDING_REVIEW' ? `
+                <button class="dash-button" style="font-size:12px;padding:4px 10px;" data-action="approve-bank-question" data-bank-question-id="${q.bankQuestionId}">Approve</button>
+                <button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;" data-action="reject-bank-question" data-bank-question-id="${q.bankQuestionId}">Reject</button>
+              ` : ''}
+              ${q.status === 'APPROVED' && mapQuiz && !quizQuestionIds.has(q.bankQuestionId) ? `
+                <button class="dash-button" style="font-size:12px;padding:4px 10px;" data-action="add-to-quiz" data-bank-question-id="${q.bankQuestionId}">Add to Quiz</button>
+              ` : ''}
+            </div>
+          </div>
+        </div>`).join('');
+
+    const quizHtml = !mapQuiz
+      ? `<div style="margin-bottom:16px;">${renderEmptyState('No quiz for this map', 'Create a quiz to start adding questions.')}</div>
+         <button class="dash-button" data-action="create-map-quiz">Create Quiz</button>`
+      : `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <strong>${escapeHtml(mapQuiz.title || 'Untitled Quiz')}</strong>
+            <span style="margin-left:8px;">${renderBadge(mapQuiz.isPublished ? 'published' : 'draft')}</span>
+            <p class="dash-muted" style="margin:4px 0 0;">${escapeHtml(mapQuiz.description || '')}</p>
+          </div>
+          ${mapQuiz.isPublished
+            ? `<button class="dash-button dash-button--secondary" data-action="unpublish-map-quiz">Unpublish</button>`
+            : `<button class="dash-button" data-action="publish-map-quiz" ${(mapQuiz.questions || []).length === 0 ? 'disabled' : ''}>Publish</button>`}
+        </div>
+        <div>
+          ${(mapQuiz.questions || []).length === 0
+            ? renderEmptyState('No questions added yet', 'Approve questions in the bank, then add them here.')
+            : (mapQuiz.questions || []).map((q, i) => `
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;margin-bottom:6px;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
+                <div style="flex:1;">
+                  <span style="font-size:12px;color:#b58d84;">Q${i + 1}${q.isMultiSelect ? ' · multi' : ''}</span>
+                  <p style="margin:4px 0 0;font-size:13px;">${escapeHtml(q.scenarioText)}</p>
+                </div>
+                ${!mapQuiz.isPublished ? `<button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;margin-left:12px;" data-action="remove-from-quiz" data-question-id="${q.questionId}">Remove</button>` : ''}
+              </div>`).join('')}
+        </div>`;
+
+    const isGenerating = Boolean(this.state.quizDraftLoading);
+
+    const draftHtml = `
+      <article class="dash-card" style="margin-top:20px;">
+        <div class="dash-card__headline">
+          <h3>Draft Questions</h3>
+          <span class="dash-muted">${draft.length > 0 ? `${draft.length} question${draft.length !== 1 ? 's' : ''} — edit then save to bank` : 'Add questions manually or generate from map content'}</span>
+        </div>
+        ${isGenerating ? `
+          <div style="display:flex;align-items:center;gap:12px;padding:20px 0;">
+            <div style="width:20px;height:20px;border:3px solid rgba(255,163,123,0.3);border-top-color:#ff9c6a;border-radius:50%;animation:dash-spin 0.8s linear infinite;flex-shrink:0;"></div>
+            <span style="color:#b58d84;font-size:14px;">Generating questions from map content...</span>
+          </div>
+        ` : ''}
+        <form id="draft-questions-form">
+          ${draft.map((q, i) => `
+            <div style="padding:14px;margin-bottom:12px;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="font-size:12px;color:#b58d84;font-weight:600;">Question ${i + 1}</label>
+                <button type="button" class="dash-button dash-button--secondary" style="font-size:11px;padding:2px 8px;" data-action="remove-draft-question" data-question-index="${i}">Remove</button>
+              </div>
+              <textarea name="scenario_${i}" style="width:100%;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#eef4ff;font-size:13px;resize:vertical;" rows="2" placeholder="Enter question / scenario text...">${escapeHtml(q.scenarioText)}</textarea>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+                <span style="font-size:11px;color:#b58d84;">Options — check the correct answer(s)</span>
+                ${(q.options || []).map((o, j) => `
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" name="correct_${i}_${j}" ${o.isCorrect ? 'checked' : ''} style="accent-color:#ff9c6a;width:16px;height:16px;flex-shrink:0;">
+                    <input type="text" name="option_${i}_${j}" value="${escapeHtml(o.optionText)}" placeholder="Option text..." style="flex:1;padding:6px 8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#eef4ff;font-size:13px;">
+                  </div>`).join('')}
+                <button type="button" class="dash-button dash-button--ghost" style="font-size:12px;padding:4px 10px;align-self:flex-start;" data-action="add-draft-option" data-question-index="${i}">+ Add Option</button>
+              </div>
+            </div>`).join('')}
+          <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;">
+            <button type="button" class="dash-button" data-action="add-blank-question" ${isGenerating ? 'disabled' : ''}>+ Add Question</button>
+            <button type="button" class="dash-button dash-button--secondary" data-action="generate-bank-draft" ${isGenerating ? 'disabled' : ''}>${isGenerating ? 'Generating...' : 'Generate AI Draft'}</button>
+            ${draft.length > 0 && !isGenerating ? `<button type="button" class="dash-button" style="margin-left:auto;" data-action="save-bank-draft">Save All to Bank</button>` : ''}
+          </div>
+        </form>
+      </article>`;
+
+    container.innerHTML = `
+      <article class="dash-card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <select id="quiz-map-select" style="flex:1;min-width:200px;padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;">
+            <option value="">— Select a map —</option>
+            ${mapOptions}
+          </select>
+          <button class="dash-button" data-action="load-quiz-map">Load</button>
+        </div>
+      </article>
+
+      ${this.state.selectedQuizMapId ? `
+        ${draftHtml}
+        <div class="dash-grid dash-grid--two" style="align-items:start;margin-top:20px;">
+          <article class="dash-card">
+            <div class="dash-card__headline"><h3>Question Bank</h3><span class="dash-muted">${bankQuestions.length} questions</span></div>
+            ${bankHtml}
+          </article>
+          <article class="dash-card">
+            <div class="dash-card__headline"><h3>Map Quiz</h3><span class="dash-muted">${approvedQuestions.length} approved available</span></div>
+            ${quizHtml}
+          </article>
+        </div>
+      ` : renderEmptyState('Select a map to begin', 'Choose a map above to manage its quiz questions.')}
+    `;
+  }
+
+  async loadQuizMapData() {
+    const mapId = this.state.selectedQuizMapId;
+    if (!mapId) {
+      this.setStatus('Please select a map first.', true);
+      return;
+    }
+    this.setStatus('Loading quiz data...', false);
+    try {
+      const [bankQuestions, mapQuiz] = await Promise.all([
+        apiService.getBankQuestionsByMap(mapId).catch(() => []),
+        apiService.getQuizForAdmin(mapId).catch(() => null)
+      ]);
+      this.state.bankQuestions = Array.isArray(bankQuestions) ? bankQuestions : [];
+      this.state.mapQuiz = mapQuiz || null;
+      this.state.bankDraft = [];
+      this.renderQuestionBankSection();
+      this.setStatus('Quiz data loaded.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to load quiz data'), true);
+    }
+  }
+
+  async generateBankDraft() {
+    const mapId = this.state.selectedQuizMapId;
+    if (!mapId) return;
+    this.state.quizDraftLoading = true;
+    this.renderQuestionBankSection();
+    this.setStatus('Generating AI draft questions...', false);
+    try {
+      const draft = await apiService.generateBankDraft(mapId);
+      this.state.bankDraft = Array.isArray(draft) ? draft : [];
+      this.state.quizDraftLoading = false;
+      this.renderQuestionBankSection();
+      this.setStatus(`Draft generated: ${this.state.bankDraft.length} questions ready to review.`, false);
+    } catch (error) {
+      this.state.quizDraftLoading = false;
+      this.renderQuestionBankSection();
+      this.setStatus(getErrorMessage(error, 'Failed to generate draft questions'), true);
+    }
+  }
+
+  _readDraftFromForm() {
+    const form = this.portalRoot?.querySelector('#draft-questions-form');
+    if (!form || !this.state.bankDraft.length) return;
+    this.state.bankDraft = this.state.bankDraft.map((q, i) => ({
+      ...q,
+      scenarioText: form.querySelector(`[name="scenario_${i}"]`)?.value ?? q.scenarioText,
+      options: q.options.map((o, j) => ({
+        optionText: form.querySelector(`[name="option_${i}_${j}"]`)?.value ?? o.optionText,
+        isCorrect: form.querySelector(`[name="correct_${i}_${j}"]`)?.checked ?? o.isCorrect
+      }))
+    }));
+  }
+
+  async saveBankDraft() {
+    const mapId = this.state.selectedQuizMapId;
+    if (!mapId || !this.state.bankDraft.length) return;
+
+    this._readDraftFromForm();
+
+    const questions = this.state.bankDraft.map((q) => ({
+      scenarioText: q.scenarioText,
+      options: q.options.filter((o) => o.optionText.trim()).map((o) => ({
+        optionText: o.optionText.trim(),
+        isCorrect: o.isCorrect
+      }))
+    })).filter((q) => q.scenarioText.trim() && q.options.length >= 2);
+
+    this.setStatus('Saving questions to bank...', false);
+    try {
+      const saved = await apiService.saveBankQuestions(mapId, questions);
+      this.state.bankQuestions = [...(this.state.bankQuestions || []), ...(Array.isArray(saved) ? saved : [])];
+      this.state.bankDraft = [];
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, `${saved.length} questions saved to bank.`);
+      this.setStatus('Questions saved.', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to save questions'), true);
+    }
+  }
+
+  async approveBankQuestion(bankQuestionId) {
+    if (!bankQuestionId) return;
+    this.setStatus('Approving question...', false);
+    try {
+      const updated = await apiService.approveBankQuestion(bankQuestionId);
+      this.state.bankQuestions = this.state.bankQuestions.map((q) =>
+        q.bankQuestionId === bankQuestionId ? updated : q
+      );
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Question approved.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to approve question'), true);
+    }
+  }
+
+  async rejectBankQuestion(bankQuestionId) {
+    if (!bankQuestionId) return;
+    this.setStatus('Rejecting question...', false);
+    try {
+      const updated = await apiService.rejectBankQuestion(bankQuestionId);
+      this.state.bankQuestions = this.state.bankQuestions.map((q) =>
+        q.bankQuestionId === bankQuestionId ? updated : q
+      );
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Question rejected.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to reject question'), true);
+    }
+  }
+
+  async createMapQuiz() {
+    const mapId = this.state.selectedQuizMapId;
+    if (!mapId) return;
+    const mapName = this.state.maps.find((m) => m.mapId === mapId)?.name || 'Map Quiz';
+    this.setStatus('Creating quiz...', false);
+    try {
+      const quiz = await apiService.createQuiz({ mapId, title: `${mapName} Quiz`, description: '' });
+      this.state.mapQuiz = quiz;
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Quiz created.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to create quiz'), true);
+    }
+  }
+
+  async addBankQuestionToQuiz(bankQuestionId) {
+    const quizId = this.state.mapQuiz?.quizId;
+    if (!quizId || !bankQuestionId) return;
+    this.setStatus('Adding question to quiz...', false);
+    try {
+      await apiService.addBankQuestionToQuiz(quizId, bankQuestionId);
+      const updated = await apiService.getQuizForAdmin(this.state.selectedQuizMapId);
+      this.state.mapQuiz = updated;
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Question added to quiz.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to add question to quiz'), true);
+    }
+  }
+
+  async removeFromMapQuiz(questionId) {
+    const quizId = this.state.mapQuiz?.quizId;
+    if (!quizId || !questionId) return;
+    this.setStatus('Removing question...', false);
+    try {
+      const updated = await apiService.removeQuizQuestion(quizId, questionId);
+      this.state.mapQuiz = updated;
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Question removed.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to remove question'), true);
+    }
+  }
+
+  async publishMapQuiz() {
+    const quizId = this.state.mapQuiz?.quizId;
+    if (!quizId) return;
+    this.setStatus('Publishing quiz...', false);
+    try {
+      const updated = await apiService.publishQuiz(quizId);
+      this.state.mapQuiz = updated;
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Quiz published — learners can now access it.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to publish quiz'), true);
+    }
+  }
+
+  async unpublishMapQuiz() {
+    const quizId = this.state.mapQuiz?.quizId;
+    if (!quizId) return;
+    this.setStatus('Unpublishing quiz...', false);
+    try {
+      const updated = await apiService.unpublishQuiz(quizId);
+      this.state.mapQuiz = updated;
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Quiz unpublished.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to unpublish quiz'), true);
+    }
   }
 
   async logout() {

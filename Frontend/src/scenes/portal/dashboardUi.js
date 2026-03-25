@@ -614,6 +614,10 @@ export function ensureDashboardPortalStyles() {
       outline: none;
     }
 
+    @keyframes dash-spin {
+      to { transform: rotate(360deg); }
+    }
+
     @keyframes dash-fade {
       from {
         opacity: 0;

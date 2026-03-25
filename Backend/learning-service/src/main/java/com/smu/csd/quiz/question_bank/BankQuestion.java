@@ -47,6 +47,9 @@ public class BankQuestion {
     @Column(nullable = false)
     private Status status;
 
+    @Column(name = "is_multi_select", nullable = false, columnDefinition = "boolean DEFAULT false")
+    private boolean isMultiSelect;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

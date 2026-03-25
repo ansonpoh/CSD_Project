@@ -3,6 +3,25 @@ import { apiService } from '../../../services/api.js';
 
 export const combatSceneQuizDataMethods = {
   async loadEncounterQuiz() {
+    // Try admin-approved map quiz first
+    if (this.mapId) {
+      try {
+        const response = await apiService.getQuizForLearner(this.mapId);
+        if (response?.questions?.length) {
+          this.quizEncounter = this.normalizeMapQuiz(response);
+          this.mapQuizId = response.quizId;
+          this.usingMapQuiz = true;
+          this.setupQuizState();
+          return;
+        }
+      } catch (_err) {
+        // No published map quiz — fall through to encounter quiz
+      }
+    }
+
+    // Fall back to encounter quiz
+    this.usingMapQuiz = false;
+    this.mapQuizId = null;
     try {
       const payload = {
         mapId: this.mapId,
@@ -15,24 +34,60 @@ export const combatSceneQuizDataMethods = {
       console.warn('Quiz generation API failed, using fallback quiz:', error);
       this.quizEncounter = this.buildFallbackQuizEncounter();
     }
+    this.setupQuizState();
+  },
 
+  setupQuizState() {
     this.totalQuestions = this.quizEncounter.totalQuestions;
     this.requiredCorrectAnswers = this.quizEncounter.requiredCorrectAnswers;
     this.requiredAccuracyPercent = this.quizEncounter.requiredAccuracyPercent;
     this.startingMonsterHpPercent = this.quizEncounter.startingMonsterHpPercent;
     this.lossStreak = this.quizEncounter.lossStreak;
-    this.applyEventAssistModifiers();
+
+    if (!this.usingMapQuiz) {
+      this.applyEventAssistModifiers();
+    }
+
     this.monsterHP = Phaser.Math.Clamp(this.startingMonsterHpPercent, 1, 100);
     this.damagePerCorrect = Math.max(1, Math.ceil(this.monsterHP / Math.max(1, this.totalQuestions)));
     this.bossEncounter = Boolean(this.quizEncounter.bossEncounter);
     this.syncPlayerHealthToHearts();
 
     this.refreshQuizMeta();
-    this.addLog(`Encounter rule: each wrong answer costs 1 heart. Reach 0 hearts and you lose.`);
-    if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
-    if (this.eventAssist) this.addLog(`Map event assist active: ${this.eventAssist.label || 'authored modifier applied'}.`);
-    if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
+
+    if (this.usingMapQuiz) {
+      this.addLog('Answer all questions — results submitted at the end.');
+    } else {
+      this.addLog('Encounter rule: each wrong answer costs 1 heart. Reach 0 hearts and you lose.');
+      if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
+      if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
+    }
+
     this.renderCurrentQuestion();
+  },
+
+  normalizeMapQuiz(response) {
+    const questions = (response.questions || []).map((q) => ({
+      questionId: q.questionId,
+      prompt: q.scenarioText,
+      options: (q.options || []).map((o) => o.optionText),
+      optionIds: (q.options || []).map((o) => o.optionId),
+      isMultiSelect: Boolean(q.isMultiSelect)
+    }));
+
+    const total = questions.length;
+    const passingScore = Math.ceil(total * 0.7);
+
+    return {
+      quizId: response.quizId,
+      bossEncounter: this.bossEncounter,
+      totalQuestions: total,
+      requiredCorrectAnswers: passingScore,
+      requiredAccuracyPercent: 70,
+      startingMonsterHpPercent: 100,
+      lossStreak: 0,
+      questions
+    };
   },
 
   applyEventAssistModifiers() {
@@ -69,6 +124,8 @@ export const combatSceneQuizDataMethods = {
           questionId: question?.questionId || `q-${Math.random().toString(36).slice(2, 10)}`,
           prompt: String(question?.prompt || 'Answer the question correctly to attack.'),
           options,
+          optionIds: [],
+          isMultiSelect: false,
           correctOptionIndex
         };
       })
@@ -76,7 +133,6 @@ export const combatSceneQuizDataMethods = {
 
     if (!normalizedQuestions.length) return this.buildFallbackQuizEncounter();
 
-    const totalQuestions = Number.isInteger(payload?.totalQuestions) ? payload.totalQuestions : normalizedQuestions.length;
     const startingMonsterHpPercent = Number.isFinite(payload?.startingMonsterHpPercent)
       ? Phaser.Math.Clamp(Number(payload.startingMonsterHpPercent), 1, 100)
       : 100;
@@ -134,6 +190,8 @@ export const combatSceneQuizDataMethods = {
         questionId: `fallback-${i + 1}`,
         prompt: source.prompt,
         options,
+        optionIds: [],
+        isMultiSelect: false,
         correctOptionIndex: source.correctOptionIndex
       });
     }
@@ -149,4 +207,3 @@ export const combatSceneQuizDataMethods = {
     };
   }
 };
-

@@ -7,5 +7,6 @@ public record MapQuizQuestionResponse(
     UUID questionId,
     String scenarioText,
     int questionOrder,
+    boolean isMultiSelect,
     List<MapQuizOptionResponse> options
 ) {}

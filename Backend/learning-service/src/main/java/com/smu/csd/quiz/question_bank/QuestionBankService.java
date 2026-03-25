@@ -173,9 +173,13 @@ public class QuestionBankService {
         }
 
         return requests.stream().map(req -> {
+            boolean multiSelect = req.options() != null &&
+                req.options().stream().filter(BankQuestionOptionRequest::isCorrect).count() > 1;
+
             BankQuestion question = BankQuestion.builder()
                 .mapId(mapId)
                 .scenarioText(req.scenarioText())
+                .isMultiSelect(multiSelect)
                 .status(BankQuestion.Status.PENDING_REVIEW)
                 .build();
             bankQuestionRepository.save(question);
@@ -212,7 +216,11 @@ public class QuestionBankService {
     @Transactional
     public BankQuestionResponse updateQuestion(UUID bankQuestionId, BankQuestionRequest request) {
         BankQuestion question = requireBankQuestion(bankQuestionId);
+        boolean multiSelect = request.options() != null &&
+            request.options().stream().filter(BankQuestionOptionRequest::isCorrect).count() > 1;
+
         question.setScenarioText(request.scenarioText());
+        question.setMultiSelect(multiSelect);
         bankQuestionRepository.save(question);
 
         bankOptionRepository.deleteByBankQuestion_BankQuestionId(bankQuestionId);
@@ -269,6 +277,7 @@ public class QuestionBankService {
             .quiz(quiz)
             .scenarioText(bankQuestion.getScenarioText())
             .questionOrder(nextOrder)
+            .isMultiSelect(bankQuestion.isMultiSelect())
             .build();
         mapQuizQuestionRepository.save(quizQuestion);
 
@@ -306,6 +315,7 @@ public class QuestionBankService {
             question.getMapId(),
             mapName,
             question.getScenarioText(),
+            question.isMultiSelect(),
             question.getStatus().name(),
             question.getCreatedAt(),
             optionResponses

@@ -94,6 +94,7 @@ public class MapQuizService {
             .quiz(quiz)
             .scenarioText(request.scenarioText())
             .questionOrder(request.questionOrder())
+            .isMultiSelect(request.isMultiSelect())
             .build();
         questionRepository.save(question);
 
@@ -263,7 +264,7 @@ public class MapQuizService {
                         includeAnswers ? o.isCorrect() : null
                     ))
                     .toList();
-                return new MapQuizQuestionResponse(q.getQuestionId(), q.getScenarioText(), q.getQuestionOrder(), optionResponses);
+                return new MapQuizQuestionResponse(q.getQuestionId(), q.getScenarioText(), q.getQuestionOrder(), q.isMultiSelect(), optionResponses);
             })
             .toList();
 

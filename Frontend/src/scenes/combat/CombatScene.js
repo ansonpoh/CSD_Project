@@ -57,6 +57,12 @@ export class CombatScene extends Phaser.Scene {
     this.lossStreak = 0;
     this.eventAssist = null;
     this.preCombatHpBonus = 0;
+
+    this.mapQuizId = null;
+    this.usingMapQuiz = false;
+    this.collectedAnswers = [];
+    this.currentSelections = new Set();
+    this.confirmBtn = null;
   }
 
   init(data) {
@@ -92,6 +98,12 @@ export class CombatScene extends Phaser.Scene {
       .filter((key) => key.startsWith('attack'))
       .map((key) => `${this.monsterName}_${key}`)
       .filter((fullKey) => this.anims.exists(fullKey));
+
+    this.mapQuizId = null;
+    this.usingMapQuiz = false;
+    this.collectedAnswers = [];
+    this.currentSelections = new Set();
+    this.confirmBtn = null;
 
     // Scene objects are recreated on each entry; clear old references first.
     this.optionButtons = [];

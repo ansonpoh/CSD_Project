@@ -729,6 +729,16 @@ class ApiService {
     return data;
   }
 
+  async getQuizForLearner(mapId) {
+    const { data } = await this.api.get(`/map-quizzes/map/${mapId}`);
+    return data;
+  }
+
+  async submitMapQuizAttempt(quizId, answers) {
+    const { data } = await this.api.post('/map-quizzes/submit', { quizId, answers });
+    return data;
+  }
+
   async publishQuiz(quizId) {
     const { data } = await this.api.put(`/map-quizzes/${quizId}/publish`);
     return data;

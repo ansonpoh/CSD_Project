@@ -9,6 +9,7 @@ public record BankQuestionResponse(
     UUID mapId,
     String mapName,
     String scenarioText,
+    boolean isMultiSelect,
     String status,
     LocalDateTime createdAt,
     List<BankQuestionOptionResponse> options

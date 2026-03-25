@@ -59,16 +59,15 @@ export const mapRuntimeMethods = {
       const layer = this.map.createLayer(layerData.name, tilesets, 0, 0);
       if (!layer) return;
 
-      const isForestOrCaveMap = mapKey === 'map1' || mapKey === 'map2';
+      const isMap1to3 = mapKey === 'map1' || mapKey === 'map2' || mapKey === 'map3';
 
       const collidesByName = /collision|collide|wall|blocked|barrier/i.test(String(layerData.name || ''));
       const hasCollidesProperty = layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true);
 
-      // Forest and cave rule: first 2 layers (0,1) no collision; layers 2 onwards collide
-      const shouldCollide = isForestOrCaveMap ? layerIndex >= 2 : (collidesByName || hasCollidesProperty);
+      // Forest and cave and mountain rule: first 2 layers (0,1) no collision; layers 2 onwards collide
+      const shouldCollide = isMap1to3 ? layerIndex >= 2 : (collidesByName || hasCollidesProperty);
 
-      //temp till i add the other maps
-      if (isForestOrCaveMap) {
+      if (isMap1to3) {
         if (shouldCollide) layer.setCollisionByExclusion([-1]);
       } else {
         layer.setCollisionByProperty({ collides: true });

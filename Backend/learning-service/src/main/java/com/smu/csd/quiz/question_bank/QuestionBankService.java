@@ -147,9 +147,14 @@ public class QuestionBankService {
             throw new IllegalStateException("AI returned an empty response. Please try again.");
         }
 
-        String cleaned = raw.strip()
-            .replaceAll("(?s)^```[a-z]*\\s*", "")
-            .replaceAll("(?s)\\s*```$", "")
+        // Extract only the JSON array portion (between first '[' and last ']')
+        int arrayStart = raw.indexOf('[');
+        int arrayEnd = raw.lastIndexOf(']');
+        String extracted = (arrayStart >= 0 && arrayEnd > arrayStart)
+            ? raw.substring(arrayStart, arrayEnd + 1)
+            : raw;
+
+        String cleaned = extracted.strip()
             .replaceAll(",\\s*(]|})", "$1")
             // Fix missing comma before a known field that appears on a new line
             .replaceAll("(\"[^\"]*\"|true|false|null)\\s*\\n(\\s*)(\"?(?:isCorrect|optionText|scenarioText|options)\"?\\s*:)", "$1,\n$2$3")

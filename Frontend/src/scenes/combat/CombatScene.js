@@ -63,6 +63,8 @@ export class CombatScene extends Phaser.Scene {
     this.collectedAnswers = [];
     this.currentSelections = new Set();
     this.confirmBtn = null;
+    this.monsterIndex = 0;
+    this.isRematch = false;
   }
 
   init(data) {
@@ -89,6 +91,8 @@ export class CombatScene extends Phaser.Scene {
     this.maxLifelines = this.remainingLifelines;
     this.startingMonsterHpPercent = 100;
     this.lossStreak = 0;
+    this.monsterIndex = data?.monsterIndex ?? 0;
+    this.isRematch = Boolean(data?.isRematch);
     this.eventAssist = data?.eventAssist || null;
     this.preCombatHpBonus = Number(gameState.consumeActiveEffect('nextCombatHpBonus') || 0);
 
@@ -226,15 +230,21 @@ export class CombatScene extends Phaser.Scene {
     this.battleOver = true;
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
-    await this.submitCombatResult(true);
+    if (!this.isRematch) {
+      await this.submitCombatResult(true);
+    }
 
     if (this.monsterSprite && this.canPlayAnim(`${this.monsterName}_dead`)) {
       this.monsterSprite.play(`${this.monsterName}_dead`, true);
     }
 
-    this.addLog('Victory! Quiz threshold cleared.');
-    this.addLog('Return to the map and claim your quest reward.');
-    dailyQuestService.recordEvent('monster_defeated');
+    if (this.isRematch) {
+      this.addLog('Practice complete! No rewards for rematches.');
+    } else {
+      this.addLog('Victory! Quiz threshold cleared.');
+      this.addLog('Return to the map and claim your quest reward.');
+      dailyQuestService.recordEvent('monster_defeated');
+    }
     this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'VICTORY!', {
       fontSize: '72px',
       fontStyle: 'bold',

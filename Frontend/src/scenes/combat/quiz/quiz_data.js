@@ -11,6 +11,7 @@ export const combatSceneQuizDataMethods = {
           this.quizEncounter = this.normalizeMapQuiz(response);
           this.mapQuizId = response.quizId;
           this.usingMapQuiz = true;
+          this.splitQuestionsForMonster();
           this.setupQuizState();
           return;
         }
@@ -34,7 +35,51 @@ export const combatSceneQuizDataMethods = {
       console.warn('Quiz generation API failed, using fallback quiz:', error);
       this.quizEncounter = this.buildFallbackQuizEncounter();
     }
+    this.splitQuestionsForMonster();
     this.setupQuizState();
+  },
+
+  /**
+   * Splits the full question pool evenly between the two monsters on the map.
+   * For map quizzes (mixed types): monster 0 gets multi-select questions, monster 1 gets
+   * single-choice. If all questions are the same type, falls back to positional split.
+   * For encounter quizzes (all single-choice): positional split — first half vs second half.
+   */
+  splitQuestionsForMonster() {
+    const all = this.quizEncounter?.questions;
+    if (!all?.length) return;
+
+    let slotA, slotB;
+
+    if (this.usingMapQuiz) {
+      const multi  = all.filter((q) => q.isMultiSelect);
+      const single = all.filter((q) => !q.isMultiSelect);
+      if (multi.length && single.length) {
+        // Type-based split
+        slotA = multi;
+        slotB = single;
+      } else {
+        // All same type — split by position
+        const half = Math.ceil(all.length / 2);
+        slotA = all.slice(0, half);
+        slotB = all.slice(half);
+      }
+    } else {
+      // Encounter quiz — always positional
+      const half = Math.ceil(all.length / 2);
+      slotA = all.slice(0, half);
+      slotB = all.slice(half);
+    }
+
+    const chosen = this.monsterIndex === 1 ? slotB : slotA;
+    // Ensure at least one question even if pool is very small
+    this.quizEncounter.questions = chosen.length ? chosen : all;
+    const n = this.quizEncounter.questions.length;
+    this.quizEncounter.totalQuestions = n;
+    // Recalculate pass mark against the sliced pool
+    this.quizEncounter.requiredCorrectAnswers = this.usingMapQuiz
+      ? Math.max(1, Math.ceil(n * 0.7))
+      : n; // encounter quiz requires all correct
   },
 
   setupQuizState() {

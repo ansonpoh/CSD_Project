@@ -7,8 +7,8 @@ const CHALLENGES = [
     id: 'forest-basics',
     theme: 'forest',
     title: 'Scout Syntax',
-    prompt: 'Build the strongest study tip.',
-    orderedTokens: ['Review', 'small', 'chunks', 'every', 'day'],
+    prompt: 'Arrange the Gen Alpha fact.',
+    orderedTokens: ['They', 'were', 'born', 'into', 'smartphones'],
     rewardXp: 40,
     rewardAssist: 0
   },
@@ -16,8 +16,8 @@ const CHALLENGES = [
     id: 'cave-memory',
     theme: 'cave',
     title: 'Echo Match',
-    prompt: 'Restore the memory-friendly routine.',
-    orderedTokens: ['Active', 'recall', 'beats', 'passive', 'reading'],
+    prompt: 'How does Gen Alpha consume media?',
+    orderedTokens: ['Skipping', 'ads', 'is', 'their', 'default'],
     rewardXp: 50,
     rewardAssist: 1
   },
@@ -25,8 +25,8 @@ const CHALLENGES = [
     id: 'mountain-mastery',
     theme: 'mountain',
     title: 'Summit Sequence',
-    prompt: 'Arrange the mastery mindset.',
-    orderedTokens: ['Accuracy', 'first', 'speed', 'comes', 'later'],
+    prompt: 'Who shapes Gen Alpha opinions?',
+    orderedTokens: ['They', 'trust', 'creators', 'not', 'brands'],
     rewardXp: 60,
     rewardAssist: 1
   },
@@ -34,8 +34,8 @@ const CHALLENGES = [
     id: 'garden-remix',
     theme: 'garden',
     title: 'Remix Relay',
-    prompt: 'Compose the creator mantra.',
-    orderedTokens: ['Test', 'ideas', 'then', 'improve', 'fast'],
+    prompt: 'Where did Gen Alpha learn to connect?',
+    orderedTokens: ['Roblox', 'shaped', 'how', 'they', 'socialise'],
     rewardXp: 55,
     rewardAssist: 1
   }

@@ -1,10 +1,14 @@
 package com.smu.csd.economy.purchase;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.smu.csd.achievements.AchievementService;
 import com.smu.csd.economy.inventory.LearnerInventory;
 import com.smu.csd.economy.inventory.LearnerInventoryRepository;
 import com.smu.csd.economy.item.Item;
@@ -21,13 +25,22 @@ public class PurchaseService {
     private final LearnerRepository learnerRepository;
     private final ItemRepository itemRepository;
     private final LearnerInventoryRepository learnerInventoryRepository;
+    private final AchievementService achievementService;
 
-    public PurchaseService(PurchaseRepository repository, PurchaseLineRepository purchaseLineRepository, LearnerRepository learnerRepository, ItemRepository itemRepository, LearnerInventoryRepository learnerInventoryRepository) {
+    public PurchaseService(
+        PurchaseRepository repository,
+        PurchaseLineRepository purchaseLineRepository,
+        LearnerRepository learnerRepository,
+        ItemRepository itemRepository,
+        LearnerInventoryRepository learnerInventoryRepository,
+        AchievementService achievementService
+    ) {
         this.repository = repository;
         this.purchaseLineRepository = purchaseLineRepository;
         this.learnerRepository = learnerRepository;
         this.itemRepository = itemRepository;
         this.learnerInventoryRepository = learnerInventoryRepository;
+        this.achievementService = achievementService;
     }
 
     @Transactional
@@ -35,50 +48,79 @@ public class PurchaseService {
         Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
         if(learner == null) throw new RuntimeException("Learner not found.");
 
-        Purchase purchase = Purchase.builder()
-            .learner(learner)
-            .purchased_at(LocalDateTime.now())
-            .total_cost(0f)
-            .build();
-        purchase = repository.save(purchase);
-
+        LocalDateTime now = LocalDateTime.now();
         float totalCost = 0f;
+        List<ResolvedLine> resolvedLines = new ArrayList<>();
 
-        // For PurchaseLines
         for(PurchaseRequest.Line line : request.getLines()) {
             Item item = itemRepository.findById(line.getItemId())
                 .orElseThrow(() -> new RuntimeException("Item not found: " + line.getItemId()));
             
             int qty = Math.max(1, line.getQuantity());
             float unitPrice = item.getPrice() == null ? 0f : item.getPrice();
-            totalCost += unitPrice * qty;
+            float lineCost = unitPrice * qty;
+            totalCost += lineCost;
+            resolvedLines.add(new ResolvedLine(item, qty, unitPrice));
+        }
 
+        int goldCost = Math.round(totalCost);
+        int currentGold = learner.getGold() == null ? 0 : learner.getGold();
+        if (currentGold < goldCost) {
+            throw new RuntimeException("Insufficient gold.");
+        }
+
+        learner.setGold(currentGold - goldCost);
+        learner.setUpdated_at(now);
+        learnerRepository.save(learner);
+
+        Purchase purchase = Purchase.builder()
+            .learner(learner)
+            .purchased_at(now)
+            .total_cost(totalCost)
+            .build();
+        purchase = repository.save(purchase);
+
+        // For PurchaseLines and inventory updates
+        for (ResolvedLine line : resolvedLines) {
             PurchaseLine purchaseLine = PurchaseLine.builder()
                 .purchase(purchase)
-                .item(item)
-                .quantity(qty)
-                .unit_price(unitPrice)
+                .item(line.item())
+                .quantity(line.quantity())
+                .unit_price(line.unitPrice())
                 .build();
             purchaseLineRepository.save(purchaseLine);
 
             LearnerInventory inv = learnerInventoryRepository
-                    .findByLearnerLearnerIdAndItemItemId(learner.getLearnerId(), item.getItemId())
+                    .findByLearnerLearnerIdAndItemItemId(learner.getLearnerId(), line.item().getItemId())
                     .orElseGet(() -> LearnerInventory.builder()
                             .learner(learner)
-                            .item(item)
+                            .item(line.item())
                             .quantity(0)
                             .is_equipped(Boolean.FALSE)
-                            .acquired_at(LocalDateTime.now())
+                            .acquired_at(now)
                             .build());
 
-            inv.setQuantity((inv.getQuantity() == null ? 0 : inv.getQuantity()) + qty);
-            inv.setUpdated_at(LocalDateTime.now());
+            inv.setQuantity((inv.getQuantity() == null ? 0 : inv.getQuantity()) + line.quantity());
+            inv.setUpdated_at(now);
             learnerInventoryRepository.save(inv);
         }
 
-        purchase.setTotal_cost(totalCost);
-        return repository.save(purchase);
+        achievementService.recordEvent(
+            learner.getLearnerId(),
+            "purchase_completed",
+            1,
+            "player-service",
+            "purchase_completed:" + purchase.getPurchase_id(),
+            Map.of(
+                "purchase_id", purchase.getPurchase_id().toString(),
+                "total_cost", purchase.getTotal_cost()
+            )
+        );
+
+        return purchase;
 
     }
+
+    private record ResolvedLine(Item item, int quantity, float unitPrice) {}
     
 }

@@ -94,6 +94,7 @@ public class MapQuizService {
             .quiz(quiz)
             .scenarioText(request.scenarioText())
             .questionOrder(request.questionOrder())
+            .isMultiSelect(request.isMultiSelect())
             .build();
         questionRepository.save(question);
 
@@ -171,8 +172,9 @@ public class MapQuizService {
             throw new IllegalStateException("You must interact with all NPCs before submitting the quiz.");
         }
 
-        List<MapQuizQuestion> questions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quiz.getQuizId());
-        int total = questions.size();
+        // Score only against the questions that were actually submitted (frontend may
+        // send a subset of the full quiz due to per-monster question splitting).
+        int total = request.answers().size();
         int correct = 0;
 
         for (MapQuizAnswerRequest answer : request.answers()) {
@@ -263,7 +265,7 @@ public class MapQuizService {
                         includeAnswers ? o.isCorrect() : null
                     ))
                     .toList();
-                return new MapQuizQuestionResponse(q.getQuestionId(), q.getScenarioText(), q.getQuestionOrder(), optionResponses);
+                return new MapQuizQuestionResponse(q.getQuestionId(), q.getScenarioText(), q.getQuestionOrder(), q.isMultiSelect(), optionResponses);
             })
             .toList();
 

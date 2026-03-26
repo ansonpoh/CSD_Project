@@ -43,8 +43,8 @@ export const tilesetMethods = {
     const source = info?.source;
     if (!source || !canvas) return;
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
+    const context = typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null;
+    if (!context || typeof context.drawImage !== 'function') return;
 
     const clamped = Phaser.Math.Clamp(tileIndex, 0, info.maxTiles - 1);
     const sx = (clamped % info.cols) * TILE_SIZE;
@@ -52,18 +52,27 @@ export const tilesetMethods = {
     const width = canvas.width || size;
     const height = canvas.height || size;
 
-    context.clearRect(0, 0, width, height);
-    context.imageSmoothingEnabled = false;
-    context.drawImage(source, sx, sy, TILE_SIZE, TILE_SIZE, 0, 0, width, height);
+    try {
+      context.clearRect(0, 0, width, height);
+      context.imageSmoothingEnabled = false;
+      context.drawImage(source, sx, sy, TILE_SIZE, TILE_SIZE, 0, 0, width, height);
+    } catch {
+      // Ignore transient canvas teardown race conditions during scene/account switches.
+    }
   },
 
   buildVisibleEntries(source, cols, rows, tilePx) {
     try {
+      if (!source?.width || !source?.height) {
+        return Array.from({ length: cols * rows }, (_, index) => index);
+      }
       const canvas = document.createElement('canvas');
       canvas.width = source.width;
       canvas.height = source.height;
       const context = canvas.getContext('2d', { willReadFrequently: true });
-      if (!context) return Array.from({ length: cols * rows }, (_, index) => index);
+      if (!context || typeof context.drawImage !== 'function') {
+        return Array.from({ length: cols * rows }, (_, index) => index);
+      }
       context.drawImage(source, 0, 0);
 
       const visible = [];

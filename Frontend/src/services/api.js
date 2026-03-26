@@ -3,6 +3,7 @@ import { supabase } from '../config/supabaseClient';
 
 class ApiService {
   constructor() {
+    this.accessToken = null;
     this.api = axios.create({
       baseURL: '/api',
       headers: {
@@ -10,10 +11,30 @@ class ApiService {
       }
     });
 
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        this.accessToken = session?.access_token || null;
+      })
+      .catch(() => {
+        this.accessToken = null;
+      });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      this.accessToken = session?.access_token || null;
+    });
+
     this.api.interceptors.request.use(async (config) => {
-      const {data: {session}} = await supabase.auth.getSession();
-      if(session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
+      let token = this.accessToken;
+
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || null;
+        this.accessToken = token;
+      }
+
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     })
@@ -117,8 +138,43 @@ class ApiService {
     return data;
   }
 
+  async submitMapDraft(draftId, payload = {}) {
+    const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/submit`, payload);
+    return data;
+  }
+
+  // Backward-compatible alias.
   async publishMapDraft(draftId, payload = {}) {
-    const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/publish`, payload);
+    return this.submitMapDraft(draftId, payload);
+  }
+
+  async getMyMapSubmissions() {
+    const { data } = await this.api.get('/maps/submissions/me');
+    return data;
+  }
+
+  async getMapReviewQueue() {
+    const { data } = await this.api.get('/maps/review/queue');
+    return data;
+  }
+
+  async getApprovedUnpublishedMaps() {
+    const { data } = await this.api.get('/maps/review/approved-unpublished');
+    return data;
+  }
+
+  async approveMapSubmission(mapId) {
+    const { data } = await this.api.put(`/maps/${mapId}/approve`);
+    return data;
+  }
+
+  async rejectMapSubmission(mapId, reason) {
+    const { data } = await this.api.put(`/maps/${mapId}/reject`, { reason });
+    return data;
+  }
+
+  async publishApprovedMap(mapId, topicId) {
+    const { data } = await this.api.put(`/maps/${mapId}/publish`, { topicId });
     return data;
   }
 
@@ -180,6 +236,11 @@ class ApiService {
 
   async claimEncounterReward(mapId, monsterId) {
     const { data } = await this.api.post(`/encounters/map/${mapId}/monster/${monsterId}/claim`);
+    return data;
+  }
+
+  async getSideChallengeByTheme(theme) {
+    const { data } = await this.api.get(`/side-challenges/theme/${theme}`);
     return data;
   }
 
@@ -260,6 +321,14 @@ class ApiService {
     return data;
   }
 
+  async awardMyXp(xpAwarded = 0, goldAwarded = 0) {
+    const { data } = await this.api.post('/learner/me/award-xp', {
+      xpAwarded,
+      goldAwarded
+    });
+    return data;
+  }
+
   async getMyProfileState() {
     const { data } = await this.api.get('/learner/me/profile-state');
     return data;
@@ -280,8 +349,96 @@ class ApiService {
     return data;
   }
 
+  async getMyAchievements() {
+    const { data } = await this.api.get('/learner/me/achievements');
+    return data;
+  }
+
+  async claimMyAchievement(achievementId) {
+    const { data } = await this.api.post(`/learner/me/achievements/${achievementId}/claim`);
+    return data;
+  }
+
   async deleteLearner(id) {
     await this.api.delete(`/learner/${id}`);
+  }
+
+  // Friendship endpoints
+  async searchFriends(query, limit = 8) {
+    const { data } = await this.api.get('/learner/friends/search', {
+      params: { query, limit }
+    });
+    return data;
+  }
+
+  async sendFriendRequest(targetLearnerId) {
+    const { data } = await this.api.post('/learner/friends/requests', { targetLearnerId });
+    return data;
+  }
+
+  async getIncomingFriendRequests() {
+    const { data } = await this.api.get('/learner/friends/requests/incoming');
+    return data;
+  }
+
+  async getOutgoingFriendRequests() {
+    const { data } = await this.api.get('/learner/friends/requests/outgoing');
+    return data;
+  }
+
+  async acceptFriendRequest(friendshipId) {
+    const { data } = await this.api.post(`/learner/friends/requests/${friendshipId}/accept`);
+    return data;
+  }
+
+  async declineFriendRequest(friendshipId) {
+    const { data } = await this.api.post(`/learner/friends/requests/${friendshipId}/decline`);
+    return data;
+  }
+
+  async cancelFriendRequest(friendshipId) {
+    await this.api.delete(`/learner/friends/requests/${friendshipId}`);
+  }
+
+  async getFriendsList() {
+    const { data } = await this.api.get('/learner/friends/list');
+    return data;
+  }
+
+  async removeFriend(friendLearnerId) {
+    await this.api.delete(`/learner/friends/list/${friendLearnerId}`);
+  }
+
+  // Chat endpoints
+  async openFriendConversation(friendLearnerId) {
+    const { data } = await this.api.post(`/learner/chat/friends/${friendLearnerId}/conversation`);
+    return data;
+  }
+
+  async getChatConversations() {
+    const { data } = await this.api.get('/learner/chat/conversations');
+    return data;
+  }
+
+  async getConversationMessages(chatConversationId, before = null, limit = 30) {
+    const params = { limit };
+    if (before) params.before = before;
+    const { data } = await this.api.get(`/learner/chat/conversations/${chatConversationId}/messages`, { params });
+    return data;
+  }
+
+  async sendConversationMessage(chatConversationId, body) {
+    const { data } = await this.api.post(`/learner/chat/conversations/${chatConversationId}/messages`, { body });
+    return data;
+  }
+
+  async clearConversationMessages(chatConversationId) {
+    await this.api.delete(`/learner/chat/conversations/${chatConversationId}/messages`);
+  }
+
+  async updateChatSettings(targetLearnerId, payload) {
+    const { data } = await this.api.put(`/learner/chat/settings/${targetLearnerId}`, payload);
+    return data;
   }
 
   // Learner Lesson
@@ -412,6 +569,11 @@ class ApiService {
 
   async deactivateContributor(id) {
     const { data } = await this.api.put(`/contributors/${id}/deactivate`);
+    return data;
+  }
+
+  async getMyContributorAnalytics() {
+    const { data } = await this.api.get('/contributors/analytics/me');
     return data;
   }
 
@@ -572,6 +734,16 @@ class ApiService {
     return data;
   }
 
+  async getQuizForLearner(mapId) {
+    const { data } = await this.api.get(`/map-quizzes/map/${mapId}`);
+    return data;
+  }
+
+  async submitMapQuizAttempt(quizId, answers) {
+    const { data } = await this.api.post('/map-quizzes/submit', { quizId, answers });
+    return data;
+  }
+
   async publishQuiz(quizId) {
     const { data } = await this.api.put(`/map-quizzes/${quizId}/publish`);
     return data;
@@ -584,6 +756,43 @@ class ApiService {
 
   async removeQuizQuestion(quizId, questionId) {
     const { data } = await this.api.delete(`/map-quizzes/${quizId}/questions/${questionId}`);
+    return data;
+  }
+
+  // Real-World Missions (Admin)
+  async getAllMissions() {
+    const { data } = await this.api.get('/missions');
+    return data;
+  }
+
+  async createMission(missionData) {
+    const { data } = await this.api.post('/missions', missionData);
+    return data;
+  }
+
+  async setMissionActive(missionId, value) {
+    const { data } = await this.api.patch(`/missions/${missionId}/active?value=${value}`);
+    return data;
+  }
+
+  async getFlaggedReflections() {
+    const { data } = await this.api.get('/missions/flagged');
+    return data;
+  }
+
+  async reviewReflection(attemptId, approve, note) {
+    const { data } = await this.api.post(`/missions/attempts/${attemptId}/review`, { approve, note });
+    return data;
+  }
+
+  // Real-World Missions (Learner)
+  async getDailyMissions() {
+    const { data } = await this.api.get('/missions/daily');
+    return data;
+  }
+
+  async submitReflection(missionId, reflection) {
+    const { data } = await this.api.post(`/missions/${missionId}/reflect`, { reflection });
     return data;
   }
 }

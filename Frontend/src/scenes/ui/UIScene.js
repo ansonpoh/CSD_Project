@@ -4,10 +4,14 @@ import { apiService } from '../../services/api.js';
 import { supabase } from '../../config/supabaseClient.js';
 import { resolveItemEffect } from '../../services/itemEffects.js';
 import { loadSharedUiAssets } from '../../services/uiAssets.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import { buildHud } from './hud.js';
 import { showInventory } from './inventoryModal.js';
 import { showLeaderboard } from './leaderboardModal.js';
 import { showUserProfile } from './profileModal.js';
+import { showAchievements } from './achievementsModal.js';
+import { showFriends } from './friendsModal.js';
+import { showQuests } from './questModal.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -22,15 +26,15 @@ export class UIScene extends Phaser.Scene {
   preload() {
     loadSharedUiAssets(this, {
       includeClose: true,
-      includePortrait: true
+      includePortrait: true,
+      includeScrollIcon: true
     });
   }
 
   create() {
     const learner = gameState.getLearner();
     if (!learner) {
-      this.scene.stop('WorldMapScene');
-      this.scene.start('LoginScene');
+      routeToLogin(this);
       return;
     }
 
@@ -45,16 +49,7 @@ export class UIScene extends Phaser.Scene {
       console.error('Supabase sign out failed:', error);
     } finally {
       gameState.clearState();
-
-      const activeScenes = this.scene.manager.getScenes(true);
-      activeScenes.forEach((activeScene) => {
-        const key = activeScene.scene.key;
-        if (key !== 'UIScene' && key !== 'LoginScene') {
-          this.scene.stop(key);
-        }
-      });
-
-      this.scene.start('LoginScene');
+      routeToLogin(this, { hardReload: true });
     }
   }
 
@@ -121,6 +116,18 @@ export class UIScene extends Phaser.Scene {
     return showUserProfile(this);
   }
 
+  showAchievements() {
+    return showAchievements(this);
+  }
+
+  showFriends() {
+    return showFriends(this);
+  }
+
+  showQuests() {
+    return showQuests(this);
+  }
+
   async consumeInventoryItem(item) {
     const itemId = item?.itemId || item?.item_id;
     if (!itemId) {
@@ -137,7 +144,17 @@ export class UIScene extends Phaser.Scene {
     gameState.setInventory(updatedInventory);
 
     if (effect.xpGain > 0) {
-      gameState.updateXP(effect.xpGain);
+      try {
+        const updatedLearner = await apiService.awardMyXp(Number(effect.xpGain || 0), 0);
+        if (updatedLearner) {
+          gameState.setLearner(updatedLearner);
+        } else {
+          gameState.updateXP(effect.xpGain);
+        }
+      } catch (error) {
+        console.warn('Failed to persist XP award, applying local fallback:', error);
+        gameState.updateXP(effect.xpGain);
+      }
     }
 
     if (effect.nextCombatHpBonus > 0) {
@@ -147,6 +164,25 @@ export class UIScene extends Phaser.Scene {
         ...currentEffects,
         nextCombatHpBonus: existingBonus + effect.nextCombatHpBonus
       });
+    }
+
+    if (effect.quizHeartBonus > 0) {
+      const currentEffects = gameState.getActiveEffects();
+      const existingBonus = Number(currentEffects.quizHeartBonus || 0);
+      gameState.setActiveEffects({
+        ...currentEffects,
+        quizHeartBonus: existingBonus + effect.quizHeartBonus
+      });
+
+      const combatScene = this.scene.manager?.getScene?.('CombatScene');
+      if (combatScene && combatScene.scene?.isActive()) {
+        const bonus = Math.max(0, Number(effect.quizHeartBonus || 0));
+        combatScene.maxLifelines = Math.max(1, Number(combatScene.maxLifelines || 0) + bonus);
+        combatScene.remainingLifelines = Math.max(0, Number(combatScene.remainingLifelines || 0) + bonus);
+        combatScene.syncPlayerHealthToHearts?.();
+        combatScene.refreshQuizMeta?.();
+        combatScene.addLog?.(`Potion effect: +${bonus} heart${bonus === 1 ? '' : 's'}.`);
+      }
     }
 
     if (effect.assistCharges > 0) {

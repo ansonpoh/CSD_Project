@@ -3,6 +3,26 @@ import { apiService } from '../../../services/api.js';
 
 export const combatSceneQuizDataMethods = {
   async loadEncounterQuiz() {
+    // Try admin-approved map quiz first
+    if (this.mapId) {
+      try {
+        const response = await apiService.getQuizForLearner(this.mapId);
+        if (response?.questions?.length) {
+          this.quizEncounter = this.normalizeMapQuiz(response);
+          this.mapQuizId = response.quizId;
+          this.usingMapQuiz = true;
+          this.splitQuestionsForMonster();
+          this.setupQuizState();
+          return;
+        }
+      } catch (_err) {
+        // No published map quiz — fall through to encounter quiz
+      }
+    }
+
+    // Fall back to encounter quiz
+    this.usingMapQuiz = false;
+    this.mapQuizId = null;
     try {
       const payload = {
         mapId: this.mapId,
@@ -15,24 +35,104 @@ export const combatSceneQuizDataMethods = {
       console.warn('Quiz generation API failed, using fallback quiz:', error);
       this.quizEncounter = this.buildFallbackQuizEncounter();
     }
+    this.splitQuestionsForMonster();
+    this.setupQuizState();
+  },
 
+  /**
+   * Splits the full question pool evenly between the two monsters on the map.
+   * For map quizzes (mixed types): monster 0 gets multi-select questions, monster 1 gets
+   * single-choice. If all questions are the same type, falls back to positional split.
+   * For encounter quizzes (all single-choice): positional split — first half vs second half.
+   */
+  splitQuestionsForMonster() {
+    const all = this.quizEncounter?.questions;
+    if (!all?.length) return;
+
+    let slotA, slotB;
+
+    if (this.usingMapQuiz) {
+      const multi  = all.filter((q) => q.isMultiSelect);
+      const single = all.filter((q) => !q.isMultiSelect);
+      if (multi.length && single.length) {
+        // Type-based split
+        slotA = multi;
+        slotB = single;
+      } else {
+        // All same type — split by position
+        const half = Math.ceil(all.length / 2);
+        slotA = all.slice(0, half);
+        slotB = all.slice(half);
+      }
+    } else {
+      // Encounter quiz — always positional
+      const half = Math.ceil(all.length / 2);
+      slotA = all.slice(0, half);
+      slotB = all.slice(half);
+    }
+
+    const chosen = this.monsterIndex === 1 ? slotB : slotA;
+    // Ensure at least one question even if pool is very small
+    this.quizEncounter.questions = chosen.length ? chosen : all;
+    const n = this.quizEncounter.questions.length;
+    this.quizEncounter.totalQuestions = n;
+    // Recalculate pass mark against the sliced pool
+    this.quizEncounter.requiredCorrectAnswers = this.usingMapQuiz
+      ? Math.max(1, Math.ceil(n * 0.7))
+      : n; // encounter quiz requires all correct
+  },
+
+  setupQuizState() {
     this.totalQuestions = this.quizEncounter.totalQuestions;
     this.requiredCorrectAnswers = this.quizEncounter.requiredCorrectAnswers;
     this.requiredAccuracyPercent = this.quizEncounter.requiredAccuracyPercent;
     this.startingMonsterHpPercent = this.quizEncounter.startingMonsterHpPercent;
     this.lossStreak = this.quizEncounter.lossStreak;
-    this.applyEventAssistModifiers();
+
+    if (!this.usingMapQuiz) {
+      this.applyEventAssistModifiers();
+    }
+
     this.monsterHP = Phaser.Math.Clamp(this.startingMonsterHpPercent, 1, 100);
     this.damagePerCorrect = Math.max(1, Math.ceil(this.monsterHP / Math.max(1, this.totalQuestions)));
     this.bossEncounter = Boolean(this.quizEncounter.bossEncounter);
     this.syncPlayerHealthToHearts();
 
     this.refreshQuizMeta();
-    this.addLog(`Encounter rule: each wrong answer costs 1 heart. Reach 0 hearts and you lose.`);
-    if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
-    if (this.eventAssist) this.addLog(`Map event assist active: ${this.eventAssist.label || 'authored modifier applied'}.`);
-    if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
+
+    if (this.usingMapQuiz) {
+      this.addLog('Answer all questions — results submitted at the end.');
+    } else {
+      this.addLog('Encounter rule: each wrong answer costs 1 heart. Reach 0 hearts and you lose.');
+      if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
+      if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
+    }
+
     this.renderCurrentQuestion();
+  },
+
+  normalizeMapQuiz(response) {
+    const questions = (response.questions || []).map((q) => ({
+      questionId: q.questionId,
+      prompt: q.scenarioText,
+      options: (q.options || []).map((o) => o.optionText),
+      optionIds: (q.options || []).map((o) => o.optionId),
+      isMultiSelect: Boolean(q.isMultiSelect)
+    }));
+
+    const total = questions.length;
+    const passingScore = Math.ceil(total * 0.7);
+
+    return {
+      quizId: response.quizId,
+      bossEncounter: this.bossEncounter,
+      totalQuestions: total,
+      requiredCorrectAnswers: passingScore,
+      requiredAccuracyPercent: 70,
+      startingMonsterHpPercent: 100,
+      lossStreak: 0,
+      questions
+    };
   },
 
   applyEventAssistModifiers() {
@@ -69,6 +169,8 @@ export const combatSceneQuizDataMethods = {
           questionId: question?.questionId || `q-${Math.random().toString(36).slice(2, 10)}`,
           prompt: String(question?.prompt || 'Answer the question correctly to attack.'),
           options,
+          optionIds: [],
+          isMultiSelect: false,
           correctOptionIndex
         };
       })
@@ -76,7 +178,6 @@ export const combatSceneQuizDataMethods = {
 
     if (!normalizedQuestions.length) return this.buildFallbackQuizEncounter();
 
-    const totalQuestions = Number.isInteger(payload?.totalQuestions) ? payload.totalQuestions : normalizedQuestions.length;
     const startingMonsterHpPercent = Number.isFinite(payload?.startingMonsterHpPercent)
       ? Phaser.Math.Clamp(Number(payload.startingMonsterHpPercent), 1, 100)
       : 100;
@@ -134,6 +235,8 @@ export const combatSceneQuizDataMethods = {
         questionId: `fallback-${i + 1}`,
         prompt: source.prompt,
         options,
+        optionIds: [],
+        isMultiSelect: false,
         correctOptionIndex: source.correctOptionIndex
       });
     }
@@ -149,4 +252,3 @@ export const combatSceneQuizDataMethods = {
     };
   }
 };
-

@@ -143,6 +143,47 @@ public class AIService {
                 );
     }
 
+    /**
+     * Reviews a learner's mission reflection.
+     * Returns APPROVED if the reflection is genuine and thoughtful,
+     * FLAGGED_FOR_REVIEW if ambiguous, REJECTED if clearly off-topic or empty.
+     */
+    public ReflectionReviewResult reviewReflection(String missionTitle, String missionDescription, String reflection) {
+        ReflectionReviewResponse parsed;
+        try {
+            parsed = chatClient.prompt()
+                    .user("""
+                            A learner was given a real-world mission to complete offline and has submitted a reflection.
+
+                            Mission title: %s
+                            Mission description: %s
+                            Learner's reflection: %s
+
+                            Evaluate whether this reflection is genuine and thoughtful.
+                            Return ONLY a valid JSON object with no other text:
+                            {
+                              "confidence": <integer 0-100>,
+                              "verdict": <"APPROVED" | "FLAGGED_FOR_REVIEW" | "REJECTED">,
+                              "note": "<brief explanation>"
+                            }
+
+                            Rules:
+                            - APPROVED: confidence >= 70 — reflection is specific, personal, and clearly relates to the mission
+                            - FLAGGED_FOR_REVIEW: confidence 40-69 — reflection is vague, very short, or loosely related
+                            - REJECTED: confidence < 40 — reflection is completely off-topic, gibberish, or an obvious copy-paste
+                            """.formatted(missionTitle, missionDescription, reflection))
+                    .call()
+                    .entity(ReflectionReviewResponse.class);
+        } catch (Exception e) {
+            parsed = new ReflectionReviewResponse(50, "FLAGGED_FOR_REVIEW",
+                    "AI parsing failed - flagged for manual review: " + e.getMessage());
+        }
+
+        return new ReflectionReviewResult(parsed.verdict(), parsed.note());
+    }
+
+    public record ReflectionReviewResult(String verdict, String note) {}
+
     private record ModerationResponse(
             @JsonProperty("quality_score") int qualityScore,
             @JsonProperty("is_relevant") boolean isRelevant,
@@ -150,5 +191,8 @@ public class AIService {
             @JsonProperty("ai_verdict") AIModerationResult.Verdict aiVerdict,
             @JsonProperty("reasoning") String reasoning) {}
 
-    
+    private record ReflectionReviewResponse(
+            @JsonProperty("confidence") int confidence,
+            @JsonProperty("verdict") String verdict,
+            @JsonProperty("note") String note) {}
 }

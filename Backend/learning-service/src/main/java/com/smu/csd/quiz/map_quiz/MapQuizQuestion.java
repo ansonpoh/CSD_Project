@@ -37,4 +37,7 @@ public class MapQuizQuestion {
 
     @Column(name = "question_order", nullable = false)
     private int questionOrder;
+
+    @Column(name = "is_multi_select", nullable = false, columnDefinition = "boolean DEFAULT false")
+    private boolean isMultiSelect;
 }

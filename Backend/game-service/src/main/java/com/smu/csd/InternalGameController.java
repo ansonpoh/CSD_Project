@@ -34,12 +34,12 @@ public class InternalGameController {
 
     @GetMapping("/maps/{mapId}")
     public ResponseEntity<Map<String, Object>> getMapById(@PathVariable UUID mapId) {
-        return mapRepository.findById(mapId).map(m -> {
+        return mapRepository.findById(mapId).map((com.smu.csd.maps.Map m) -> {
             return ResponseEntity.ok(Map.<String, Object>of(
                 "mapId", m.getMapId(),
                 "name", m.getName()
             ));
-        }).orElse(ResponseEntity.notFound().build());
+        }).orElseGet(() -> ResponseEntity.notFound().<Map<String, Object>>build());
     }
 
     @GetMapping("/maps/{mapId}/contents")

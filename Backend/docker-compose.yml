@@ -10,6 +10,12 @@ services:
       timeout: 3s
       retries: 20
 
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: csd-zipkin
+    ports:
+      - "9411:9411"
+
   identity-service:
     build:
       context: ./identity-service
@@ -25,10 +31,14 @@ services:
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
+      DB_DDL_AUTO: update
+      ZIPKIN_URL: http://zipkin:9411
       GAME_URL: http://game-service:8082
       LEARNING_SERVICE_URL: http://learning-service:8083
       PLAYER_SERVICE_URL: http://player-service:8084
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
+    depends_on:
+      - zipkin
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s
@@ -48,6 +58,8 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -57,6 +69,8 @@ services:
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
+      DB_DDL_AUTO: update
+      ZIPKIN_URL: http://zipkin:9411
       LEARNING_URL: http://learning-service:8083
       IDENTITY_URL: http://identity-service:8081
       PLAYER_SERVICE_URL: http://player-service:8084
@@ -78,6 +92,8 @@ services:
     depends_on:
       game-service:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
@@ -86,6 +102,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
+      DB_DDL_AUTO: update
+      ZIPKIN_URL: http://zipkin:9411
       IDENTITY_URL: http://identity-service:8081
       GAME_URL: http://game-service:8082
       PLAYER_SERVICE_URL: http://player-service:8084
@@ -109,6 +127,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       SUPABASE_SERVER_PASSWORD: ${SUPABASE_SERVER_PASSWORD}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
@@ -116,6 +136,8 @@ services:
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DB_POOL_MAX_SIZE: 2
       DB_POOL_MIN_IDLE: 0
+      DB_DDL_AUTO: update
+      ZIPKIN_URL: http://zipkin:9411
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
@@ -147,11 +169,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     environment:
       IDENTITY_URL: http://identity-service:8081
       GAME_URL: http://game-service:8082
       LEARNING_SERVICE_URL: http://learning-service:8083
       PLAYER_SERVICE_URL: http://player-service:8084
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ZIPKIN_URL: http://zipkin:9411
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s

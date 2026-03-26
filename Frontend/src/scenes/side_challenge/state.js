@@ -13,7 +13,22 @@ export function initializeSideChallengeState(scene) {
 export function resetSideChallengeState(scene, data) {
   scene.mapConfig = data?.mapConfig || gameState.getCurrentMap() || null;
   scene.snapshot = getChallengeSnapshot(scene.mapConfig);
-  scene.challenge = scene.snapshot.challenge;
+
+  // If the caller pre-fetched a challenge from the server, use it.
+  // Otherwise fall back to the local hardcoded challenge for the map theme.
+  if (data?.serverChallenge) {
+    scene.challenge = {
+      id: String(data.serverChallenge.challengeId),
+      title: data.serverChallenge.title,
+      prompt: data.serverChallenge.prompt,
+      orderedTokens: data.serverChallenge.orderedTokens,
+      rewardXp: data.serverChallenge.rewardXp,
+      rewardAssist: data.serverChallenge.rewardAssist
+    };
+  } else {
+    scene.challenge = scene.snapshot.challenge;
+  }
+
   scene.slotZones = [];
   scene.cards = [];
   scene.statusText = null;

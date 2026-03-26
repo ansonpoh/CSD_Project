@@ -22,6 +22,8 @@ import com.smu.csd.exception.ResourceNotFoundException;
 @RestController
 @RequestMapping("/api/learner")
 public class LearnerController {
+    public record AwardXpRequest(Integer xpAwarded, Integer goldAwarded) {}
+
     private final LearnerService service;
 
     public LearnerController(LearnerService service) {
@@ -70,7 +72,23 @@ public class LearnerController {
                 learner.getFull_name(),
                 learner.getTotal_xp(),
                 learner.getLevel(),
+                learner.getGold(),
                 learner.getIs_active()
+        );
+        return ResponseEntity.ok(updated);
+    }
+
+    @PostMapping("/me/award-xp")
+    public ResponseEntity<Learner> awardXp(
+            Authentication authentication,
+            @RequestBody AwardXpRequest request
+    ) throws ResourceNotFoundException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        Learner updated = service.awardXpAndGoldBySupabaseUserId(
+                supabaseUserId,
+                request == null ? null : request.xpAwarded(),
+                request == null ? null : request.goldAwarded()
         );
         return ResponseEntity.ok(updated);
     }

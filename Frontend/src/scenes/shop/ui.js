@@ -48,7 +48,7 @@ export const shopUiMethods = {
   },
 
   createCloseButton() {
-    return this.createShopButton(100, 100, 100, 50, 'CLOSE', {
+    return this.createShopButton(1850, 100, 100, 50, 'CLOSE', {
       fill: SHOP_PALETTE.btnDanger,
       hoverFill: SHOP_PALETTE.btnDangerHover,
       border: 0x8b2020,

@@ -44,20 +44,23 @@ public class InternalPlayerController {
         return ResponseEntity.ok(Map.of(
             "learnerId", learner.getLearnerId(),
             "totalXp", learner.getTotal_xp() != null ? learner.getTotal_xp() : 0,
-            "level", learner.getLevel() != null ? learner.getLevel() : 1
+            "level", learner.getLevel() != null ? learner.getLevel() : 1,
+            "gold", learner.getGold() != null ? learner.getGold() : 0
         ));
     }
 
-    public record AwardXpRequestDto(int xpAwarded) {}
+    public record AwardXpRequestDto(Integer xpAwarded, Integer goldAwarded) {}
 
     @PostMapping("/learners/{learnerId}/award-xp")
     public ResponseEntity<Map<String, Object>> awardXp(@PathVariable UUID learnerId, @RequestBody AwardXpRequestDto request) {
         return learnerRepository.findById(learnerId).map(learner -> {
-            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + request.xpAwarded();
+            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(request.xpAwarded());
             int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
+            int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(request.goldAwarded());
             
             learner.setTotal_xp(updatedXp);
             learner.setLevel(updatedLevel);
+            learner.setGold(updatedGold);
             learner.setUpdated_at(LocalDateTime.now());
             learnerRepository.save(learner);
             leaderboardService.upsertLearnerScore(learner);
@@ -65,13 +68,15 @@ public class InternalPlayerController {
             return ResponseEntity.ok(Map.<String, Object>of(
                 "learnerId", learner.getLearnerId(),
                 "totalXp", learner.getTotal_xp(),
-                "level", learner.getLevel()
+                "level", learner.getLevel(),
+                "gold", learner.getGold()
             ));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     // ----- Progress Service mock-endpoints -----
     public record ProgressCheckRequestDto(UUID learnerId, List<UUID> contentIds) {}
+    public record ContentCompletionBatchRequestDto(UUID learnerId, List<UUID> contentIds) {}
 
     @PostMapping("/progress/check-completed")
     public ResponseEntity<Boolean> checkAllCompleted(@RequestBody ProgressCheckRequestDto request) {
@@ -104,5 +109,24 @@ public class InternalPlayerController {
             LearnerLessonProgress.Status.COMPLETED
         );
         return ResponseEntity.ok(completed);
+    }
+
+    @PostMapping("/progress/content-completed/batch")
+    public ResponseEntity<List<UUID>> getCompletedContentIds(@RequestBody ContentCompletionBatchRequestDto request) {
+        if (request == null || request.learnerId() == null || request.contentIds() == null || request.contentIds().isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<UUID> completedContentIds = learnerLessonProgressRepository.findCompletedContentIdsByLearnerAndContentIds(
+            request.learnerId(),
+            request.contentIds(),
+            LearnerLessonProgress.Status.COMPLETED
+        );
+
+        return ResponseEntity.ok(completedContentIds);
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 }

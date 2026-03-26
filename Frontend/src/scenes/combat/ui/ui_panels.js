@@ -1,4 +1,4 @@
-import { MAX_LIFELINES, P } from '../constants.js';
+import { P } from '../constants.js';
 
 export const combatSceneUiPanelMethods = {
   createBattleLog(width, height) {
@@ -60,7 +60,7 @@ export const combatSceneUiPanelMethods = {
     const summary = [
       `Correct: ${this.correctAnswers}/${this.totalQuestions}`,
       `Accuracy: ${accuracy}%`,
-      `Hearts left: ${this.remainingLifelines}/${MAX_LIFELINES}`,
+      `Hearts left: ${this.remainingLifelines}/${this.maxLifelines}`,
       won ? 'Reward ready on the map.' : reason
     ].join('\n');
 

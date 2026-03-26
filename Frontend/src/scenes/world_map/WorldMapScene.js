@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { apiService } from '../../services/api.js';
 import { gameState } from '../../services/gameState.js';
 import { loadSharedUiAssets } from '../../services/uiAssets.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import { worldMapBackdropMethods } from './backdrop.js';
 import { worldMapCommunityPanelMethods } from './communityPanel.js';
 import { worldMapIntelPanelMethods } from './intelPanel.js';
@@ -15,12 +16,24 @@ export class WorldMapScene extends Phaser.Scene {
     super({ key: 'WorldMapScene' });
     this.rawMaps = [];
     this.catalog = [];
+    this.isMapCatalogLoading = true;
     this.selectedMapId = null;
     this.selectedMap = null;
     this.uiTileSize = 56;
     this.cloudSet = 1;
     this.cloudLayerCount = 4;
     this.panels = {};
+    this.mapSearchQuery = '';
+    this.isMapSearchFocused = false;
+    this.friendSearchQuery = '';
+    this.isFriendSearchFocused = false;
+    this.friendSearchResults = [];
+    this.friendSearchLoading = false;
+    this.friendSearchError = '';
+    this.friendRequestsIncoming = [];
+    this.friendList = [];
+    this.friendDataLoading = false;
+    this.friendActionMessage = '';
   }
 
   init(data) {
@@ -44,12 +57,12 @@ export class WorldMapScene extends Phaser.Scene {
     const learner = gameState.getLearner();
 
     if (!learner) {
-      this.scene.stop('UIScene');
-      this.scene.start('LoginScene');
+      routeToLogin(this);
       return;
     }
 
     this.input.keyboard.on('keydown-B', () => {
+      if (this.isMapSearchFocused || this.isFriendSearchFocused) return;
       this.scene.start('ScenarioQuizScene');
     });
 
@@ -57,17 +70,30 @@ export class WorldMapScene extends Phaser.Scene {
     this.drawBackdrop(width, height);
     this.createHomeCloudBackdrop(width, height);
 
+    this.isMapCatalogLoading = true;
+    this.refreshCatalog();
+    this.layoutPanels(width, height);
+    this.renderPanels(learner);
+    this.setupMapSearchHandlers();
+    this.setupFriendSearchHandlers();
+    void this.loadFriendData();
+
+    void this.loadMapCatalog();
+  }
+
+  async loadMapCatalog() {
     try {
       this.rawMaps = await apiService.getAllMaps();
       if (!this.rawMaps?.length) await this.createDemoMap();
     } catch (error) {
       console.error('Failed to load maps:', error);
       this.rawMaps = this.getMockMaps();
+    } finally {
+      this.isMapCatalogLoading = false;
     }
 
     this.refreshCatalog();
-    this.layoutPanels(width, height);
-    this.renderPanels(learner);
+    this.renderPanels(gameState.getLearner());
   }
 
   layoutPanels(width, height) {

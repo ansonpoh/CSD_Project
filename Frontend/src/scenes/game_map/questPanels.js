@@ -192,7 +192,8 @@ export const questPanelMethods = {
         gameState.setLearner({
           ...learner,
           total_xp: result.learnerTotalXp,
-          level: result.learnerLevel
+          level: result.learnerLevel,
+          ...(Number.isFinite(result?.learnerGold) ? { gold: result.learnerGold } : {})
         });
       }
 
@@ -202,8 +203,13 @@ export const questPanelMethods = {
       this.updateQuestPanel();
       this.refreshMapSignalPanel();
       const xp = Number(result?.xpAwarded || 0);
+      const gold = Number(result?.goldAwarded || 0);
       dailyQuestService.recordEvent('reward_claimed');
-      this.showMapToast(xp > 0 ? `Reward claimed: +${xp} XP` : 'Reward already claimed');
+      this.showMapToast(
+        xp > 0 || gold > 0
+          ? `Reward claimed: +${xp} XP, +${gold} Gold`
+          : 'Reward already claimed'
+      );
     } catch (error) {
       const message = error?.response?.data?.message || error?.message || 'Reward claim failed';
       this.showMapToast(message);

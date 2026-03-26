@@ -104,22 +104,13 @@ export const encounterStateMethods = {
       return;
     }
 
-    const monsterState = this.getEncounterMonsterState(monster);
-    if (monsterState?.monsterDefeated) {
-      this.showMapToast('Monster already defeated. Claim your reward from the quest panel.');
-      return;
-    }
-
     const npcId = monster?.npcId || null;
     const npcKey = npcId ? String(npcId) : null;
     if (npcKey && !this.isMonsterInteractableForNpcKey(npcKey)) {
-      this.showMapToast('Clear the current quest step before facing this monster.');
-      return;
-    }
-    if (npcId) {
-      const progress = this.encounterProgressByNpcKey.get(String(npcId));
-      if (progress?.monsterDefeated) {
-        this.showMapToast('Monster already defeated. Claim your reward from the quest panel.');
+      // Allow re-fighting already-defeated monsters even if out of quest order
+      const monsterState = this.getEncounterMonsterState(monster);
+      if (!monsterState?.monsterDefeated) {
+        this.showMapToast('Clear the current quest step before facing this monster.');
         return;
       }
     }
@@ -139,7 +130,27 @@ export const encounterStateMethods = {
       };
     }
 
-    this.scene.start('CombatScene', { monster, mapId, npcId, eventAssist });
+    // Determine which monster slot this is (0 = first, 1 = second) for question splitting
+    const sortedPairs = (this.encounterState?.pairs || [])
+      .slice()
+      .sort((a, b) => (a?.encounterOrder ?? 0) - (b?.encounterOrder ?? 0));
+    let monsterIndex = 0;
+    if (sortedPairs.length) {
+      const monsterNpcId = String(npcId || monster?.npcId || '');
+      const idx = sortedPairs.findIndex((p) => String(p?.npcId || '') === monsterNpcId);
+      monsterIndex = idx >= 0 ? idx : 0;
+    } else {
+      // Fallback pairing: use position in the monsters array
+      const idx = this.monsters.findIndex(
+        (m) => String(this.getMonsterId(m) || '') === String(this.getMonsterId(monster) || '')
+      );
+      monsterIndex = idx >= 0 ? idx : 0;
+    }
+
+    const monsterState = this.getEncounterMonsterState(monster);
+    const isRematch = Boolean(monsterState?.monsterDefeated);
+
+    this.scene.start('CombatScene', { monster, mapId, npcId, eventAssist, monsterIndex, isRematch });
   },
 
   createNpcMonsterMapping() {
@@ -291,8 +302,8 @@ export const encounterStateMethods = {
 
     if (progress?.monsterDefeated) {
       monsterSprite.setTint(0x97b59d);
-      monsterSprite.disableInteractive();
-      if (monsterSprite.body) monsterSprite.body.enable = false;
+      monsterSprite.setInteractive({ useHandCursor: true });
+      if (monsterSprite.body) monsterSprite.body.enable = true;
       if (nameText) {
         nameText.setText(`${baseLabel} [DEFEATED]`);
         nameText.setColor('#b8ffd8');
@@ -413,11 +424,19 @@ export const encounterStateMethods = {
     this.refreshMapSignalPanel();
   },
 
-  openSideChallenge() {
+  async openSideChallenge() {
+    const theme = String(this.mapConfig?.theme || this.mapConfig?.name || 'forest').toLowerCase();
+    let serverChallenge = null;
+    try {
+      serverChallenge = await apiService.getSideChallengeByTheme(theme);
+    } catch (_e) {
+      // Fall back to hardcoded data in SideChallengeScene
+    }
     const snapshot = getChallengeSnapshot(this.mapConfig);
+    const title = serverChallenge?.title || snapshot.challenge.title;
     const suffix = snapshot.completed ? ' Practice mode only.' : '';
-    this.showMapToast(`${snapshot.challenge.title} ready.${suffix}`, 1200);
-    this.scene.launch('SideChallengeScene', { mapConfig: this.mapConfig });
+    this.showMapToast(`${title} ready.${suffix}`, 1200);
+    this.scene.launch('SideChallengeScene', { mapConfig: this.mapConfig, serverChallenge });
     this.scene.pause();
   }
 };

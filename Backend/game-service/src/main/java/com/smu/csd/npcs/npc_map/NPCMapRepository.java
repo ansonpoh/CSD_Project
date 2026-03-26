@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface NPCMapRepository extends JpaRepository<NPCMap, UUID> {
     List<NPCMap> findAllByMapMapId(UUID map_id);
+    List<NPCMap> findAllByMapMapIdAndNpcNpcId(UUID mapId, UUID npcId);
 }

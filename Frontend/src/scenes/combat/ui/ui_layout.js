@@ -86,6 +86,22 @@ export const combatSceneUiLayoutMethods = {
       this.optionButtons.push(btn);
     }
 
+    // Confirm button for multi-select questions (hidden by default)
+    const confirmY = optionStartY + 2 * (optionH + 12);
+    this.confirmBtn = this.makeButton(
+      panelX + Math.floor(panelW / 4),
+      confirmY,
+      Math.floor(panelW / 2),
+      optionH,
+      'Confirm Selection',
+      0x1a5c2a,
+      0x27803d,
+      0x4ade80,
+      () => this.handleConfirmSelection()
+    );
+    this.confirmBtn.container.setVisible(false);
+    this.confirmBtn.setEnabled(false);
+
     this.refreshQuizMeta();
   },
 

@@ -678,7 +678,7 @@ export const uiMethods = {
         <div class="me-brand">
           <span class="me-brand__eyebrow">Creator Tools</span>
           <span class="me-brand__title">Map Maker</span>
-          <span class="me-brand__meta" id="me-top-meta">Build, paint, place encounters, and publish without fighting the UI.</span>
+          <span class="me-brand__meta" id="me-top-meta">Build, paint, place encounters, and submit for admin review without fighting the UI.</span>
         </div>
         <div class="me-chip-row">
           <span class="me-chip-row__label">Tool</span>
@@ -734,7 +734,7 @@ export const uiMethods = {
             <button type="button" class="me-action me-action--ghost" id="me-load">Load Draft</button>
           </div>
           <div class="me-chip-row" style="margin-top:10px;">
-            <button type="button" class="me-action me-action--warning" id="me-publish">Publish</button>
+            <button type="button" class="me-action me-action--warning" id="me-publish">Submit for Review</button>
             <button type="button" class="me-action me-action--ghost" id="me-play">Play-test</button>
             <button type="button" class="me-action me-action--ghost" id="me-back">Back</button>
           </div>
@@ -1161,6 +1161,8 @@ export const uiMethods = {
     this.workspaceEl = null;
     this.workspaceGridEl = null;
     this.hoverBoxEl = null;
+    this.paletteButtons = [];
+    this.currentTilesetInfo = null;
   },
 
   escapeHtml(value) {

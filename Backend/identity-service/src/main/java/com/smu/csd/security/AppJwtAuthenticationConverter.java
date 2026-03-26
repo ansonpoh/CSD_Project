@@ -42,7 +42,7 @@ public class AppJwtAuthenticationConverter implements Converter<Jwt, AbstractAut
         if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
             return "ADMIN";
         }
-        if (contributorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return "CONTRIBUTOR";
         }
         return "LEARNER";  // Default — all registered users are learners

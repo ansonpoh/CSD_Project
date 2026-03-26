@@ -147,9 +147,14 @@ public class QuestionBankService {
             throw new IllegalStateException("AI returned an empty response. Please try again.");
         }
 
-        String cleaned = raw.strip()
-            .replaceAll("(?s)^```[a-z]*\\s*", "")
-            .replaceAll("(?s)\\s*```$", "")
+        // Extract only the JSON array portion (between first '[' and last ']')
+        int arrayStart = raw.indexOf('[');
+        int arrayEnd = raw.lastIndexOf(']');
+        String extracted = (arrayStart >= 0 && arrayEnd > arrayStart)
+            ? raw.substring(arrayStart, arrayEnd + 1)
+            : raw;
+
+        String cleaned = extracted.strip()
             .replaceAll(",\\s*(]|})", "$1")
             // Fix missing comma before a known field that appears on a new line
             .replaceAll("(\"[^\"]*\"|true|false|null)\\s*\\n(\\s*)(\"?(?:isCorrect|optionText|scenarioText|options)\"?\\s*:)", "$1,\n$2$3")
@@ -173,9 +178,13 @@ public class QuestionBankService {
         }
 
         return requests.stream().map(req -> {
+            boolean multiSelect = req.options() != null &&
+                req.options().stream().filter(BankQuestionOptionRequest::isCorrect).count() > 1;
+
             BankQuestion question = BankQuestion.builder()
                 .mapId(mapId)
                 .scenarioText(req.scenarioText())
+                .isMultiSelect(multiSelect)
                 .status(BankQuestion.Status.PENDING_REVIEW)
                 .build();
             bankQuestionRepository.save(question);
@@ -212,7 +221,11 @@ public class QuestionBankService {
     @Transactional
     public BankQuestionResponse updateQuestion(UUID bankQuestionId, BankQuestionRequest request) {
         BankQuestion question = requireBankQuestion(bankQuestionId);
+        boolean multiSelect = request.options() != null &&
+            request.options().stream().filter(BankQuestionOptionRequest::isCorrect).count() > 1;
+
         question.setScenarioText(request.scenarioText());
+        question.setMultiSelect(multiSelect);
         bankQuestionRepository.save(question);
 
         bankOptionRepository.deleteByBankQuestion_BankQuestionId(bankQuestionId);
@@ -269,6 +282,7 @@ public class QuestionBankService {
             .quiz(quiz)
             .scenarioText(bankQuestion.getScenarioText())
             .questionOrder(nextOrder)
+            .isMultiSelect(bankQuestion.isMultiSelect())
             .build();
         mapQuizQuestionRepository.save(quizQuestion);
 
@@ -306,6 +320,7 @@ public class QuestionBankService {
             question.getMapId(),
             mapName,
             question.getScenarioText(),
+            question.isMultiSelect(),
             question.getStatus().name(),
             question.getCreatedAt(),
             optionResponses

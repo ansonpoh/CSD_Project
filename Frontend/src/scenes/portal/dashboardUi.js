@@ -614,6 +614,10 @@ export function ensureDashboardPortalStyles() {
       outline: none;
     }
 
+    @keyframes dash-spin {
+      to { transform: rotate(360deg); }
+    }
+
     @keyframes dash-fade {
       from {
         opacity: 0;
@@ -737,6 +741,9 @@ export function renderBadge(label) {
 export function createToastHost() {
   const host = document.createElement('div');
   host.className = 'dash-toasts';
+  host.setAttribute('role', 'status');
+  host.setAttribute('aria-live', 'polite');
+  host.setAttribute('aria-atomic', 'false');
   return host;
 }
 
@@ -745,6 +752,7 @@ export function showToast(host, message) {
   const toast = document.createElement('div');
   toast.className = 'dash-toast';
   toast.textContent = message;
+  toast.setAttribute('role', 'status');
   host.appendChild(toast);
 
   window.setTimeout(() => {

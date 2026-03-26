@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { supabase } from '../../config/supabaseClient.js';
 import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
+import { routeToLogin } from '../shared/authRouting.js';
 import {
   createDashboardRoot,
   createToastHost,
@@ -26,6 +27,14 @@ function buildContentPreview(row) {
   return previewText(description || narrations || 'No preview available yet.', 240);
 }
 
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0.00%';
+  return `${numeric.toFixed(2)}%`;
+}
+
+const MAX_APPROVED_NPCS_PER_MAP = 5;
+
 export class ContributorScene extends Phaser.Scene {
   constructor() {
     super({ key: 'ContributorScene' });
@@ -35,9 +44,23 @@ export class ContributorScene extends Phaser.Scene {
       activeSection: 'overview',
       profile: null,
       contents: [],
+      analytics: null,
+      mapSubmissions: [],
       topics: [],
       npcs: [],
       maps: [],
+      availableMaps: [],
+      mapApprovedNpcCounts: {},
+      contentFilters: {
+        query: '',
+        status: 'ALL',
+        topicId: 'ALL',
+        sort: 'submitted_desc'
+      },
+      contentPagination: {
+        page: 1,
+        pageSize: 10
+      },
       isGenerating: false,
       isSubmitting: false
     };
@@ -88,12 +111,19 @@ export class ContributorScene extends Phaser.Scene {
               </span>
               <span class="dash-nav__hint">02</span>
             </button>
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="maps">
+              <span>
+                <span class="dash-nav__label">My Maps</span><br/>
+                <span class="dash-nav__hint">Submitted maps and review outcome</span>
+              </span>
+              <span class="dash-nav__hint">03</span>
+            </button>
             <button type="button" class="dash-nav__button" data-action="show-section" data-section="submit">
               <span>
                 <span class="dash-nav__label">New Submission</span><br/>
                 <span class="dash-nav__hint">Create fresh lesson content</span>
               </span>
-              <span class="dash-nav__hint">03</span>
+              <span class="dash-nav__hint">04</span>
             </button>
           </nav>
 
@@ -116,9 +146,10 @@ export class ContributorScene extends Phaser.Scene {
           </header>
 
           <div class="dash-scroll">
-            <div id="contributor-status" class="dash-status"></div>
+            <div id="contributor-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
             <section class="dash-section is-active" data-section-panel="overview"><div id="contributor-overview"></div></section>
             <section class="dash-section" data-section-panel="content"><div id="contributor-content"></div></section>
+            <section class="dash-section" data-section-panel="maps"><div id="contributor-maps"></div></section>
             <section class="dash-section" data-section-panel="submit"><div id="contributor-submit"></div></section>
           </div>
         </section>
@@ -131,12 +162,16 @@ export class ContributorScene extends Phaser.Scene {
 
     this.portalRoot.addEventListener('click', this.handleClick);
     this.portalRoot.addEventListener('submit', this.handleSubmitEvent);
+    this.portalRoot.addEventListener('input', this.handleInputEvent);
+    this.portalRoot.addEventListener('change', this.handleChangeEvent);
   }
 
   destroyPortal() {
     if (this.portalRoot) {
       this.portalRoot.removeEventListener('click', this.handleClick);
       this.portalRoot.removeEventListener('submit', this.handleSubmitEvent);
+      this.portalRoot.removeEventListener('input', this.handleInputEvent);
+      this.portalRoot.removeEventListener('change', this.handleChangeEvent);
     }
     destroyDashboardRoot(this.portalRoot);
     this.portalRoot = null;
@@ -181,6 +216,39 @@ export class ContributorScene extends Phaser.Scene {
     if (action === 'generate-narrations') {
       event.preventDefault();
       void this.generateNarrations();
+      return;
+    }
+
+    if (action === 'clear-content-filters') {
+      event.preventDefault();
+      this.state.contentFilters = {
+        query: '',
+        status: 'ALL',
+        topicId: 'ALL',
+        sort: 'submitted_desc'
+      };
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+
+    if (action === 'content-prev-page') {
+      event.preventDefault();
+      const currentPage = Number(this.state.contentPagination.page || 1);
+      this.state.contentPagination.page = Math.max(1, currentPage - 1);
+      this.renderContentSection();
+      return;
+    }
+
+    if (action === 'content-next-page') {
+      event.preventDefault();
+      const currentPage = Number(this.state.contentPagination.page || 1);
+      const pageSize = Math.max(1, Number(this.state.contentPagination.pageSize || 10));
+      const totalItems = this.getFilteredContentRows().length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+      this.state.contentPagination.page = Math.min(totalPages, currentPage + 1);
+      this.renderContentSection();
+      return;
     }
   };
 
@@ -191,6 +259,92 @@ export class ContributorScene extends Phaser.Scene {
     }
   };
 
+  handleInputEvent = (event) => {
+    if (event.target?.id !== 'content-filter-query') return;
+    this.state.contentFilters.query = event.target.value || '';
+    this.state.contentPagination.page = 1;
+    this.renderContentSection();
+  };
+
+  handleChangeEvent = (event) => {
+    const target = event.target;
+    if (!target) return;
+
+    if (target.id === 'content-filter-status') {
+      this.state.contentFilters.status = target.value || 'ALL';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+    if (target.id === 'content-filter-topic') {
+      this.state.contentFilters.topicId = target.value || 'ALL';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+    if (target.id === 'content-filter-sort') {
+      this.state.contentFilters.sort = target.value || 'submitted_desc';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+    if (target.id === 'content-page-size') {
+      const parsed = Number(target.value);
+      this.state.contentPagination.pageSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+    }
+  };
+
+  getFilteredContentRows() {
+    const rows = [...this.state.contents].sort((left, right) => {
+      const leftTime = new Date(left?.submittedAt || 0).getTime();
+      const rightTime = new Date(right?.submittedAt || 0).getTime();
+      return rightTime - leftTime;
+    });
+    const filters = this.state.contentFilters || {};
+    const query = String(filters.query || '').trim().toLowerCase();
+    const selectedStatus = filters.status || 'ALL';
+    const selectedTopicId = filters.topicId || 'ALL';
+    const selectedSort = filters.sort || 'submitted_desc';
+
+    let filteredRows = rows.filter((row) => {
+      const status = String(row?.status || '').trim();
+      const topicId = String(row?.topic?.topicId || '').trim();
+      const title = String(row?.title || '');
+      const topicName = String(row?.topic?.topicName || '');
+      const preview = buildContentPreview(row);
+
+      if (selectedStatus !== 'ALL' && status !== selectedStatus) return false;
+      if (selectedTopicId !== 'ALL' && topicId !== selectedTopicId) return false;
+      if (query) {
+        const haystack = `${title} ${topicName} ${preview}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return true;
+    });
+
+    if (selectedSort === 'submitted_asc') {
+      filteredRows = filteredRows.sort((left, right) => (
+        new Date(left?.submittedAt || 0).getTime() - new Date(right?.submittedAt || 0).getTime()
+      ));
+    } else if (selectedSort === 'title_asc') {
+      filteredRows = filteredRows.sort((left, right) => (
+        String(left?.title || '').localeCompare(String(right?.title || ''), undefined, { sensitivity: 'base' })
+      ));
+    } else if (selectedSort === 'title_desc') {
+      filteredRows = filteredRows.sort((left, right) => (
+        String(right?.title || '').localeCompare(String(left?.title || ''), undefined, { sensitivity: 'base' })
+      ));
+    } else {
+      filteredRows = filteredRows.sort((left, right) => (
+        new Date(right?.submittedAt || 0).getTime() - new Date(left?.submittedAt || 0).getTime()
+      ));
+    }
+
+    return filteredRows;
+  }
+
   async loadInitialData() {
     this.setStatus('Loading contributor workspace...', false);
 
@@ -200,18 +354,29 @@ export class ContributorScene extends Phaser.Scene {
       if (!uid) throw new Error('No active contributor session');
 
       const profile = await apiService.getContributorBySupabaseId(uid);
-      const [contents, topics, npcs, maps] = await Promise.all([
+      const [contents, analytics, topics, npcs, maps, mapSubmissions] = await Promise.all([
         apiService.getContentByContributor(profile.contributorId).catch(() => []),
+        apiService.getMyContributorAnalytics().catch(() => null),
         apiService.getAllTopics().catch(() => []),
         apiService.getAllNPCs().catch(() => []),
-        apiService.getAllMaps().catch(() => [])
+        apiService.getAllMaps().catch(() => []),
+        apiService.getMyMapSubmissions().catch(() => [])
       ]);
 
       this.state.profile = profile;
       this.state.contents = Array.isArray(contents) ? contents : [];
+      this.state.analytics = analytics || null;
+      this.state.mapSubmissions = Array.isArray(mapSubmissions) ? mapSubmissions : [];
       this.state.topics = Array.isArray(topics) ? topics : [];
       this.state.npcs = Array.isArray(npcs) ? npcs : [];
       this.state.maps = Array.isArray(maps) ? maps : [];
+
+      const mapAvailability = await this.resolveMapAvailability(this.state.maps);
+      this.state.availableMaps = this.state.maps.filter((map) => {
+        const mapId = String(map?.mapId || '');
+        return mapId && !mapAvailability.fullMapIds.has(mapId);
+      });
+      this.state.mapApprovedNpcCounts = mapAvailability.approvedNpcCountByMapId;
 
       gameState.setContributor(profile);
       gameState.setRole('contributor');
@@ -219,12 +384,14 @@ export class ContributorScene extends Phaser.Scene {
       this.renderProfile();
       this.renderOverview();
       this.renderContentSection();
+      this.renderMapSubmissionsSection();
       this.renderSubmitSection();
       this.setStatus('Workspace updated.', false);
     } catch (error) {
       this.renderProfile();
       this.renderOverview(true);
       this.renderContentSection(true);
+      this.renderMapSubmissionsSection(true);
       this.renderSubmitSection(true);
       this.setStatus(getErrorMessage(error, 'Unable to load contributor workspace'), true);
     }
@@ -257,9 +424,19 @@ export class ContributorScene extends Phaser.Scene {
       const rightTime = new Date(right?.submittedAt || 0).getTime();
       return rightTime - leftTime;
     });
+    const analytics = this.state.analytics || {};
+    const moderationRates = analytics?.moderationRates || {};
     const pendingCount = countByStatus(rows, 'PENDING_REVIEW');
-    const approvedCount = countByStatus(rows, 'APPROVED');
-    const rejectedCount = countByStatus(rows, 'REJECTED');
+    const approvedCount = Number(moderationRates?.approvedCount ?? countByStatus(rows, 'APPROVED'));
+    const rejectedCount = Number(moderationRates?.rejectedCount ?? countByStatus(rows, 'REJECTED'));
+    const totalSubmitted = Number(moderationRates?.totalSubmitted ?? rows.length);
+    const flaggedCount = Number(moderationRates?.flaggedCount ?? 0);
+    const approvalRate = formatPercent(moderationRates?.approvalRate);
+    const rejectionRate = formatPercent(moderationRates?.rejectionRate);
+    const flaggedRate = formatPercent(moderationRates?.flaggedRate);
+    const topPerforming = Array.isArray(analytics?.topPerformingContents)
+      ? analytics.topPerformingContents.slice(0, 3)
+      : [];
 
     const recentItems = rows.slice(0, 3).map((row) => `
       <div class="dash-mini-list__item">
@@ -304,23 +481,23 @@ export class ContributorScene extends Phaser.Scene {
       <div class="dash-grid dash-grid--metrics">
         <article class="dash-card dash-metric">
           <span class="dash-metric__label">Total submissions</span>
-          <span class="dash-metric__value">${rows.length}</span>
+          <span class="dash-metric__value">${totalSubmitted}</span>
           <span class="dash-metric__delta">Across all lessons</span>
         </article>
         <article class="dash-card dash-metric">
-          <span class="dash-metric__label">Pending review</span>
-          <span class="dash-metric__value">${pendingCount}</span>
-          <span class="dash-metric__delta">Awaiting moderation</span>
+          <span class="dash-metric__label">Approval Rate</span>
+          <span class="dash-metric__value">${approvalRate}</span>
+          <span class="dash-metric__delta">${approvedCount} approved</span>
         </article>
         <article class="dash-card dash-metric">
-          <span class="dash-metric__label">Approved</span>
-          <span class="dash-metric__value">${approvedCount}</span>
-          <span class="dash-metric__delta">Ready for learners</span>
+          <span class="dash-metric__label">Rejection Rate</span>
+          <span class="dash-metric__value">${rejectionRate}</span>
+          <span class="dash-metric__delta">${rejectedCount} rejected</span>
         </article>
         <article class="dash-card dash-metric">
-          <span class="dash-metric__label">Rejected</span>
-          <span class="dash-metric__value">${rejectedCount}</span>
-          <span class="dash-metric__delta">Needs revision</span>
+          <span class="dash-metric__label">Flagged Rate</span>
+          <span class="dash-metric__value">${flaggedRate}</span>
+          <span class="dash-metric__delta">${flaggedCount} flagged</span>
         </article>
       </div>
 
@@ -335,6 +512,28 @@ export class ContributorScene extends Phaser.Scene {
           </div>
         </article>
 
+        <article class="dash-card">
+          <div class="dash-card__headline">
+            <h3>Top-performing content</h3>
+            <span class="dash-muted">Top 3 by rating</span>
+          </div>
+          <div class="dash-mini-list">
+            ${topPerforming.map((item) => `
+              <div class="dash-mini-list__item">
+                <span>${escapeHtml(item?.title || 'Untitled content')}</span>
+                <strong>${Number(item?.averageRating || 0).toFixed(2)}* (${Number(item?.ratingCount || 0)})</strong>
+              </div>
+            `).join('') || renderEmptyState('No rated content yet', 'Once learners rate your approved lessons, your top-performing items will appear here.')}
+          </div>
+        </article>
+      </div>
+
+      <div class="dash-grid dash-grid--two" style="margin-top:22px;">
+        <article class="dash-card dash-metric">
+          <span class="dash-metric__label">Pending Review</span>
+          <span class="dash-metric__value">${pendingCount}</span>
+          <span class="dash-metric__delta">Awaiting moderation</span>
+        </article>
         <article class="dash-card">
           <div class="dash-card__headline">
             <h3>Suggested next step</h3>
@@ -368,8 +567,45 @@ export class ContributorScene extends Phaser.Scene {
       const rightTime = new Date(right?.submittedAt || 0).getTime();
       return rightTime - leftTime;
     });
+    const filters = this.state.contentFilters || {};
+    const selectedStatus = filters.status || 'ALL';
+    const selectedTopicId = filters.topicId || 'ALL';
+    const selectedSort = filters.sort || 'submitted_desc';
 
-    const cards = rows.map((row) => `
+    const topicOptions = new Map();
+    this.state.topics.forEach((topic) => {
+      const id = String(topic?.topicId || '').trim();
+      if (!id) return;
+      topicOptions.set(id, topic?.topicName || id);
+    });
+    rows.forEach((row) => {
+      const id = String(row?.topic?.topicId || '').trim();
+      if (!id || topicOptions.has(id)) return;
+      topicOptions.set(id, row?.topic?.topicName || id);
+    });
+
+    const statusValues = Array.from(new Set(
+      rows
+        .map((row) => String(row?.status || '').trim())
+        .filter(Boolean)
+    )).sort((left, right) => left.localeCompare(right));
+
+    const filteredRows = this.getFilteredContentRows();
+    const pageSize = Math.max(1, Number(this.state.contentPagination.pageSize || 10));
+    const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+    const currentPage = Math.min(totalPages, Math.max(1, Number(this.state.contentPagination.page || 1)));
+    this.state.contentPagination.page = currentPage;
+    const startIndex = (currentPage - 1) * pageSize;
+    const pagedRows = filteredRows.slice(startIndex, startIndex + pageSize);
+
+    const ratingsPerContent = Array.isArray(this.state.analytics?.ratingsPerContent)
+      ? this.state.analytics.ratingsPerContent
+      : [];
+    const ratingByContentId = new Map(
+      ratingsPerContent.map((item) => [String(item?.contentId || ''), item])
+    );
+
+    const cards = pagedRows.map((row) => `
       <article class="dash-row-card">
         <div class="dash-row-card__header">
           <div>
@@ -378,6 +614,7 @@ export class ContributorScene extends Phaser.Scene {
               <span>${escapeHtml(row?.topic?.topicName || 'Unknown topic')}</span>
               <span>${escapeHtml(formatDate(row?.submittedAt))}</span>
               <span>${escapeHtml(row?.contentId || 'Missing id')}</span>
+              <span>Rating ${Number(ratingByContentId.get(String(row?.contentId || ''))?.averageRating || 0).toFixed(2)}* (${Number(ratingByContentId.get(String(row?.contentId || ''))?.ratingCount || 0)})</span>
             </div>
           </div>
           ${renderBadge(row?.status || 'UNKNOWN')}
@@ -385,19 +622,79 @@ export class ContributorScene extends Phaser.Scene {
         <div class="dash-row-card__body">${escapeHtml(buildContentPreview(row))}</div>
       </article>
     `).join('');
-
     container.innerHTML = `
       <div class="dash-card" style="margin-bottom:18px;">
         <div class="dash-inline">
           <div>
             <h3 style="margin:0 0 8px;">All submitted content</h3>
-            <p>Recent lessons first, with moderation state surfaced right where you need it.</p>
+            <p>Search, filter, and sort your lessons while keeping moderation state front and center.</p>
           </div>
           <button type="button" class="dash-button dash-button--secondary" data-action="refresh-content">Refresh list</button>
         </div>
       </div>
+      <div class="dash-card" style="margin-bottom:18px;">
+        <div class="dash-form__grid">
+          <div class="dash-field">
+            <label for="content-filter-query">Search</label>
+            <input id="content-filter-query" class="dash-input" type="search" placeholder="Title, topic, or description..." value="${escapeHtml(filters.query || '')}" />
+          </div>
+          <div class="dash-field">
+            <label for="content-filter-status">Status</label>
+            <select id="content-filter-status" class="dash-select">
+              <option value="ALL"${selectedStatus === 'ALL' ? ' selected' : ''}>All statuses</option>
+              ${statusValues.map((status) => (
+                `<option value="${escapeHtml(status)}"${selectedStatus === status ? ' selected' : ''}>${escapeHtml(status)}</option>`
+              )).join('')}
+            </select>
+          </div>
+          <div class="dash-field">
+            <label for="content-filter-topic">Topic</label>
+            <select id="content-filter-topic" class="dash-select">
+              <option value="ALL"${selectedTopicId === 'ALL' ? ' selected' : ''}>All topics</option>
+              ${Array.from(topicOptions.entries())
+                .sort((left, right) => String(left[1]).localeCompare(String(right[1]), undefined, { sensitivity: 'base' }))
+                .map(([id, name]) => (
+                  `<option value="${escapeHtml(id)}"${selectedTopicId === id ? ' selected' : ''}>${escapeHtml(name)}</option>`
+                ))
+                .join('')}
+            </select>
+          </div>
+          <div class="dash-field">
+            <label for="content-filter-sort">Sort</label>
+            <select id="content-filter-sort" class="dash-select">
+              <option value="submitted_desc"${selectedSort === 'submitted_desc' ? ' selected' : ''}>Newest first</option>
+              <option value="submitted_asc"${selectedSort === 'submitted_asc' ? ' selected' : ''}>Oldest first</option>
+              <option value="title_asc"${selectedSort === 'title_asc' ? ' selected' : ''}>Title A-Z</option>
+              <option value="title_desc"${selectedSort === 'title_desc' ? ' selected' : ''}>Title Z-A</option>
+            </select>
+          </div>
+        </div>
+        <div class="dash-inline" style="margin-top:14px;">
+          <span class="dash-muted">Showing ${filteredRows.length} of ${rows.length} submissions</span>
+          <div class="dash-button-group">
+            <div class="dash-field" style="min-width:130px;">
+              <label for="content-page-size">Rows</label>
+              <select id="content-page-size" class="dash-select">
+                <option value="10"${pageSize === 10 ? ' selected' : ''}>10 per page</option>
+                <option value="20"${pageSize === 20 ? ' selected' : ''}>20 per page</option>
+                <option value="50"${pageSize === 50 ? ' selected' : ''}>50 per page</option>
+              </select>
+            </div>
+            <button type="button" class="dash-link-button" data-action="clear-content-filters">Clear filters</button>
+          </div>
+        </div>
+      </div>
       <div class="dash-list">
-        ${cards || renderEmptyState('No submissions yet', 'Once you publish your first lesson draft, it will appear here with moderation status.')}
+        ${cards || renderEmptyState('No matching submissions', 'Try a different search term or clear the active filters.')}
+      </div>
+      <div class="dash-card" style="margin-top:18px;">
+        <div class="dash-inline">
+          <span class="dash-muted">Page ${currentPage} of ${totalPages}</span>
+          <div class="dash-button-group">
+            <button type="button" class="dash-button dash-button--secondary" data-action="content-prev-page"${currentPage <= 1 ? ' disabled' : ''}>Previous</button>
+            <button type="button" class="dash-button dash-button--secondary" data-action="content-next-page"${currentPage >= totalPages ? ' disabled' : ''}>Next</button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -417,6 +714,13 @@ export class ContributorScene extends Phaser.Scene {
       );
       return;
     }
+    if (!this.state.availableMaps.length) {
+      container.innerHTML = renderEmptyState(
+        'No map slots available',
+        `All maps already have ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs. Pick another NPC/map pairing after moderation changes or map updates.`
+      );
+      return;
+    }
 
     const topicOptions = this.state.topics.map((topic) => (
       `<option value="${escapeHtml(topic?.topicId || '')}">${escapeHtml(topic?.topicName || 'Untitled Topic')}</option>`
@@ -424,8 +728,8 @@ export class ContributorScene extends Phaser.Scene {
     const npcOptions = this.state.npcs.map((npc) => (
       `<option value="${escapeHtml(npc?.npc_id || '')}">${escapeHtml(npc?.name || 'Unnamed NPC')}</option>`
     )).join('');
-    const mapOptions = this.state.maps.map((map) => (
-      `<option value="${escapeHtml(map?.mapId || '')}">${escapeHtml(map?.name || 'Unnamed Map')}</option>`
+    const mapOptions = this.state.availableMaps.map((map) => (
+      `<option value="${escapeHtml(map?.mapId || '')}">${escapeHtml(map?.name || 'Unnamed Map')} (${Number(this.state.mapApprovedNpcCounts[String(map?.mapId || '')] || 0)}/${MAX_APPROVED_NPCS_PER_MAP})</option>`
     )).join('');
 
     container.innerHTML = `
@@ -483,7 +787,7 @@ export class ContributorScene extends Phaser.Scene {
           <div id="contributor-narrations" class="dash-list"></div>
         </div>
 
-        <div id="contributor-submit-status" class="dash-status"></div>
+        <div id="contributor-submit-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <div class="dash-button-group">
           <button id="contributor-submit-button" type="submit" class="dash-button"${this.state.isSubmitting ? ' disabled' : ''}>${this.state.isSubmitting ? 'Submitting...' : 'Submit lesson'}</button>
@@ -576,6 +880,10 @@ export class ContributorScene extends Phaser.Scene {
 
     if (!topicId || !npcId || !mapId || !title || !description) {
       this.setSubmitStatus('Topic, NPC, map, title, and description are required.', true);
+      return;
+    }
+    if (!this.isMapSelectable(mapId)) {
+      this.setSubmitStatus(`Selected map is no longer available. Maps with ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs cannot be used for new content.`, true);
       return;
     }
     if (!narrations.length) {
@@ -676,15 +984,132 @@ export class ContributorScene extends Phaser.Scene {
   setStatus(message, isError) {
     const statusEl = this.portalRoot?.querySelector('#contributor-status');
     if (!statusEl) return;
-    statusEl.textContent = message || '';
+    statusEl.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+    statusEl.textContent = message ? (isError ? `Error: ${message}` : message) : '';
     statusEl.style.color = isError ? '#ffb8c6' : '';
+  }
+
+  renderMapSubmissionsSection(hasError = false) {
+    const container = this.portalRoot?.querySelector('#contributor-maps');
+    if (!container) return;
+
+    if (hasError) {
+      container.innerHTML = renderEmptyState('Map submissions unavailable', 'We could not load your map submission history.');
+      return;
+    }
+
+    const rows = [...(this.state.mapSubmissions || [])].sort((left, right) => {
+      const leftTime = new Date(left?.publishedAt || left?.approvedAt || 0).getTime();
+      const rightTime = new Date(right?.publishedAt || right?.approvedAt || 0).getTime();
+      return rightTime - leftTime;
+    });
+
+    const cards = rows.map((row) => {
+      const status = String(row?.status || 'UNKNOWN').toUpperCase();
+      const published = Boolean(row?.published);
+      const rejectionReason = row?.rejectionReason || 'No rejection reason provided.';
+      const detail = status === 'REJECTED'
+        ? rejectionReason
+        : published
+          ? 'Approved and published.'
+          : status === 'APPROVED'
+            ? 'Approved and awaiting publish.'
+            : 'Pending admin review.';
+      const metadata = status === 'REJECTED'
+        ? `
+            <div class="dash-mini-list__item">
+              <span>Reason for rejection</span>
+              <strong>${escapeHtml(rejectionReason)}</strong>
+            </div>
+          `
+        : `
+            <div class="dash-mini-list__item"><span>Approved at</span><strong>${escapeHtml(formatDate(row?.approvedAt))}</strong></div>
+            <div class="dash-mini-list__item"><span>Published at</span><strong>${escapeHtml(formatDate(row?.publishedAt))}</strong></div>
+            <div class="dash-mini-list__item"><span>Topic</span><strong>${escapeHtml(row?.topicName || row?.topicId || 'Not assigned')}</strong></div>
+          `;
+
+      return `
+        <article class="dash-row-card">
+          <div class="dash-row-card__header">
+            <div>
+              <div class="dash-row-card__title">${escapeHtml(row?.name || 'Untitled map')}</div>
+              <div class="dash-row-card__meta">
+                <span>${escapeHtml(row?.mapId || 'No map id')}</span>
+                <span>${escapeHtml(row?.asset || 'No asset')}</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              ${renderBadge(status)}
+              ${published ? renderBadge('PUBLISHED') : ''}
+            </div>
+          </div>
+          <div class="dash-row-card__body">${escapeHtml(detail)}</div>
+          <div class="dash-mini-list">
+            ${metadata}
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="dash-card" style="margin-bottom:18px;">
+        <div class="dash-inline">
+          <div>
+            <h3 style="margin:0 0 8px;">My map submissions</h3>
+            <p>Track pending, rejected, approved, and published maps from the editor submission flow.</p>
+          </div>
+          <button type="button" class="dash-button dash-button--secondary" data-action="open-map-editor">Open map editor</button>
+        </div>
+      </div>
+      <div class="dash-list">
+        ${cards || renderEmptyState('No map submissions yet', 'Submit a map from the editor and its review status will appear here.')}
+      </div>
+    `;
   }
 
   setSubmitStatus(message, isError) {
     const statusEl = this.portalRoot?.querySelector('#contributor-submit-status');
     if (!statusEl) return;
-    statusEl.textContent = message || '';
+    statusEl.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+    statusEl.textContent = message ? (isError ? `Error: ${message}` : message) : '';
     statusEl.style.color = isError ? '#ffb8c6' : '';
+  }
+
+  isMapSelectable(mapId) {
+    if (!mapId) return false;
+    const target = String(mapId);
+    return this.state.availableMaps.some((map) => String(map?.mapId || '') === target);
+  }
+
+  async resolveMapAvailability(maps) {
+    const approvedNpcCountByMapId = {};
+    const fullMapIds = new Set();
+    if (!Array.isArray(maps) || !maps.length) {
+      return { approvedNpcCountByMapId, fullMapIds };
+    }
+
+    await Promise.all(maps.map(async (map) => {
+      const mapId = String(map?.mapId || '').trim();
+      if (!mapId) return;
+
+      try {
+        const rows = await apiService.getNPCsByMap(mapId);
+        const npcIds = new Set(
+          (Array.isArray(rows) ? rows : [])
+            .map((row) => String(row?.npcId || '').trim())
+            .filter(Boolean)
+        );
+        const approvedCount = npcIds.size;
+        approvedNpcCountByMapId[mapId] = approvedCount;
+        if (approvedCount >= MAX_APPROVED_NPCS_PER_MAP) {
+          fullMapIds.add(mapId);
+        }
+      } catch (_error) {
+        approvedNpcCountByMapId[mapId] = 0;
+      }
+    }));
+
+    return { approvedNpcCountByMapId, fullMapIds };
   }
 
   showSection(section) {
@@ -692,6 +1117,7 @@ export class ContributorScene extends Phaser.Scene {
     const config = {
       overview: ['Overview', 'Track your content pipeline and jump straight into the next submission.'],
       content: ['My Content', 'Everything you have submitted, sorted by freshness and moderation status.'],
+      maps: ['My Maps', 'Track map review and publish status from contributor submissions.'],
       submit: ['New Submission', 'Build a new lesson with AI-assisted narrations and media support.']
     };
 
@@ -712,6 +1138,6 @@ export class ContributorScene extends Phaser.Scene {
   async logout() {
     await supabase.auth.signOut();
     gameState.clearState();
-    this.scene.start('LoginScene');
+    routeToLogin(this, { hardReload: true });
   }
 }

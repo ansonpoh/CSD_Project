@@ -39,6 +39,7 @@ public class LearnerService {
                 .full_name(fullName)
                 .level(1)
                 .total_xp(0)
+                .gold(0)
                 .build();
         
         Learner saved = repository.save(learner);
@@ -59,12 +60,34 @@ public class LearnerService {
         return repository.findBySupabaseUserId(supabaseUserId);
     }
 
+    @Transactional
+    public Learner awardXpAndGoldBySupabaseUserId(UUID supabaseUserId, Integer xpAwarded, Integer goldAwarded)
+            throws ResourceNotFoundException {
+        Learner learner = getBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+
+        int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(xpAwarded);
+        int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
+        int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
+
+        learner.setTotal_xp(updatedXp);
+        learner.setGold(updatedGold);
+        learner.setLevel(updatedLevel);
+        learner.setUpdated_at(LocalDateTime.now());
+
+        Learner updated = repository.save(learner);
+        leaderboardService.upsertLearnerScore(updated);
+        return updated;
+    }
+
     public boolean existsBySupabaseUserId(UUID supabaseUserId) {
         return repository.existsBySupabaseUserId(supabaseUserId);
     }
 
     @Transactional
-    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Boolean isActive)
+    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Integer gold, Boolean isActive)
             throws ResourceNotFoundException {
         Learner learner = getById(id);
 
@@ -79,6 +102,9 @@ public class LearnerService {
         }
         if (level != null) {
             learner.setLevel(level);
+        }
+        if (gold != null) {
+            learner.setGold(gold);
         }
         if (isActive != null) {
             learner.setIs_active(isActive);
@@ -97,5 +123,9 @@ public class LearnerService {
         }
         repository.deleteById(id);
         leaderboardService.removeLearner(id);
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 }

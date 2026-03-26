@@ -217,14 +217,16 @@ export class BootScene extends Phaser.Scene {
       if (role === 'learner') {
         const learner = await apiService.getCurrentLearner();
         gameState.setLearner(learner);
-        const profileState = await apiService.getMyProfileState().catch(() => null);
+        const [profileState, inventory, lessonProgress] = await Promise.all([
+          apiService.getMyProfileState().catch(() => null),
+          apiService.getMyInventory().catch(() => []),
+          apiService.getMyLessonProgress().catch(() => [])
+        ]);
         gameState.setPlayerProfile(buildPlayerProfile({
           presetId: profileState?.avatarPreset || gameState.getPlayerProfile()?.presetId || getDefaultPlayerProfile().presetId
         }));
         dailyQuestService.hydrateFromSnapshot(profileState?.dailyQuests || null);
-        const inventory = await apiService.getMyInventory().catch(() => []);
         gameState.setInventory(inventory || []);
-        const lessonProgress = await apiService.getMyLessonProgress().catch(() => []);
         gameState.setLessonProgress(lessonProgress || []);
         this.scene.start('WorldMapScene');
         this.scene.launch('UIScene');

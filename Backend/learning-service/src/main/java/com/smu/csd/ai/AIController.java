@@ -31,7 +31,7 @@ public class AIController {
      * Called when contributor clicks the star (✦) button on the submission form.
      */
     @PostMapping("/generate-narrations")
-    @PreAuthorize("hasRole('CONTRIBUTOR')")
+    @PreAuthorize("hasAnyRole('CONTRIBUTOR', 'ADMIN')")
     public ResponseEntity<GenerateNarrationsResponse> generateNarrations(
             @RequestBody GenerateNarrationsRequest request) throws ResourceNotFoundException {
         String topicName = topicService.getById(request.topicId()).getTopicName();

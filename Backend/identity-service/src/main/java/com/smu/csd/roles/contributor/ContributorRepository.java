@@ -11,7 +11,11 @@ public interface ContributorRepository extends JpaRepository<Contributor, UUID> 
 
     Optional<Contributor> findBySupabaseUserId(UUID supabaseUserId);
 
+    Optional<Contributor> findBySupabaseUserIdAndIsActiveTrue(UUID supabaseUserId);
+
     boolean existsBySupabaseUserId(UUID supabaseUserId);
+
+    boolean existsBySupabaseUserIdAndIsActiveTrue(UUID supabaseUserId);
 
     // Check if email already taken (used during registration to prevent duplicates)
     boolean existsByEmail(String email);

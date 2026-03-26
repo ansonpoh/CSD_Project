@@ -795,6 +795,23 @@ class ApiService {
     const { data } = await this.api.post(`/missions/${missionId}/reflect`, { reflection });
     return data;
   }
+
+  // Chatbot
+  async chatbotQuery(query, conversationId = null, maxChunks = null) {
+    const { data } = await this.api.post('/chatbot/query', {
+      query,
+      conversation_id: conversationId,
+      max_chunks: maxChunks
+    });
+    return data;
+  }
+
+  async chatbotClearHistory(conversationId) {
+    const { data } = await this.api.post('/chatbot/clear-history', {
+      conversation_id: conversationId
+    });
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

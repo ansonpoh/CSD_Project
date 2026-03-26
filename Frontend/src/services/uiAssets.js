@@ -46,6 +46,12 @@ const UI_ASSETS = {
     load(scene) {
       scene.load.image('ui-scroll-icon', 'assets/ui_set/scroll_icon.png');
     }
+  },
+  chatIcon: {
+    key: 'ui-chat-icon',
+    load(scene) {
+      scene.load.image('ui-chat-icon', 'assets/ui_set/chat_icon.png');
+    }
   }
 };
 
@@ -62,7 +68,8 @@ export function loadSharedUiAssets(scene, options = {}) {
     includeClose = false,
     includePortrait = false,
     includeArrow = false,
-    includeScrollIcon = false
+    includeScrollIcon = false,
+    includeChatIcon = false
   } = options;
 
   if (includePanel) queueUiAsset(scene, UI_ASSETS.panel);
@@ -71,4 +78,5 @@ export function loadSharedUiAssets(scene, options = {}) {
   if (includePortrait) queueUiAsset(scene, UI_ASSETS.portrait);
   if (includeArrow) queueUiAsset(scene, UI_ASSETS.arrow);
   if (includeScrollIcon) queueUiAsset(scene, UI_ASSETS.scrollIcon);
+  if (includeChatIcon) queueUiAsset(scene, UI_ASSETS.chatIcon);
 }

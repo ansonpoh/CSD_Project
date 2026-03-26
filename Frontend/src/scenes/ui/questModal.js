@@ -1,4 +1,5 @@
 import { apiService } from '../../services/api.js';
+import { gameState } from '../../services/gameState.js';
 
 const STYLES = `
   .quest-overlay {
@@ -285,6 +286,10 @@ export function showQuests(scene) {
             if (status === 'APPROVED') {
               resultEl.className = 'quest-result quest-result--approved';
               resultEl.textContent = `Reflection accepted! +${attempt?.mission?.rewardXp ?? 50} XP and +${attempt?.mission?.rewardGold ?? 20} Gold awarded.`;
+              // Refresh learner so HUD XP updates immediately
+              apiService.getCurrentLearner().then((learner) => {
+                if (learner) gameState.setLearner(learner);
+              }).catch(() => {});
             } else if (status === 'FLAGGED_FOR_REVIEW') {
               resultEl.className = 'quest-result quest-result--pending';
               resultEl.textContent = 'Your reflection has been submitted and is under review. Rewards will be granted once approved.';

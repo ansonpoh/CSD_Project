@@ -283,4 +283,22 @@ export function buildHud(scene, learner) {
     scrollIcon.setScale(scrollIconBaseScale);
   });
   scrollIcon.on('pointerdown', () => scene.showQuests?.());
+
+  // Collect all scroll-related display objects for show/hide
+  const scrollObjects = [...starGraphics, scrollIcon];
+
+  function setScrollVisible(visible) {
+    scrollObjects.forEach((obj) => obj?.setVisible(visible));
+  }
+
+  // Only show on WorldMapScene — poll every 250ms since scene manager
+  // doesn't expose reliable cross-scene lifecycle events
+  scene.time.addEvent({
+    delay: 250,
+    loop: true,
+    callback: () => setScrollVisible(scene.scene.isActive('WorldMapScene'))
+  });
+
+  // Set initial visibility immediately
+  setScrollVisible(scene.scene.isActive('WorldMapScene'));
 }

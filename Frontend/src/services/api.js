@@ -239,6 +239,11 @@ class ApiService {
     return data;
   }
 
+  async getSideChallengeByTheme(theme) {
+    const { data } = await this.api.get(`/side-challenges/theme/${theme}`);
+    return data;
+  }
+
   async getEncounterTelemetryDashboard(mapId = null) {
     const { data } = await this.api.get('/encounters/telemetry/dashboard', {
       params: mapId ? { mapId } : {}

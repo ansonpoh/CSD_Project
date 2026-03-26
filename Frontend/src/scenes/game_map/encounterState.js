@@ -424,11 +424,19 @@ export const encounterStateMethods = {
     this.refreshMapSignalPanel();
   },
 
-  openSideChallenge() {
+  async openSideChallenge() {
+    const theme = String(this.mapConfig?.theme || this.mapConfig?.name || 'forest').toLowerCase();
+    let serverChallenge = null;
+    try {
+      serverChallenge = await apiService.getSideChallengeByTheme(theme);
+    } catch (_e) {
+      // Fall back to hardcoded data in SideChallengeScene
+    }
     const snapshot = getChallengeSnapshot(this.mapConfig);
+    const title = serverChallenge?.title || snapshot.challenge.title;
     const suffix = snapshot.completed ? ' Practice mode only.' : '';
-    this.showMapToast(`${snapshot.challenge.title} ready.${suffix}`, 1200);
-    this.scene.launch('SideChallengeScene', { mapConfig: this.mapConfig });
+    this.showMapToast(`${title} ready.${suffix}`, 1200);
+    this.scene.launch('SideChallengeScene', { mapConfig: this.mapConfig, serverChallenge });
     this.scene.pause();
   }
 };

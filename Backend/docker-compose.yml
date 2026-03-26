@@ -25,10 +25,9 @@ services:
       BASE_MODEL_NAME: gpt-4o-mini
       EMBEDDING_TYPE: OPENAI
       OPENAI_EMBEDDING_MODEL: text-embedding-3-small
-      VECTOR_DATABASE_TYPE: CHROMA
-      VECTOR_DATABASE_CHROMA_PATH: /app/chroma_db
-    volumes:
-      - chroma_data:/app/chroma_db
+      VECTOR_DATABASE_TYPE: SUPABASE
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/api/v1/health || exit 1"]
       interval: 10s
@@ -208,6 +207,3 @@ services:
       timeout: 5s
       retries: 12
       start_period: 15s
-
-volumes:
-  chroma_data:

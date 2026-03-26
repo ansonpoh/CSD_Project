@@ -317,12 +317,6 @@ export function buildHud(scene, learner) {
       .setScale(chatIconBaseScale)
       .setDepth(50)
       .setAlpha(0.92);
-
-    // Circular mask to remove white JPG background
-    const maskGraphics = scene.make.graphics({ add: false });
-    maskGraphics.fillStyle(0xffffff);
-    maskGraphics.fillCircle(chatX, chatBaseY, chatIconSize / 2);
-    chatIcon.setMask(maskGraphics.createGeometryMask());
   } else {
     const g = scene.add.graphics().setDepth(50);
     g.fillStyle(0x1a3a5c, 0.85);
@@ -333,15 +327,6 @@ export function buildHud(scene, learner) {
       fontSize: '26px'
     }).setOrigin(0.5).setDepth(51);
   }
-
-  scene.tweens.add({
-    targets: chatIcon,
-    y: chatBaseY - 4,
-    duration: 1400,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut'
-  });
 
   chatIcon.setInteractive({ useHandCursor: true });
   chatIcon.on('pointerover', () => {

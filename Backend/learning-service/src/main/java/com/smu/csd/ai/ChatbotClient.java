@@ -10,6 +10,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.Map;
@@ -26,10 +27,14 @@ public class ChatbotClient {
         this.restTemplate = restTemplate;
     }
 
-    /** POST /api/v1/query */
+    /** POST /api/v1/query — params sent as URL query parameters */
     public QueryResponse query(String query, String conversationId, Integer maxChunks) {
-        String url = chatbotUrl + "/api/v1/query";
-        return restTemplate.postForObject(url, new QueryRequest(query, conversationId, maxChunks), QueryResponse.class);
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(chatbotUrl + "/api/v1/query")
+                .queryParam("query", query);
+        if (conversationId != null) builder.queryParam("conversation_id", conversationId);
+        if (maxChunks != null) builder.queryParam("max_chunks", maxChunks);
+        return restTemplate.postForObject(builder.toUriString(), null, QueryResponse.class);
     }
 
     /** POST /api/v1/process-document — multipart file upload (pdf, json, csv) */
@@ -51,15 +56,15 @@ public class ChatbotClient {
         return restTemplate.postForObject(url, new HttpEntity<>(body, headers), Map.class);
     }
 
-    /** POST /api/v1/clear-history */
+    /** POST /api/v1/clear-history — conversation_id sent as URL query parameter */
     @SuppressWarnings("unchecked")
     public Map<String, Object> clearHistory(String conversationId) {
-        String url = chatbotUrl + "/api/v1/clear-history";
-        return restTemplate.postForObject(url, new ClearHistoryRequest(conversationId), Map.class);
+        String url = UriComponentsBuilder
+                .fromUriString(chatbotUrl + "/api/v1/clear-history")
+                .queryParam("conversation_id", conversationId)
+                .toUriString();
+        return restTemplate.postForObject(url, null, Map.class);
     }
 
-    public record QueryRequest(String query, String conversation_id, Integer max_chunks) {}
     public record QueryResponse(String response, String conversation_id, Map<String, Object> additional_kwargs) {}
-
-    public record ClearHistoryRequest(String conversation_id) {}
 }

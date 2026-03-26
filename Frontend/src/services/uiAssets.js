@@ -40,6 +40,12 @@ const UI_ASSETS = {
         frameHeight: 14
       });
     }
+  },
+  scrollIcon: {
+    key: 'ui-scroll-icon',
+    load(scene) {
+      scene.load.image('ui-scroll-icon', 'assets/ui_set/scroll_icon.png');
+    }
   }
 };
 
@@ -55,7 +61,8 @@ export function loadSharedUiAssets(scene, options = {}) {
     includeHeader = true,
     includeClose = false,
     includePortrait = false,
-    includeArrow = false
+    includeArrow = false,
+    includeScrollIcon = false
   } = options;
 
   if (includePanel) queueUiAsset(scene, UI_ASSETS.panel);
@@ -63,4 +70,5 @@ export function loadSharedUiAssets(scene, options = {}) {
   if (includeClose) queueUiAsset(scene, UI_ASSETS.close);
   if (includePortrait) queueUiAsset(scene, UI_ASSETS.portrait);
   if (includeArrow) queueUiAsset(scene, UI_ASSETS.arrow);
+  if (includeScrollIcon) queueUiAsset(scene, UI_ASSETS.scrollIcon);
 }

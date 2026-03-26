@@ -11,6 +11,7 @@ import { showLeaderboard } from './leaderboardModal.js';
 import { showUserProfile } from './profileModal.js';
 import { showAchievements } from './achievementsModal.js';
 import { showFriends } from './friendsModal.js';
+import { showQuests } from './questModal.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -25,7 +26,8 @@ export class UIScene extends Phaser.Scene {
   preload() {
     loadSharedUiAssets(this, {
       includeClose: true,
-      includePortrait: true
+      includePortrait: true,
+      includeScrollIcon: true
     });
   }
 
@@ -120,6 +122,10 @@ export class UIScene extends Phaser.Scene {
 
   showFriends() {
     return showFriends(this);
+  }
+
+  showQuests() {
+    return showQuests(this);
   }
 
   async consumeInventoryItem(item) {

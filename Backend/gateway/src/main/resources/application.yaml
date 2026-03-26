@@ -58,7 +58,7 @@ spring:
         - id: learning-service
           uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**
+            - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**, /api/missions/**
           filters:
             - name: RequestRateLimiter
               args:

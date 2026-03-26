@@ -753,6 +753,43 @@ class ApiService {
     const { data } = await this.api.delete(`/map-quizzes/${quizId}/questions/${questionId}`);
     return data;
   }
+
+  // Real-World Missions (Admin)
+  async getAllMissions() {
+    const { data } = await this.api.get('/missions');
+    return data;
+  }
+
+  async createMission(missionData) {
+    const { data } = await this.api.post('/missions', missionData);
+    return data;
+  }
+
+  async setMissionActive(missionId, value) {
+    const { data } = await this.api.patch(`/missions/${missionId}/active?value=${value}`);
+    return data;
+  }
+
+  async getFlaggedReflections() {
+    const { data } = await this.api.get('/missions/flagged');
+    return data;
+  }
+
+  async reviewReflection(attemptId, approve, note) {
+    const { data } = await this.api.post(`/missions/attempts/${attemptId}/review`, { approve, note });
+    return data;
+  }
+
+  // Real-World Missions (Learner)
+  async getDailyMissions() {
+    const { data } = await this.api.get('/missions/daily');
+    return data;
+  }
+
+  async submitReflection(missionId, reflection) {
+    const { data } = await this.api.post(`/missions/${missionId}/reflect`, { reflection });
+    return data;
+  }
 }
 
 export const apiService = new ApiService();

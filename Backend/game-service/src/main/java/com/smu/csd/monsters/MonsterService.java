@@ -6,8 +6,11 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.monsters.monster_map.MonsterMap;
 import com.smu.csd.monsters.monster_map.MonsterMapRepository;
+
+import lombok.NonNull;
 
 @Service
 public class MonsterService {
@@ -24,11 +27,12 @@ public class MonsterService {
         return repository.findAll();
     }
 
-    public Monster getMonsterById(UUID monsterId) {
-        return repository.findById(monsterId).orElseThrow(() -> new RuntimeException("Monster not found"));
+    public @NonNull Monster getMonsterById(@NonNull UUID monsterId) {
+        return repository.findById(monsterId)
+            .orElseThrow(() -> new ResourceNotFoundException("Monster", "id", monsterId));
     }
 
-    public List<Monster> getMonstersByMapId(UUID map_id) {
+    public List<Monster> getMonstersByMapId(@NonNull UUID map_id) {
         return monsterMapRepository.findAllByMapMapId(map_id)
             .stream()
             .map(MonsterMap::getMonster)
@@ -36,22 +40,23 @@ public class MonsterService {
     }
 
     //Post Requests
-    public Monster saveMonster(Monster monster) {
+    public Monster saveMonster(@NonNull Monster monster) {
         return repository.save(monster);
     }
 
-    public Monster updateMonster(UUID monsterId, Monster monster) {
+    public Monster updateMonster(@NonNull UUID monsterId, @NonNull Monster monster) {
         return repository.findById(monsterId).map(current -> {
             current.setName(monster.getName());
             current.setDescription(monster.getDescription());
             current.setAsset(monster.getAsset());
             return repository.save(current);
-        }).orElseThrow(() -> new RuntimeException("Monster not found"));
+        }).orElseThrow(() -> new ResourceNotFoundException("Monster", "id", monsterId));
     }
 
-    public void deleteMonster(UUID monsterId) {
+    public void deleteMonster(@NonNull UUID monsterId) {
+        if (!repository.existsById(monsterId)) {
+            throw new ResourceNotFoundException("Monster", "id", monsterId);
+        }
         repository.deleteById(monsterId);
     }
-
-
 }

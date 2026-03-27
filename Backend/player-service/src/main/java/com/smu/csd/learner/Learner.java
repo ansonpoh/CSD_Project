@@ -10,6 +10,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,8 +30,11 @@ public class Learner {
     private UUID learnerId;
     @Column(name = "supabase_user_id")
     private UUID supabaseUserId;
+    @NotBlank(message = "Username is mandatory")
     @Column (nullable = false)
     private String username;
+    @NotBlank(message = "Email is mandatory")
+    @Email(message = "Email should be valid")
     @Column (nullable = false)
     private String email;
     @Column

@@ -22,6 +22,7 @@
 		<module>game-service</module>
 		<module>learning-service</module>
 		<module>player-service</module>
+		<module>coverage-report</module>
 	</modules>
 
 </project>

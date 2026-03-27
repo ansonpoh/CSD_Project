@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
           contributorContents: resolve(__dirname, 'contributor/contents.html'),
         }
       }
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true
     }
   }
 })

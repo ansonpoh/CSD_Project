@@ -24,6 +24,7 @@ export class LoginScene extends Phaser.Scene {
     this.authMode = 'login';
     this.cloudSet = 1;
     this.cloudLayerCount = 4;
+    this.role = 'learner'
   }
 
   preload() {
@@ -77,8 +78,27 @@ export class LoginScene extends Phaser.Scene {
     if (!this.loginForm) {
       this.loginForm = createAuthFormContainer();
     }
-    this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode);
+    //user input is a nono to prevent XSS :(
+    this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode, this.role);
     wireAuthForm(this);
+
+    this.loginForm.querySelector('#switch-contributor')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.role = 'contributor';
+      this.renderAuthForm();
+    });
+
+    this.loginForm.querySelector('#switch-admin')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.role = 'admin';
+      this.renderAuthForm();
+    });
+
+    this.loginForm.querySelector('#switch-learner')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.role = 'learner';
+      this.renderAuthForm();
+    });
   }
 
   updateRegisterFields(role) {
@@ -109,8 +129,7 @@ export class LoginScene extends Phaser.Scene {
   async handleGoogleAuth() {
     try {
       if (this.authMode === 'login') {
-        const form = readLoginForm(this.loginForm);
-        await loginWithGoogle({ role: form.role });
+        await loginWithGoogle({ role: this.role });
         return;
       }
 
@@ -148,6 +167,7 @@ export class LoginScene extends Phaser.Scene {
 
   async submitLogin() {
     const form = readLoginForm(this.loginForm);
+    form.role = this.role;
     const validationError = validateLoginForm(form);
 
     if (validationError) {

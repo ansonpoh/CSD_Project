@@ -55,18 +55,26 @@ export const mapRuntimeMethods = {
 
     this.collisionLayers = [];
     this.collisionBodies = [];
-    this.map.layers.forEach((layerData) => {
+    this.map.layers.forEach((layerData, layerIndex) => {
       const layer = this.map.createLayer(layerData.name, tilesets, 0, 0);
       if (!layer) return;
 
+      const isMap1to3 = mapKey === 'map1' || mapKey === 'map2' || mapKey === 'map3';
+
       const collidesByName = /collision|collide|wall|blocked|barrier/i.test(String(layerData.name || ''));
-      layer.setCollisionByProperty({ collides: true });
-      if (collidesByName) {
-        layer.setCollisionByExclusion([-1]);
+      const hasCollidesProperty = layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true);
+
+      // Forest and cave and mountain rule: first 2 layers (0,1) no collision; layers 2 onwards collide
+      const shouldCollide = isMap1to3 ? layerIndex >= 2 : (collidesByName || hasCollidesProperty);
+
+      if (isMap1to3) {
+        if (shouldCollide) layer.setCollisionByExclusion([-1]);
+      } else {
+        layer.setCollisionByProperty({ collides: true });
+        if (collidesByName) layer.setCollisionByExclusion([-1]);
       }
-      if (collidesByName || layer.layer.properties?.some?.((prop) => prop.name === 'collides' && prop.value === true)) {
-        this.collisionLayers.push(layer);
-      }
+
+      if (shouldCollide) this.collisionLayers.push(layer);
     });
   },
 

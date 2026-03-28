@@ -168,7 +168,9 @@ export const worldMapMapPanelMethods = {
       bottom: 14
     });
 
-    const maps = this.getFilteredMaps();
+    const maps = this.catalog.slice(0, 5).map(map => ({ ...map, unlocked: true })); //temp for testing
+    //uncomment once testing is done
+    // const maps = this.getFilteredMaps();
     const viewportWidth = panel.scrollState?.viewport?.width ?? (panel.width - panel.pad * 2);
     const clickGuard = (pointer) => this.isPointerInsidePanelViewport(panel, pointer);
     const cardW = viewportWidth;

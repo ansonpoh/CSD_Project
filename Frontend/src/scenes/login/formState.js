@@ -11,7 +11,7 @@ function readSelectValue(container, id, fallback = '') {
 
 export function readLoginForm(container) {
   return {
-    role: readSelectValue(container, 'role', DEFAULT_ROLE),
+    role: DEFAULT_ROLE,
     email: readTrimmedValue(container, 'email'),
     password: readTrimmedValue(container, 'password')
   };

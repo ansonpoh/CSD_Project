@@ -3,6 +3,21 @@ import { apiService } from '../../services/api.js';
 import { dailyQuestService } from '../../services/dailyQuests.js';
 
 export const questPanelMethods = {
+  getQuestProgressForEncounter(encounter) {
+    const npcProgress = this.getEncounterProgress(encounter?.npc) || {};
+    const monsterProgress = this.getEncounterMonsterState(encounter?.monster) || {};
+
+    // Merge monster + NPC-centric progress so quest checklist reflects real state.
+    return {
+      npcInteracted: Boolean(npcProgress.npcInteracted || monsterProgress.npcInteracted),
+      monsterDefeated: Boolean(npcProgress.monsterDefeated || monsterProgress.monsterDefeated),
+      rewardClaimed: Boolean(npcProgress.rewardClaimed || monsterProgress.rewardClaimed),
+      lossStreak: Number.isFinite(monsterProgress.lossStreak)
+        ? monsterProgress.lossStreak
+        : (Number.isFinite(npcProgress.lossStreak) ? npcProgress.lossStreak : 0)
+    };
+  },
+
   processQueuedMonsterSpawns() {
     if (!this.areAllNpcsCompleted()) return;
     if (!this.pendingMonsterUnlockNpcKeys.length) return;
@@ -103,11 +118,11 @@ export const questPanelMethods = {
 
     for (let index = 0; index < ordered.length; index += 1) {
       const encounter = ordered[index];
-      const progress = this.getEncounterMonsterState(encounter.monster);
-      if (!progress?.rewardClaimed) {
+      const progress = this.getQuestProgressForEncounter(encounter);
+      if (!progress.rewardClaimed) {
         return {
           ...encounter,
-          progress: progress || null,
+          progress,
           index,
           total: ordered.length
         };
@@ -135,7 +150,7 @@ export const questPanelMethods = {
       return;
     }
 
-    const claimedCount = ordered.filter((encounter) => this.getEncounterMonsterState(encounter.monster)?.rewardClaimed).length;
+    const claimedCount = ordered.filter((encounter) => this.getQuestProgressForEncounter(encounter).rewardClaimed).length;
     const activeQuest = this.getActiveQuest();
     if (!activeQuest) {
       this.questTitleText.setText('Quest Chain Complete');
@@ -177,15 +192,44 @@ export const questPanelMethods = {
 
   async claimActiveQuestReward() {
     const activeQuest = this.getActiveQuest();
-    if (!activeQuest) return;
+    if (!activeQuest) {
+      this.showMapToast('No active quest reward to claim.');
+      return;
+    }
 
     const mapId = this.getCurrentMapId();
     const monsterId = activeQuest?.pair?.monsterId || this.getMonsterId(activeQuest?.monster);
-    if (!mapId || !monsterId) return;
+    if (!mapId || !monsterId) {
+      this.showMapToast('Reward claim unavailable: missing map or monster ID.');
+      return;
+    }
+
+    this.claimRewardButton?.setEnabled(false);
 
     try {
       const result = await apiService.claimEncounterReward(mapId, monsterId);
-      if (result?.progress) this.applyEncounterProgress(result.progress);
+      // Keep local UI/state responsive even though claim response does not include
+      // the full encounter progress payload.
+      const npcId = this.getNpcId(activeQuest?.npc);
+      if (npcId) {
+        this.applyEncounterProgress({
+          npcId,
+          monsterId,
+          npcInteracted: true,
+          monsterDefeated: true,
+          rewardClaimed: Boolean(result?.rewardClaimed)
+        });
+      }
+
+      const monsterRows = Array.isArray(this.encounterState?.monsters) ? this.encounterState.monsters : [];
+      const targetIndex = monsterRows.findIndex((row) => String(row?.monsterId || '') === String(monsterId));
+      if (targetIndex >= 0) {
+        monsterRows[targetIndex] = {
+          ...monsterRows[targetIndex],
+          monsterDefeated: true,
+          rewardClaimed: Boolean(result?.rewardClaimed)
+        };
+      }
 
       const learner = gameState.getLearner();
       if (learner && Number.isFinite(result?.learnerTotalXp) && Number.isFinite(result?.learnerLevel)) {
@@ -210,14 +254,23 @@ export const questPanelMethods = {
           ? `Reward claimed: +${xp} XP, +${gold} Gold`
           : 'Reward already claimed'
       );
+
+      // Pull authoritative server state after optimistic update.
+      await this.refreshEncounterState?.();
+      this.updateAllNpcVisualStates();
+      this.updateMonsterVisualStates();
+      this.updateMissionPanel();
+      this.updateQuestPanel();
     } catch (error) {
       const message = error?.response?.data?.message || error?.message || 'Reward claim failed';
       this.showMapToast(message);
+    } finally {
+      this.claimRewardButton?.setEnabled(Boolean(this.getActiveQuest()?.progress?.monsterDefeated));
     }
   },
 
   isQuestChainComplete() {
     const ordered = this.getOrderedEncounters();
-    return Boolean(ordered.length) && ordered.every((entry) => this.getEncounterMonsterState(entry.monster)?.rewardClaimed);
+    return Boolean(ordered.length) && ordered.every((entry) => this.getQuestProgressForEncounter(entry).rewardClaimed);
   }
 };

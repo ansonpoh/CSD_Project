@@ -98,4 +98,28 @@ public class LearnerController {
         service.deleteLearner(learner_id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping({"/me/analytics", "/{id}/analytics"})
+    public ResponseEntity<LearnerAnalyticsResponse> getAnalytics(
+            @PathVariable(required = false) String id,
+            Authentication authentication) throws ResourceNotFoundException {
+        
+        UUID learnerId;
+        
+        if (id == null || id.equals("me")) {
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+            Learner learner = service.getBySupabaseUserId(supabaseUserId);
+            
+            if (learner == null) {
+                throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+            }
+            learnerId = learner.getLearnerId();
+        } else {
+            learnerId = UUID.fromString(id);
+        }
+        
+        LearnerAnalyticsResponse analytics = service.getLearnerAnalytics(learnerId);
+        return ResponseEntity.ok(analytics);
+    }
 }

@@ -48,6 +48,9 @@ public interface LearnerLessonProgressRepository extends JpaRepository<LearnerLe
         @Param("status") LearnerLessonProgress.Status status
     );
 
+    @Query("SELECT p.status, COUNT(p) FROM LearnerLessonProgress p WHERE p.learner.id = :learnerId GROUP BY p.status")
+    List<Object[]> countTopicProgressByStatus(@Param("learnerId") String learnerId);
+
     @Query("""
         select distinct p.contentId
         from LearnerLessonProgress p

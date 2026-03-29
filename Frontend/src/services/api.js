@@ -306,6 +306,12 @@ class ApiService {
     return data;
   }
 
+  async getLearnerAnalytics(learnerId) {
+    const id = learnerId || 'me';
+    const { data } = await this.api.get(`/learner/${id}/analytics`);
+    return data;
+  }
+
   async addLearner(learner) {
     const { data } = await this.api.post('/learner/add', learner);
     return data;

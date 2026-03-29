@@ -100,10 +100,15 @@ export async function showUserProfile(scene) {
     applyPlayerProfileToSprite(character, playerProfile);
     nodes.push(character);
 
-    nodes.push(
-      scene.add.circle(width / 2, height / 2 + 96, 58, 0x6cc0ff, 0.24)
-        .setDepth(depth + 1)
-    );
+    const auraRadius = Math.max(40, Math.round(character.displayWidth * 0.32));
+    const aura = scene.add.circle(
+      character.x,
+      character.y,
+      auraRadius,
+      0x6cc0ff,
+      0.24
+    ).setDepth(depth + 1);
+    nodes.push(aura);
 
     renderProfileColumns(scene, {
       learnerData,
@@ -120,8 +125,8 @@ export async function showUserProfile(scene) {
     });
 
     scene.profileTween = scene.tweens.add({
-      targets: character,
-      y: character.y - 6,
+      targets: [character, aura],
+      y: '-=6',
       duration: 1100,
       yoyo: true,
       repeat: -1,

@@ -26,9 +26,10 @@ export class SoldierController {
       this.sprite.play('idle');
     }
     this.sprite.setScale(cfg.scale);
+    this.sprite.setDepth(10);
     this.sprite.body.setSize(
-      this.sprite.displayWidth / (cfg.scale * 4),
-      this.sprite.displayHeight / (cfg.scale * 4),
+      this.sprite.displayWidth / (cfg.scale * 10),
+      this.sprite.displayHeight / (cfg.scale * 10),
       true
     );
     this.sprite.setCollideWorldBounds(true);

@@ -124,9 +124,34 @@ export const mapRuntimeMethods = {
   createEditorTilemap() {
     const payload = this.editorMapData || {};
     const tileSize = Number(payload.tileSize || 32);
-    const width = Number(payload.width || 60);
-    const height = Number(payload.height || 34);
-    const tilesetKey = payload.tilesetKey || 'terrain_tiles_v2.1';
+    const groundLayer = Array.isArray(payload.layers?.ground) ? payload.layers.ground : [];
+    const decorLayer = Array.isArray(payload.layers?.decor) ? payload.layers.decor : [];
+    const collisionLayer = Array.isArray(payload.layers?.collision) ? payload.layers.collision : [];
+    const allLayers = [groundLayer, decorLayer, collisionLayer];
+    const inferredHeight = allLayers.reduce((max, layer) => Math.max(max, layer.length), 0);
+    const inferredWidth = allLayers.reduce((max, layer) => {
+      const layerWidth = layer.reduce((rowMax, row) => {
+        if (!Array.isArray(row)) return rowMax;
+        return Math.max(rowMax, row.length);
+      }, 0);
+      return Math.max(max, layerWidth);
+    }, 0);
+    const width = Math.max(1, Number(payload.width) || inferredWidth || 60);
+    const height = Math.max(1, Number(payload.height) || inferredHeight || 34);
+    const requestedTilesetKey = payload.tilesetKey || 'terrain_tiles_v2.1';
+    const fallbackTilesetKey = [
+      requestedTilesetKey,
+      'terrain_tiles_v2.1',
+      'stone_tiles_v2.1',
+      'tiles-all-32x32',
+      '1_Terrains_and_Fences_32x32'
+    ].find((key) => this.textures.exists(key));
+
+    if (!fallbackTilesetKey) {
+      console.error('No loaded tileset texture available for editor map:', requestedTilesetKey);
+      this.createFallbackArena();
+      return;
+    }
 
     this.map = this.make.tilemap({
       tileWidth: tileSize,
@@ -135,13 +160,23 @@ export const mapRuntimeMethods = {
       height
     });
 
-    const tileset = this.map.addTilesetImage(tilesetKey, tilesetKey, tileSize, tileSize, 0, 0);
+    const tileset = this.map.addTilesetImage(fallbackTilesetKey, fallbackTilesetKey, tileSize, tileSize, 0, 0);
+    if (!tileset) {
+      console.error('Failed to add tileset image for editor map:', fallbackTilesetKey);
+      this.createFallbackArena();
+      return;
+    }
+
+    const source = this.textures.get(fallbackTilesetKey)?.getSourceImage?.();
+    const maxTileIndex = source
+      ? Math.max(0, Math.floor((source.width || 0) / tileSize) * Math.floor((source.height || 0) / tileSize) - 1)
+      : 0;
     this.collisionLayers = [];
 
     [
-      ['ground', payload.layers?.ground, 1],
-      ['decor', payload.layers?.decor, 2],
-      ['collision', payload.layers?.collision, 3]
+      ['ground', groundLayer, 1],
+      ['decor', decorLayer, 2],
+      ['collision', collisionLayer, 3]
     ].forEach(([name, data, depth]) => {
       const layer = this.map.createBlankLayer(name, tileset, 0, 0);
       if (!layer || !Array.isArray(data)) return;
@@ -149,11 +184,14 @@ export const mapRuntimeMethods = {
       layer.setDepth(depth);
       if (name === 'collision') layer.setAlpha(0.6);
 
-      for (let y = 0; y < data.length; y += 1) {
+      const writeHeight = Math.min(height, data.length);
+      for (let y = 0; y < writeHeight; y += 1) {
         const row = data[y];
         if (!Array.isArray(row)) continue;
-        for (let x = 0; x < row.length; x += 1) {
-          layer.putTileAt(Number.isInteger(row[x]) ? row[x] : -1, x, y);
+        const writeWidth = Math.min(width, row.length);
+        for (let x = 0; x < writeWidth; x += 1) {
+          const tileId = Number.isInteger(row[x]) ? Math.max(-1, Math.min(row[x], maxTileIndex)) : -1;
+          layer.putTileAt(tileId, x, y);
         }
       }
 

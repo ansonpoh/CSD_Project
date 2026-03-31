@@ -12,6 +12,7 @@ import { showUserProfile } from './profileModal.js';
 import { showAchievements } from './achievementsModal.js';
 import { showFriends } from './friendsModal.js';
 import { showQuests } from './questModal.js';
+import { showChatbot } from './chatModal.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -27,7 +28,8 @@ export class UIScene extends Phaser.Scene {
     loadSharedUiAssets(this, {
       includeClose: true,
       includePortrait: true,
-      includeScrollIcon: true
+      includeScrollIcon: true,
+      includeChatIcon: true
     });
   }
 
@@ -126,6 +128,10 @@ export class UIScene extends Phaser.Scene {
 
   showQuests() {
     return showQuests(this);
+  }
+
+  showChatbot() {
+    return showChatbot(this);
   }
 
   async consumeInventoryItem(item) {

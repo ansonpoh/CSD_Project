@@ -301,4 +301,41 @@ export function buildHud(scene, learner) {
 
   // Set initial visibility immediately
   setScrollVisible(scene.scene.isActive('WorldMapScene'));
+
+  // ── Chat icon — bottom right corner, always visible ─────────────────────
+  const chatIconSize = 64;
+  const height = scene.cameras.main.height;
+  const chatX = width - chatIconSize / 2 - 20;
+  const chatBaseY = height - chatIconSize / 2 - 20;
+
+  let chatIcon;
+  let chatIconBaseScale = 1;
+  if (scene.textures.exists('ui-chat-icon')) {
+    const frame = scene.textures.getFrame('ui-chat-icon');
+    chatIconBaseScale = chatIconSize / Math.max(frame.realWidth, frame.realHeight, 1);
+    chatIcon = scene.add.image(chatX, chatBaseY, 'ui-chat-icon')
+      .setScale(chatIconBaseScale)
+      .setDepth(50)
+      .setAlpha(0.92);
+  } else {
+    const g = scene.add.graphics().setDepth(50);
+    g.fillStyle(0x1a3a5c, 0.85);
+    g.fillCircle(chatX, chatBaseY, chatIconSize / 2);
+    g.lineStyle(2, 0x7ec8f0, 1);
+    g.strokeCircle(chatX, chatBaseY, chatIconSize / 2);
+    chatIcon = scene.add.text(chatX, chatBaseY, '💬', {
+      fontSize: '26px'
+    }).setOrigin(0.5).setDepth(51);
+  }
+
+  chatIcon.setInteractive({ useHandCursor: true });
+  chatIcon.on('pointerover', () => {
+    chatIcon.setAlpha(1);
+    chatIcon.setScale(chatIconBaseScale * 1.12);
+  });
+  chatIcon.on('pointerout', () => {
+    chatIcon.setAlpha(0.92);
+    chatIcon.setScale(chatIconBaseScale);
+  });
+  chatIcon.on('pointerdown', () => scene.showChatbot?.());
 }

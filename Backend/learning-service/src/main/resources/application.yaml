@@ -78,3 +78,6 @@ management:
 
 identity:
   url: ${IDENTITY_URL:http://localhost:8081}
+
+chatbot:
+  url: ${CHATBOT_URL:http://localhost:8080}

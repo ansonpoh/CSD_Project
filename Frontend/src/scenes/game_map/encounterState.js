@@ -224,9 +224,34 @@ export const encounterStateMethods = {
   },
 
   hydrateEncounterProgress() {
-    this.encounterProgressByNpcKey.clear();
+    const previous = new Map(this.encounterProgressByNpcKey || []);
+    const next = new Map(previous);
+
+    // Backward-compatible: some backends expose per-NPC progress rows.
     const rows = Array.isArray(this.encounterState?.progress) ? this.encounterState.progress : [];
-    rows.forEach((progress) => this.applyEncounterProgress(progress));
+    rows.forEach((progress) => {
+      if (!progress?.npcId) return;
+      const npcKey = String(progress.npcId);
+      const existing = next.get(npcKey) || {};
+      next.set(npcKey, { ...existing, ...progress });
+    });
+
+    // Current encounter state includes completed NPC IDs in summary, not per-NPC rows.
+    // Treat these as interacted at minimum so UI does not regress on resume.
+    const completedNpcIds = Array.isArray(this.encounterState?.npc?.completedNpcIds)
+      ? this.encounterState.npc.completedNpcIds
+      : [];
+    completedNpcIds.forEach((npcId) => {
+      const npcKey = String(npcId);
+      const existing = next.get(npcKey) || {};
+      next.set(npcKey, {
+        ...existing,
+        npcId,
+        npcInteracted: true
+      });
+    });
+
+    this.encounterProgressByNpcKey = next;
   },
 
   getEncounterProgress(npc) {

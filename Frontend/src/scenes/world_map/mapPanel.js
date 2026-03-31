@@ -217,10 +217,12 @@ export const worldMapMapPanelMethods = {
       c.add(card);
 
       const actionLabel = isLocked ? map.unlockText : `Open ${map.name}`;
+      const estimatedButtonWidth = Math.ceil(actionLabel.length * 8.1) + 36;
+      const actionButtonWidth = Phaser.Math.Clamp(estimatedButtonWidth, 184, Math.max(184, cardW - 24));
       const action = this.createButton(
-        cardW - 184,
+        cardW - actionButtonWidth,
         y + cardH + 6,
-        184,
+        actionButtonWidth,
         38,
         actionLabel,
         () => {

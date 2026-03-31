@@ -87,7 +87,7 @@ export const worldMapUtilityMethods = {
     const isEditorMap = String(map?.asset || '').startsWith('editor-draft:');
     const normalizedMap = {
       ...map,
-      mapKey: isEditorMap ? null : (map.mapKey || this.resolveMapKey(map)),
+      mapKey: isEditorMap ? null : (map.mapKey || this.resolveMapKey(map) || null),
       isEditorMap
     };
 
@@ -99,10 +99,8 @@ export const worldMapUtilityMethods = {
   resolveMapKey(map) {
     const raw = String(map?.mapKey || map?.asset || map?.name || '').toLowerCase();
     if (raw.startsWith('editor-draft:')) return null;
-    if (raw === 'map1' || raw.includes('forest')) return 'map1';
-    if (raw === 'map2' || raw.includes('cave')) return 'map2';
-    if (raw === 'map3' || raw.includes('mountain')) return 'map3';
-    if (raw === 'map4' || raw.includes('test') || raw.includes('terrain') || raw.includes('garden')) return 'map4';
-    return 'map1';
+    const directMatch = raw.match(/\bmap([1-4])\b/);
+    if (directMatch) return `map${directMatch[1]}`;
+    return null;
   }
 };

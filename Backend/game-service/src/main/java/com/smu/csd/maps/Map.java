@@ -1,9 +1,12 @@
 package com.smu.csd.maps;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.UUID;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Entity;
@@ -42,6 +45,9 @@ public class Map {
     private String description;
     @Column
     private String asset;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "map_data", columnDefinition = "jsonb")
+    private JsonNode mapData;
     @ManyToOne
     @JoinColumn(name = "world_id")
     private World world;

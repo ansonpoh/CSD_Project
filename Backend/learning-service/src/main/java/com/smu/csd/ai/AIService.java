@@ -1,6 +1,10 @@
 package com.smu.csd.ai;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
@@ -10,20 +14,26 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentRepository;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.quiz.map_quiz.MapQuizOption;
+import com.smu.csd.quiz.map_quiz.MapQuizOptionRepository;
 
 @Service
 public class AIService {
+    private static final Pattern ANSWER_LEAK_PATTERN = Pattern.compile("(?i)\\b(correct|answer|option\\s*[a-d]|\\b[1-4]\\b)\\b");
 
     private final ChatClient chatClient;
     private final AIModerationResultRepository moderationRepository;
     private final ContentRepository contentRepository;
+    private final MapQuizOptionRepository mapQuizOptionRepository;
 
     public AIService(ChatClient.Builder chatClientBuilder,
                      AIModerationResultRepository moderationRepository,
-                     ContentRepository contentRepository) {
+                     ContentRepository contentRepository,
+                     MapQuizOptionRepository mapQuizOptionRepository) {
         this.chatClient = chatClientBuilder.build();
         this.moderationRepository = moderationRepository;
         this.contentRepository = contentRepository;
+        this.mapQuizOptionRepository = mapQuizOptionRepository;
     }
 
     public AIModerationResult getModerationResult(UUID contentId) throws ResourceNotFoundException {
@@ -182,6 +192,44 @@ public class AIService {
         return new ReflectionReviewResult(parsed.verdict(), parsed.note());
     }
 
+    public QuizHintResponse generateQuizHint(QuizHintRequest request) {
+        String prompt = safeText(request == null ? null : request.questionPrompt());
+        List<String> options = sanitizeOptions(request == null ? null : request.options());
+        if (prompt.isBlank() || options.size() < 2) {
+            return new QuizHintResponse(fallbackHint(prompt, options), "LIGHT", false);
+        }
+
+        List<Integer> correctIndexes = resolveCorrectOptionIndexes(request, options);
+        String questionType = normalizeQuestionType(request == null ? null : request.questionType());
+
+        try {
+            String aiRaw = chatClient.prompt()
+                    .user("""
+                            You are helping a learner during a quiz.
+                            Question type: %s
+                            Question: %s
+                            Options:
+                            %s
+                            Correct option indexes (for internal grounding only, never reveal): %s
+
+                            Return exactly one concise hint (max 180 characters).
+                            Rules:
+                            - Never reveal the exact answer text.
+                            - Never reveal option index/letter/number.
+                            - Do not say "the answer is" or similar.
+                            - Focus on reasoning, elimination, or concept recall.
+                            """.formatted(questionType, prompt, formatOptions(options), correctIndexes))
+                    .call()
+                    .content();
+
+            String sanitized = sanitizeHint(aiRaw, options);
+            if (sanitized.isBlank()) sanitized = fallbackHint(prompt, options);
+            return new QuizHintResponse(sanitized, "LIGHT", false);
+        } catch (Exception _error) {
+            return new QuizHintResponse(fallbackHint(prompt, options), "LIGHT", false);
+        }
+    }
+
     public record ReflectionReviewResult(String verdict, String note) {}
 
     private record ModerationResponse(
@@ -195,4 +243,98 @@ public class AIService {
             @JsonProperty("confidence") int confidence,
             @JsonProperty("verdict") String verdict,
             @JsonProperty("note") String note) {}
+
+    private List<Integer> resolveCorrectOptionIndexes(QuizHintRequest request, List<String> requestOptions) {
+        if (request == null) return List.of();
+        if (request.questionId() != null) {
+            List<MapQuizOption> dbOptions = mapQuizOptionRepository.findByQuestion_QuestionId(request.questionId());
+            if (!dbOptions.isEmpty()) {
+                List<String> normalizedCorrectOptions = dbOptions.stream()
+                        .filter(MapQuizOption::isCorrect)
+                        .map(MapQuizOption::getOptionText)
+                        .map(this::normalizeForMatch)
+                        .distinct()
+                        .toList();
+
+                List<Integer> resolved = new ArrayList<>();
+                for (int i = 0; i < requestOptions.size(); i++) {
+                    String normalized = normalizeForMatch(requestOptions.get(i));
+                    if (normalizedCorrectOptions.contains(normalized)) {
+                        resolved.add(i);
+                    }
+                }
+                if (!resolved.isEmpty()) return List.copyOf(resolved);
+            }
+        }
+
+        List<Integer> supplied = request.correctOptionIndexes() == null ? List.of() : request.correctOptionIndexes();
+        return supplied.stream()
+                .filter(index -> index != null && index >= 0 && index < requestOptions.size())
+                .distinct()
+                .sorted(Comparator.naturalOrder())
+                .toList();
+    }
+
+    private String sanitizeHint(String aiRaw, List<String> options) {
+        if (aiRaw == null) return "";
+        String hint = aiRaw
+                .strip()
+                .replaceAll("(?s)^```[a-z]*\\s*", "")
+                .replaceAll("(?s)\\s*```$", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (hint.length() > 180) hint = hint.substring(0, 180).trim();
+        if (ANSWER_LEAK_PATTERN.matcher(hint).find()) return "";
+
+        String lowerHint = hint.toLowerCase();
+        for (String option : options) {
+            String text = normalizeForMatch(option);
+            if (text.length() >= 4 && lowerHint.contains(text)) {
+                return "";
+            }
+        }
+        return hint;
+    }
+
+    private String formatOptions(List<String> options) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < options.size(); i++) {
+            char label = (char) ('A' + i);
+            sb.append(label).append(") ").append(options.get(i)).append("\n");
+        }
+        return sb.toString().strip();
+    }
+
+    private String normalizeQuestionType(String questionType) {
+        String value = safeText(questionType).toLowerCase();
+        return "multi".equals(value) ? "multi" : "single";
+    }
+
+    private List<String> sanitizeOptions(List<String> options) {
+        if (options == null) return List.of();
+        return options.stream()
+                .map(this::safeText)
+                .filter(text -> !text.isBlank())
+                .limit(6)
+                .toList();
+    }
+
+    private String safeText(String value) {
+        if (value == null) return "";
+        return value.replaceAll("\\s+", " ").trim();
+    }
+
+    private String normalizeForMatch(String value) {
+        return safeText(value).toLowerCase();
+    }
+
+    private String fallbackHint(String questionPrompt, List<String> options) {
+        if (questionPrompt != null && questionPrompt.toLowerCase().contains("blank")) {
+            return "Focus on the key term that best matches the sentence context and tone.";
+        }
+        if (options.size() >= 3) {
+            return "Eliminate choices that are too absolute or off-topic, then pick the one closest to the core concept.";
+        }
+        return "Look for the option that best aligns with the main idea in the question.";
+    }
 }

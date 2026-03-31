@@ -1,4 +1,5 @@
 import { apiService } from '../../../services/api.js';
+import { gameState } from '../../../services/gameState.js';
 
 export const combatSceneQuizFlowMethods = {
   renderCurrentQuestion() {
@@ -11,6 +12,8 @@ export const combatSceneQuizFlowMethods = {
     }
 
     this.currentSelections = new Set();
+    this.currentHintQuestionId = null;
+    this.hintMessageText?.setText('');
     this.questionText.setText(question.prompt);
 
     this.optionButtons.forEach((btn, idx) => {
@@ -33,6 +36,11 @@ export const combatSceneQuizFlowMethods = {
       this.confirmBtn.setEnabled(isMulti);
     }
 
+    if (this.hintBtn) {
+      this.hintBtn.container.setVisible(true);
+      this.hintBtn.setEnabled(!this.hintRequestInFlight && this.getHintInventoryCount() > 0);
+    }
+
     this.refreshQuizMeta();
   },
 
@@ -46,7 +54,76 @@ export const combatSceneQuizFlowMethods = {
       this.questionTargetText?.setText('No target score. Keep answering until the monster falls.');
     }
 
-    this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${this.maxLifelines}`);
+    const hintCount = this.getHintInventoryCount();
+    this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${this.maxLifelines}  |  Hints: ${hintCount}`);
+    if (this.hintBtn?.container?.visible) {
+      this.hintBtn.setEnabled(!this.hintRequestInFlight && hintCount > 0 && !this.battleOver);
+    }
+  },
+
+  async handleUseHint() {
+    if (this.battleOver || this.answerLocked || this.hintRequestInFlight) return;
+
+    const question = this.quizEncounter?.questions?.[this.currentQuestionIndex];
+    if (!question) return;
+
+    const hintItem = this.findHintInventoryItem();
+    if (!hintItem) {
+      this.addLog('No hint item available.');
+      this.refreshQuizMeta();
+      return;
+    }
+
+    const itemId = hintItem?.itemId || hintItem?.item_id;
+    if (!itemId) {
+      this.addLog('Hint item is invalid.');
+      return;
+    }
+
+    const payload = this.buildQuizHintPayload(question);
+    this.hintRequestInFlight = true;
+    this.hintBtn?.setEnabled(false);
+    this.hintMessageText?.setText('Generating hint...');
+
+    try {
+      const hintResponse = await apiService.generateQuizHint(payload);
+      const hintText = String(hintResponse?.hintText || '').trim();
+      if (!hintText) {
+        throw new Error('No hint text returned.');
+      }
+
+      const updatedInventory = await apiService.removeInventoryItem(itemId, 1);
+      gameState.setInventory(updatedInventory);
+
+      this.currentHintQuestionId = question.questionId;
+      this.hintMessageText?.setText(`Hint: ${hintText}`);
+      this.addLog('Hint used for this question.');
+      this.refreshQuizMeta();
+    } catch (error) {
+      console.warn('Failed to use hint item:', error);
+      this.hintMessageText?.setText('');
+      this.addLog('Hint failed. Item was not consumed.');
+    } finally {
+      this.hintRequestInFlight = false;
+      this.refreshQuizMeta();
+    }
+  },
+
+  buildQuizHintPayload(question) {
+    const correctOptionIndexes = [];
+    if (!this.usingMapQuiz && Number.isInteger(question?.correctOptionIndex)) {
+      correctOptionIndexes.push(question.correctOptionIndex);
+    }
+
+    return {
+      questionPrompt: String(question?.prompt || ''),
+      options: Array.isArray(question?.options) ? question.options : [],
+      questionType: question?.isMultiSelect ? 'multi' : 'single',
+      correctOptionIndexes,
+      mapId: this.mapId || null,
+      monsterId: this.monsterData?.monster_id || this.monsterData?.monsterId || null,
+      questionId: this.usingMapQuiz ? question?.questionId : null
+    };
   },
 
   async handleAnswerSelection(selectedOptionIndex) {

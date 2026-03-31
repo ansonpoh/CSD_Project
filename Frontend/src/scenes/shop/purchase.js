@@ -19,26 +19,39 @@ export const shopPurchaseMethods = {
     try {
       if (learner?.learnerId && item?.itemId) {
         await apiService.createPurchase([{ itemId: item.itemId, quantity: 1 }]);
-        const [updatedInventory, refreshedLearner] = await Promise.all([
-          apiService.getMyInventory().catch(() => null),
-          apiService.getCurrentLearner().catch(() => null)
-        ]);
-
-        if (updatedInventory) {
-          gameState.setInventory(updatedInventory);
-        }
-
-        if (refreshedLearner) {
-          gameState.setLearner(refreshedLearner);
-          const refreshedGold = Number(refreshedLearner.gold ?? this.gold);
-          this.gold = Number.isFinite(refreshedGold) ? Math.max(0, Math.floor(refreshedGold)) : this.gold;
-        } else {
-          this.gold = Math.max(0, this.gold - goldCost);
+        // Update UI immediately after purchase success, then reconcile in background.
+        gameState.addItem(item, 1);
+        this.gold = Math.max(0, this.gold - goldCost);
+        const currentLearner = gameState.getLearner();
+        if (currentLearner) {
+          gameState.setLearner({
+            ...currentLearner,
+            gold: this.gold
+          });
         }
 
         this.updateGoldDisplay();
         this.displayItems();
         this.showPurchaseFlash(item.name);
+
+        void Promise.all([
+          apiService.getMyInventory().catch(() => null),
+          apiService.getCurrentLearner().catch(() => null)
+        ])
+          .then(([updatedInventory, refreshedLearner]) => {
+            if (updatedInventory) {
+              gameState.setInventory(updatedInventory);
+            }
+
+            if (refreshedLearner) {
+              gameState.setLearner(refreshedLearner);
+              const refreshedGold = Number(refreshedLearner.gold ?? this.gold);
+              this.gold = Number.isFinite(refreshedGold) ? Math.max(0, Math.floor(refreshedGold)) : this.gold;
+              this.updateGoldDisplay();
+              this.displayItems();
+            }
+          })
+          .catch(() => {});
 
         return;
       }

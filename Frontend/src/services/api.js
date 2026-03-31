@@ -608,6 +608,11 @@ class ApiService {
     return data;
   }
 
+  async generateQuizHint(payload) {
+    const { data } = await this.api.post('/ai/quiz-hint', payload);
+    return data;
+  }
+
   // Content endpoints
   async submitContent(content) {
     const { data } = await this.api.post('/contents', content);

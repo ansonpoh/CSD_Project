@@ -36,8 +36,10 @@ export class CombatScene extends Phaser.Scene {
     this.questionText = null;
     this.questionMetaText = null;
     this.questionTargetText = null;
+    this.hintMessageText = null;
     this.lifelineText = null;
     this.optionButtons = [];
+    this.hintBtn = null;
     this.runBtn = null;
     this.exitBtn = null;
     this.answerLocked = false;
@@ -63,6 +65,8 @@ export class CombatScene extends Phaser.Scene {
     this.collectedAnswers = [];
     this.currentSelections = new Set();
     this.confirmBtn = null;
+    this.hintRequestInFlight = false;
+    this.currentHintQuestionId = null;
     this.monsterIndex = 0;
     this.isRematch = false;
   }
@@ -108,14 +112,18 @@ export class CombatScene extends Phaser.Scene {
     this.collectedAnswers = [];
     this.currentSelections = new Set();
     this.confirmBtn = null;
+    this.hintRequestInFlight = false;
+    this.currentHintQuestionId = null;
 
     // Scene objects are recreated on each entry; clear old references first.
     this.optionButtons = [];
+    this.hintBtn = null;
     this.runBtn = null;
     this.exitBtn = null;
     this.questionText = null;
     this.questionMetaText = null;
     this.questionTargetText = null;
+    this.hintMessageText = null;
     this.lifelineText = null;
   }
 

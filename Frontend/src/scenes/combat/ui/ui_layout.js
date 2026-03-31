@@ -49,14 +49,21 @@ export const combatSceneUiLayoutMethods = {
       color: P.textGold
     }));
 
+    this.hintMessageText = this.add.text(panelX + 16, panelY + 68, '', this.getCombatTextStyle({
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: '#93c5fd',
+      wordWrap: { width: panelW - 32, useAdvancedWrap: true }
+    }));
+
     this.lifelineText = this.add.text(panelX + panelW - 16, panelY + 14, '', this.getCombatTextStyle({
       fontSize: '20px',
       fontStyle: 'bold',
       color: P.textMain
     })).setOrigin(1, 0);
 
-    this.questionText = this.add.text(panelX + 16, panelY + 82, 'Loading questions...', this.getCombatTextStyle({
-      fontSize: '30px',
+    this.questionText = this.add.text(panelX + 16, panelY + 94, 'Loading questions...', this.getCombatTextStyle({
+      fontSize: '28px',
       fontStyle: 'bold',
       color: P.textMain,
       lineSpacing: 8,
@@ -88,10 +95,26 @@ export const combatSceneUiLayoutMethods = {
 
     // Confirm button for multi-select questions (hidden by default)
     const confirmY = optionStartY + 2 * (optionH + 12);
+    const hintW = 220;
+    const hintH = 50;
+    const hintX = panelX + panelW - hintW;
+    const hintY = panelY - hintH - 10;
+    this.hintBtn = this.makeButton(
+      hintX,
+      hintY,
+      hintW,
+      hintH,
+      'Use Hint',
+      0x4a3414,
+      0x6b4b1c,
+      0xf4c048,
+      () => this.handleUseHint()
+    );
+
     this.confirmBtn = this.makeButton(
-      panelX + Math.floor(panelW / 4),
+      panelX + Math.floor((panelW - 20) / 2) + 20,
       confirmY,
-      Math.floor(panelW / 2),
+      Math.floor((panelW - 20) / 2),
       optionH,
       'Confirm Selection',
       0x1a5c2a,

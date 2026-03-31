@@ -141,6 +141,11 @@ export class UIScene extends Phaser.Scene {
     }
 
     const effect = this.resolveItemEffect(item);
+    if (effect.combatOnly) {
+      this.showQuickToast(effect.message || 'This item can only be used during quiz combat.');
+      return false;
+    }
+
     if (!effect.usable) {
       this.showQuickToast(effect.message || 'This item activates automatically during encounters.');
       return false;

@@ -18,6 +18,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smu.csd.exception.ResourceNotFoundException;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -52,7 +53,7 @@ public class MonsterControllerIntegrationTest {
     @WithMockUser
     void shouldReturn404WhenMonsterNotFound() throws Exception {
         UUID id = UUID.randomUUID();
-        when(monsterService.getMonsterById(id)).thenThrow(new RuntimeException("Monster not found"));
+        when(monsterService.getMonsterById(id)).thenThrow(new ResourceNotFoundException("Monster", "id", id));
 
         mockMvc.perform(get("/api/monsters/{id}", id))
                 .andExpect(status().isNotFound());

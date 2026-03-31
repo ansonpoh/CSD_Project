@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.smu.csd.monsters.monster_map.MonsterMap;
 import com.smu.csd.monsters.monster_map.MonsterMapRepository;
+import com.smu.csd.exception.ResourceNotFoundException;
 
 public class MonsterServiceUnitTest {
 
@@ -58,10 +59,10 @@ public class MonsterServiceUnitTest {
         UUID monsterId = UUID.randomUUID();
         when(repository.findById(monsterId)).thenReturn(java.util.Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
             service.getMonsterById(monsterId)
         );
-        assertEquals("Monster not found", exception.getMessage());
+        assertTrue(exception.getMessage().contains("Monster not found with id: " + monsterId));
     }
 
     @Test
@@ -124,19 +125,21 @@ public class MonsterServiceUnitTest {
         Monster update = new Monster();
         when(repository.findById(monsterId)).thenReturn(java.util.Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
             service.updateMonster(monsterId, update)
         );
-        assertEquals("Monster not found", exception.getMessage());
+        assertTrue(exception.getMessage().contains("Monster not found with id: " + monsterId));
     }
 
     @Test
     public void testDeleteMonster() {
         UUID monsterId = UUID.randomUUID();
+        when(repository.existsById(monsterId)).thenReturn(true);
         doNothing().when(repository).deleteById(monsterId);
 
         service.deleteMonster(monsterId);
 
+        verify(repository).existsById(monsterId);
         verify(repository).deleteById(monsterId);
     }
 }

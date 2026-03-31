@@ -26,19 +26,19 @@ public class SecurityConfigTest {
     @Test
     public void publicEndpoint_Swagger_IsAccessible() throws Exception {
         mockMvc.perform(get("/swagger-ui.html"))
-                .andExpect(status().isOk());
+                .andExpect(status().is3xxRedirection());
     }
 
     @Test
     public void protectedEndpoint_Monsters_RequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/monsters"))
+        mockMvc.perform(get("/api/monsters/all"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @WithMockUser
     public void protectedEndpoint_Monsters_WithAuth_IsAccessible() throws Exception {
-        mockMvc.perform(get("/api/monsters"))
+        mockMvc.perform(get("/api/monsters/all"))
                 .andExpect(status().isOk());
     }
 }

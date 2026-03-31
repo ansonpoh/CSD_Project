@@ -198,7 +198,7 @@ export function updateGameMapScene() {
       this.placeNameLabel(sprite, nameText, offsetY);
     }
     const statusBadge = sprite.getData('statusBadge');
-    if (statusBadge) statusBadge.setPosition(sprite.x, sprite.y - 58);
+    if (statusBadge) this.placeStatusBadge(sprite, statusBadge);
   });
 
   this.monsterSprites.forEach((sprite) => {

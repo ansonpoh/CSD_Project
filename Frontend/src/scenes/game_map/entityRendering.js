@@ -4,20 +4,185 @@ import { NPCRegistry } from '../../characters/npcs/NPCRegistry.js';
 import { HUD } from './constants.js';
 
 export const entityRenderingMethods = {
+  getUiNoSpawnRects() {
+    const cam = this.cameras?.main;
+    if (!cam) return [];
+
+    const pad = 18;
+    const rects = [];
+    const pushRect = (x, y, width, height, extraPad = pad) => {
+      if (![x, y, width, height].every(Number.isFinite)) return;
+      rects.push({
+        x: cam.scrollX + x - extraPad,
+        y: cam.scrollY + y - extraPad,
+        width: width + extraPad * 2,
+        height: height + extraPad * 2
+      });
+    };
+
+    // BACK / SHOP buttons
+    pushRect(20, 70, 120, 40);
+    pushRect(cam.width - 140, 70, 120, 40);
+
+    // Mission panel
+    if (this.missionCardBounds) {
+      const missionHeight = Math.max(
+        Number(this.missionCardBounds.minHeight || 54),
+        Number(this.missionText?.height || 0) + 24
+      );
+      pushRect(this.missionCardBounds.x, this.missionCardBounds.y, this.missionCardBounds.width, missionHeight, 20);
+    }
+
+    // Left banner + event/duel buttons
+    if (this.mapBannerCardBounds) {
+      const bannerHeight = Math.max(
+        Number(this.mapBannerCardBounds.minHeight || 124),
+        Math.ceil(((this.mapSignalText?.y || this.mapBannerCardBounds.y) + (this.mapSignalText?.height || 0))
+          - this.mapBannerCardBounds.y + 14)
+      );
+      pushRect(this.mapBannerCardBounds.x, this.mapBannerCardBounds.y, this.mapBannerCardBounds.width, bannerHeight, 20);
+    }
+    if (this.mapEventButton?.container) {
+      pushRect(this.mapEventButton.container.x, this.mapEventButton.container.y, 120, 40);
+    }
+    if (this.sideChallengeButton?.container) {
+      pushRect(this.sideChallengeButton.container.x, this.sideChallengeButton.container.y, 120, 40);
+    }
+
+    // Right quest chain panel + claim button
+    const questPanelX = cam.width - 290;
+    pushRect(questPanelX, 160, 250, 230, 20);
+    if (this.claimRewardButton?.container) {
+      pushRect(this.claimRewardButton.container.x, this.claimRewardButton.container.y, 120, 40);
+    }
+
+    return rects;
+  },
+
+  isBlockedByUiAt(x, y, radius = 14) {
+    const rects = this.getUiNoSpawnRects();
+    if (!rects.length) return false;
+    return rects.some((rect) => {
+      const left = rect.x - radius;
+      const top = rect.y - radius;
+      const right = rect.x + rect.width + radius;
+      const bottom = rect.y + rect.height + radius;
+      return x >= left && x <= right && y >= top && y <= bottom;
+    });
+  },
+
+  isBlockedByCollisionAt(x, y, radius = 14) {
+    const samplePoints = [
+      [x, y],
+      [x - radius, y],
+      [x + radius, y],
+      [x, y - radius],
+      [x, y + radius]
+    ];
+
+    if (Array.isArray(this.collisionLayers) && this.collisionLayers.length) {
+      for (const layer of this.collisionLayers) {
+        if (!layer?.getTileAtWorldXY) continue;
+        for (const [sx, sy] of samplePoints) {
+          const tile = layer.getTileAtWorldXY(sx, sy, true);
+          if (tile?.collides) return true;
+        }
+      }
+    }
+
+    if (Array.isArray(this.collisionBodies) && this.collisionBodies.length) {
+      for (const body of this.collisionBodies) {
+        if (!body) continue;
+        const left = body.x - body.width / 2;
+        const right = body.x + body.width / 2;
+        const top = body.y - body.height / 2;
+        const bottom = body.y + body.height / 2;
+        for (const [sx, sy] of samplePoints) {
+          if (sx >= left && sx <= right && sy >= top && sy <= bottom) return true;
+        }
+      }
+    }
+
+    return false;
+  },
+
+  isTooCloseToOccupied(x, y, occupied, minDistance) {
+    if (!Array.isArray(occupied) || !occupied.length) return false;
+    const minDistSq = minDistance * minDistance;
+    return occupied.some((point) => {
+      if (!point) return false;
+      const dx = x - point.x;
+      const dy = y - point.y;
+      return (dx * dx + dy * dy) < minDistSq;
+    });
+  },
+
+  getWalkableSpawnPoint(preferredX, preferredY, occupied = [], options = {}) {
+    const minDistance = Number.isFinite(options.minDistance) ? options.minDistance : 72;
+    const maxRadius = Number.isFinite(options.maxRadius) ? options.maxRadius : 260;
+    const maxAttempts = Number.isFinite(options.maxAttempts) ? options.maxAttempts : 120;
+    const spawnRadius = Number.isFinite(options.spawnRadius) ? options.spawnRadius : 14;
+
+    const bounds = this.physics?.world?.bounds;
+    const minX = Number.isFinite(bounds?.x) ? bounds.x + spawnRadius : spawnRadius;
+    const minY = Number.isFinite(bounds?.y) ? bounds.y + spawnRadius : spawnRadius;
+    const maxX = Number.isFinite(bounds?.right) ? bounds.right - spawnRadius : this.cameras.main.width - spawnRadius;
+    const maxY = Number.isFinite(bounds?.bottom) ? bounds.bottom - spawnRadius : this.cameras.main.height - spawnRadius;
+
+    const clampX = (value) => Phaser.Math.Clamp(value, minX, maxX);
+    const clampY = (value) => Phaser.Math.Clamp(value, minY, maxY);
+    const fallback = { x: clampX(preferredX), y: clampY(preferredY) };
+
+    for (let i = 0; i < maxAttempts; i += 1) {
+      const radius = Phaser.Math.FloatBetween(0, maxRadius);
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const x = clampX(preferredX + Math.cos(angle) * radius);
+      const y = clampY(preferredY + Math.sin(angle) * radius);
+      if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
+      if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
+      if (this.isTooCloseToOccupied(x, y, occupied, minDistance)) continue;
+      return { x, y };
+    }
+
+    if (
+      !this.isBlockedByCollisionAt(fallback.x, fallback.y, spawnRadius)
+      && !this.isBlockedByUiAt(fallback.x, fallback.y, spawnRadius)
+    ) return fallback;
+
+    for (let i = 0; i < maxAttempts; i += 1) {
+      const x = Phaser.Math.FloatBetween(minX, maxX);
+      const y = Phaser.Math.FloatBetween(minY, maxY);
+      if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
+      if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
+      if (this.isTooCloseToOccupied(x, y, occupied, minDistance)) continue;
+      return { x, y };
+    }
+
+    return fallback;
+  },
+
   createNPCs() {
     const columns = 4;
     const spacingX = 170;
     const spacingY = 120;
     const startX = 220;
     const startY = 440;
+    const occupied = [];
 
     this.npcs.forEach((npc, index) => {
       if (!npc || !npc.name) return;
 
       const col = index % columns;
       const row = Math.floor(index / columns);
-      const x = startX + col * spacingX + Phaser.Math.Between(-20, 20);
-      const y = startY + row * spacingY + Phaser.Math.Between(-12, 12);
+      const preferredX = startX + col * spacingX + Phaser.Math.Between(-20, 20);
+      const preferredY = startY + row * spacingY + Phaser.Math.Between(-12, 12);
+      const { x, y } = this.getWalkableSpawnPoint(preferredX, preferredY, occupied, {
+        minDistance: 84,
+        maxRadius: 280,
+        maxAttempts: 160,
+        spawnRadius: 16
+      });
+      occupied.push({ x, y });
 
       const npcName = npc.name;
       const config = NPCRegistry[npcName] || NPCRegistry.orc;
@@ -30,6 +195,7 @@ export const entityRenderingMethods = {
       sprite.setDepth(5);
       sprite.setData('npc', npc);
       sprite.setData('labelOffsetY', config.labelOffsetY);
+      sprite.setData('statusBadgeOffsetY', Number.isFinite(config.statusBadgeOffsetY) ? config.statusBadgeOffsetY : 14);
       sprite.setData('npcKey', this.getNpcKey(npc));
 
       const nameText = this.add.text(x, y, npcName, {
@@ -51,6 +217,7 @@ export const entityRenderingMethods = {
         backgroundColor: '#0a1128',
         padding: { x: 6, y: 2 }
       }).setOrigin(0.5, 1).setDepth(6);
+      this.placeStatusBadge(sprite, statusBadge);
       sprite.setData('statusBadge', statusBadge);
 
       sprite.play(`${npcName}_idle`, true);
@@ -61,6 +228,9 @@ export const entityRenderingMethods = {
   createMonsters() {
     const mappings = Array.from(this.npcMonsterMap.entries());
     const totalMonsters = mappings.length;
+    const occupied = [
+      ...(this.npcSprites || []).map((sprite) => ({ x: sprite.x, y: sprite.y }))
+    ];
 
     mappings.forEach(([npcKey, mapping], index) => {
       const monster = mapping.monster;
@@ -74,8 +244,13 @@ export const entityRenderingMethods = {
         totalMonsters,
         isBossEncounter: Boolean(mapping?.pair?.bossEncounter) || (totalMonsters > 0 && index === totalMonsters - 1)
       };
-      const x = npcSprite.x + 90;
-      const y = npcSprite.y - 20;
+      const { x, y } = this.getWalkableSpawnPoint(npcSprite.x + 90, npcSprite.y - 20, occupied, {
+        minDistance: 60,
+        maxRadius: 150,
+        maxAttempts: 120,
+        spawnRadius: 16
+      });
+      occupied.push({ x, y });
 
       const monsterName = encounterMonster.name;
       const config = monsterRegistry[monsterName] || monsterRegistry.orc;
@@ -156,6 +331,16 @@ export const entityRenderingMethods = {
   placeNameLabel(sprite, nameText, offsetY) {
     const topY = sprite.y - (sprite.displayHeight * sprite.originY);
     nameText.setPosition(sprite.x, topY + offsetY);
+  },
+
+  placeStatusBadge(sprite, statusBadge) {
+    const nameText = sprite?.getData?.('nameText');
+    const offsetY = Number.isFinite(sprite?.getData?.('statusBadgeOffsetY')) ? sprite.getData('statusBadgeOffsetY') : 14;
+    if (nameText) {
+      statusBadge.setPosition(sprite.x, nameText.y - offsetY);
+      return;
+    }
+    statusBadge.setPosition(sprite.x, sprite.y - 58);
   },
 
   updateNpcInteraction() {

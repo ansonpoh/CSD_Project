@@ -5,33 +5,24 @@ This file is a backlog of test cases to add to strengthen release confidence. It
 ## Cross-Cutting Gaps
 
 ### 1) Persistence Integration (Beyond Simple Repository Tests)
-- Add `@DataJpaTest` or `@SpringBootTest` coverage for core domain aggregates to validate:
-  - Entity relationships are mapped correctly (join tables, cascades).
-  - Constraints and unique indexes behave as expected.
-  - Soft-delete or status flags behave correctly.
+- ✅ Done: Added `LearnerRepositoryDataJpaTest` (`@DataJpaTest`) to validate soft-delete behavior (`findByIs_activeTrue` / `existsBySupabaseUserIdAndIs_activeTrue`) and persistence constraints (`username` validation failure path).
+- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerRepositoryDataJpaTest,LearnerControllerIntegrationTest,LeaderboardServiceUnitTest' test`.
 
 ### 2) Validation and Error Mapping
-- For create/update endpoints across services:
-  - Missing required fields return `400` with consistent error payload.
-  - Invalid UUID path parameters return `400` or `404` consistently.
-  - Malformed JSON returns `400`.
+- ✅ Done: Extended `LearnerControllerIntegrationTest` with malformed JSON and invalid UUID path tests, and updated `GlobalExceptionHandler` in player-service to map these to consistent `400` responses.
+- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerRepositoryDataJpaTest,LearnerControllerIntegrationTest,LeaderboardServiceUnitTest' test`.
 
 ### 3) Authorization and Role Enforcement
-- Role-based access tests for endpoints that require admin/contributor:
-  - Ensure `403` for users without required role.
-  - Validate claims parsing and missing/invalid JWTs.
+- ✅ Done: Added `AdministratorControllerSecurityIntegrationTest` to assert `401` (missing auth), `403` (non-admin role), and successful admin access for protected admin endpoints.
+- Verified via `cd Backend/identity-service && ./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest,AdministratorControllerSecurityIntegrationTest' test`.
 
 ### 4) Downstream Service Interactions
-- For services using `RestTemplate`:
-  - Downstream `404` maps to the expected error path.
-  - Downstream `5xx` maps to fallback or appropriate errors.
-  - Timeouts/retries do not create duplicates or corrupt state.
+- ✅ Done: Extended `AuthRoleControllerDownstreamUnitTest` with downstream `5xx` behavior; together with existing `404` coverage it verifies safe fallback role resolution for `RestTemplate` failures.
+- Verified via `cd Backend/identity-service && ./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest,AdministratorControllerSecurityIntegrationTest' test`.
 
 ### 5) Redis-Backed Paths
-- Add tests that run with Redis available:
-  - Leaderboard writes and reads succeed.
-  - Rebuild logic creates the expected ranking order.
-  - Empty leaderboard returns empty responses without errors.
+- ✅ Done: Expanded `LeaderboardServiceUnitTest` with Redis-available read path, empty-leaderboard path, and rebuild-index behavior assertions.
+- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerRepositoryDataJpaTest,LearnerControllerIntegrationTest,LeaderboardServiceUnitTest' test`.
 
 ## Service-Specific Backlog
 

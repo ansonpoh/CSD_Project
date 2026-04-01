@@ -81,4 +81,25 @@ public class AuthRoleControllerDownstreamUnitTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(false, body.get("hasRole"));
     }
+
+    @Test
+    void hasRole_LearnerReturnsFalseWhenDownstreamPlayerServiceReturnsServerError() {
+        UUID userId = UUID.randomUUID();
+        Authentication authentication = mock(Authentication.class);
+        Jwt jwt = mock(Jwt.class);
+
+        when(authentication.getPrincipal()).thenReturn(jwt);
+        when(jwt.getSubject()).thenReturn(userId.toString());
+        when(administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(false);
+        when(contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(false);
+        when(restTemplate.getForEntity(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenThrow(new RuntimeException("downstream 500"));
+
+        ResponseEntity<?> response = controller.hasRole("learner", authentication);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(false, body.get("hasRole"));
+    }
 }

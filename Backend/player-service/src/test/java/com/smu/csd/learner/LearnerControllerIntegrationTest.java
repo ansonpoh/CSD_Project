@@ -92,4 +92,24 @@ public class LearnerControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(invalidLearner)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @WithMockUser
+    void addLearner_WithMalformedJson_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(post("/api/learner/add")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"supabaseUserId\":\"not-closed\""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Malformed JSON request"));
+    }
+
+    @Test
+    @WithMockUser
+    void getLearnerById_WithInvalidUuid_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(get("/api/learner/{learner_id}", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Invalid value")));
+    }
 }

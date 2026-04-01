@@ -55,6 +55,7 @@ export async function createGameMapScene() {
     this.events.off('resume', this.handleSceneResume, this);
     this.playerCtrl?.destroy?.();
     this.playerCtrl = null;
+    this.dismissRewardClaimCelebration?.();
     this.destroyEventPanel();
     hideMapLoadingOverlay(this);
   });

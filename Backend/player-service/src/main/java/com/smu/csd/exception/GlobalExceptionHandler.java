@@ -2,6 +2,7 @@ package com.smu.csd.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -43,6 +44,20 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
+    
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        String rawMessage = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : ex.getMessage();
+        String normalizedMessage = normalizeDuplicateMessage(rawMessage);
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                normalizedMessage
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
 
     // ==================== Generic Fallback ====================
 
@@ -53,5 +68,20 @@ public class GlobalExceptionHandler {
                 "An unexpected error occurred: " + ex.getMessage()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    private String normalizeDuplicateMessage(String message) {
+        if (message == null) {
+            return "Resource already exists.";
+        }
+
+        String lowered = message.toLowerCase();
+        if (lowered.contains("username")) {
+            return "Username is already in use.";
+        }
+        if (lowered.contains("email")) {
+            return "Email is already in use.";
+        }
+        return "Resource already exists.";
     }
 }

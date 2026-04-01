@@ -13,6 +13,8 @@ public interface LearnerRepository extends JpaRepository<Learner, UUID> {
     boolean existsBySupabaseUserId(UUID supabaseUserId);
 
     boolean existsByEmail(String email);
+    
+    boolean existsByUsernameIgnoreCase(String username);
 
     @Query("""
         select l

@@ -25,7 +25,11 @@ public class LearnerService {
     public Learner createLearner(UUID supabaseUserId, String username, String email, String fullName)
             throws ResourceAlreadyExistsException {
         if (repository.existsByEmail(email)) {
-            throw new ResourceAlreadyExistsException("Learner", "email", email);
+            throw new ResourceAlreadyExistsException("Email is already in use.");
+        }
+
+        if (repository.existsByUsernameIgnoreCase(username)) {
+            throw new ResourceAlreadyExistsException("Username is already in use.");
         }
 
         if (repository.existsBySupabaseUserId(supabaseUserId)) {

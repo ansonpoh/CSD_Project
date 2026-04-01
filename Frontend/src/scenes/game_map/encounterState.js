@@ -327,7 +327,7 @@ export const encounterStateMethods = {
 
     if (progress?.monsterDefeated) {
       monsterSprite.setTint(0x97b59d);
-      monsterSprite.setInteractive({ useHandCursor: true });
+      monsterSprite.setInteractive();
       if (monsterSprite.body) monsterSprite.body.enable = true;
       if (nameText) {
         nameText.setText(`${baseLabel} [DEFEATED]`);

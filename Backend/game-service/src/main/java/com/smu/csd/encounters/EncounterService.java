@@ -174,8 +174,9 @@ public class EncounterService {
         int xpAwarded = 0;
         int goldAwarded = 0;
         LearnerDto updatedLearner = learner;
+        boolean rewardClaimed = Boolean.TRUE.equals(progress.getRewardClaimed());
         
-        if (!Boolean.TRUE.equals(progress.getRewardClaimed())) {
+        if (!rewardClaimed) {
             xpAwarded = isBossMonster(mapId, monsterId) ? 140 : 90;
             goldAwarded = 100;
             
@@ -184,13 +185,17 @@ public class EncounterService {
                 String url = playerServiceUrl + "/api/internal/learners/" + learner.learnerId() + "/award-xp";
                 AwardXpRequestDto request = new AwardXpRequestDto(xpAwarded, goldAwarded);
                 updatedLearner = restTemplate.postForObject(url, request, LearnerDto.class);
+                if (updatedLearner == null) {
+                    throw new IllegalStateException("Player service returned empty award response.");
+                }
             } catch (Exception e) {
-                System.err.println("Failed to award rewards: " + e.getMessage());
+                throw new IllegalStateException("Failed to award rewards. Reward was not claimed.", e);
             }
 
             progress.setRewardClaimed(true);
             if (progress.getRewardClaimedAt() == null) progress.setRewardClaimedAt(LocalDateTime.now());
-            monsterProgressRepository.save(progress);
+            progress = monsterProgressRepository.save(progress);
+            rewardClaimed = Boolean.TRUE.equals(progress.getRewardClaimed());
         }
 
         return new EncounterClaimRewardResponseDto(
@@ -201,7 +206,7 @@ public class EncounterService {
             updatedLearner != null ? safeInt(updatedLearner.totalXp()) : safeInt(learner.totalXp()),
             updatedLearner != null ? safeInt(updatedLearner.level()) : safeInt(learner.level()),
             updatedLearner != null ? safeInt(updatedLearner.gold()) : safeInt(learner.gold()),
-            true
+            rewardClaimed
         );
     }
 

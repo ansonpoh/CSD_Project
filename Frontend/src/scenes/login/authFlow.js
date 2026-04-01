@@ -46,7 +46,26 @@ function getPersistedOAuthIntent() {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw);
+    const intent = JSON.parse(raw);
+    if (!intent || typeof intent !== 'object') return null;
+
+    if (intent.kind === 'continue') {
+      return intent;
+    }
+
+    // Backward compatibility for old stored intents.
+    if (intent.kind === 'login' || intent.kind === 'register') {
+      return {
+        kind: 'continue',
+        role: intent.role,
+        username: intent.username,
+        fullname: intent.fullname,
+        bio: intent.bio,
+        avatarPreset: intent.avatarPreset
+      };
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -83,7 +102,9 @@ async function createLearnerAccount({ userId, username, email, fullname, avatarP
     is_active: true
   };
 
-  const learner = await apiService.addLearner(learnerPayload);
+  const learner = await apiService.addLearner(learnerPayload).catch((error) => {
+    throw new Error(extractErrorMessage(error));
+  });
   gameState.setLearner(learner);
   const profileState = await apiService.updateMyAvatarPreset(avatarPreset).catch(() => null);
   gameState.setPlayerProfile(buildPlayerProfile({
@@ -123,9 +144,29 @@ function deriveUsernameFromEmail(email = '') {
   return localPart.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 30) || 'player';
 }
 
-function buildEmailNotInSystemMessage(email = '') {
-  if (!email) return 'Email not in system. Please register first.';
-  return `Email ${email} is not in system. Please register first.`;
+function normalizeRegistrationConflictMessage(message = '') {
+  const normalized = String(message).toLowerCase();
+  if (normalized.includes('username') && (normalized.includes('already') || normalized.includes('duplicate') || normalized.includes('in use'))) {
+    return 'Username is already in use.';
+  }
+  if (normalized.includes('email') && (normalized.includes('already') || normalized.includes('duplicate') || normalized.includes('in use') || normalized.includes('registered'))) {
+    return 'Email is already in use.';
+  }
+  return null;
+}
+
+function extractErrorMessage(error, fallbackMessage = 'Registration failed. Please try again.') {
+  const backendMessage = error?.response?.data?.message;
+  const normalizedBackendMessage = normalizeRegistrationConflictMessage(backendMessage);
+  if (normalizedBackendMessage) return normalizedBackendMessage;
+  if (typeof backendMessage === 'string' && backendMessage.trim()) return backendMessage;
+
+  const directMessage = error?.message;
+  const normalizedDirectMessage = normalizeRegistrationConflictMessage(directMessage);
+  if (normalizedDirectMessage) return normalizedDirectMessage;
+  if (typeof directMessage === 'string' && directMessage.trim()) return directMessage;
+
+  return fallbackMessage;
 }
 
 async function resolveUserIdForRegistration({ email, password, fullname }) {
@@ -188,7 +229,10 @@ export async function loginWithRole({ role, email, password }) {
 }
 
 export async function registerWithRole({ role, username, fullname, bio, avatarPreset, email, password }) {
-  const userId = await resolveUserIdForRegistration({ email, password, fullname });
+  const userId = await resolveUserIdForRegistration({ email, password, fullname })
+    .catch((error) => {
+      throw new Error(extractErrorMessage(error));
+    });
 
   if (!userId) {
     return buildRerenderResult('Check your email to confirm account, then login.');
@@ -210,6 +254,8 @@ export async function registerWithRole({ role, username, fullname, bio, avatarPr
       email,
       fullName: fullname,
       bio
+    }).catch((error) => {
+      throw new Error(extractErrorMessage(error));
     });
     return buildSceneResult('ContributorScene');
   }
@@ -217,28 +263,9 @@ export async function registerWithRole({ role, username, fullname, bio, avatarPr
   return buildMessageResult('Unsupported role');
 }
 
-export async function loginWithGoogle({ role }) {
+export async function continueWithGoogle({ role, username, fullname, bio, avatarPreset }) {
   persistOAuthIntent({
-    kind: 'login',
-    role
-  });
-
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin
-    }
-  });
-
-  if (error) {
-    clearOAuthIntent();
-    throw error;
-  }
-}
-
-export async function registerWithGoogle({ role, username, fullname, bio, avatarPreset }) {
-  persistOAuthIntent({
-    kind: 'register',
+    kind: 'continue',
     role,
     username,
     fullname,
@@ -257,6 +284,14 @@ export async function registerWithGoogle({ role, username, fullname, bio, avatar
     clearOAuthIntent();
     throw error;
   }
+}
+
+export async function loginWithGoogle({ role }) {
+  return continueWithGoogle({ role });
+}
+
+export async function registerWithGoogle({ role, username, fullname, bio, avatarPreset }) {
+  return continueWithGoogle({ role, username, fullname, bio, avatarPreset });
 }
 
 export async function resumeGoogleOAuthIntent() {
@@ -287,33 +322,17 @@ export async function resumeGoogleOAuthIntent() {
     if (!isNotFoundError(error)) throw error;
   }
 
-  if (intent.kind === 'login') {
-    clearOAuthIntent();
-
-    if (!roleInfo?.role) {
-      await supabase.auth.signOut();
-      return buildRerenderResult(buildEmailNotInSystemMessage(email));
-    }
-
-    if (intent.role && roleInfo.role !== intent.role) {
-      await supabase.auth.signOut();
-      return buildMessageResult('Invalid Credentials');
-    }
-
-    if (roleInfo.role === 'learner') {
-      await hydrateLearnerSession();
-    }
-
-    return buildRouteResultFromRole(roleInfo.role);
-  }
-
-  if (intent.kind !== 'register') {
+  if (intent.kind !== 'continue') {
     clearOAuthIntent();
     return buildRerenderResult('Unsupported OAuth flow.');
   }
 
   if (roleInfo?.role) {
     clearOAuthIntent();
+    if (intent.role && roleInfo.role !== intent.role) {
+      await supabase.auth.signOut();
+      return buildMessageResult('Invalid Credentials');
+    }
     if (roleInfo.role === 'learner') {
       await hydrateLearnerSession();
     }
@@ -341,6 +360,8 @@ export async function resumeGoogleOAuthIntent() {
       email,
       fullName: resolvedFullName,
       bio: intent.bio || ''
+    }).catch((error) => {
+      throw new Error(extractErrorMessage(error));
     });
     clearOAuthIntent();
     return buildSceneResult('ContributorScene');

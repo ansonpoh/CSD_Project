@@ -19,7 +19,7 @@ public class ContentRatingService {
     private final ContentRatingRepository contentRatingRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
 
     public ContentRatingService(

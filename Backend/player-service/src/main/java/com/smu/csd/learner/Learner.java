@@ -28,7 +28,7 @@ public class Learner {
     @UuidGenerator
     @Column(name = "learner_id")
     private UUID learnerId;
-    @Column(name = "supabase_user_id")
+    @Column(name = "supabase_user_id", nullable = false)
     private UUID supabaseUserId;
     @NotBlank(message = "Username is mandatory")
     @Column (nullable = false)
@@ -50,6 +50,7 @@ public class Learner {
     private LocalDateTime created_at;
     @Column
     private LocalDateTime updated_at;
-    @Column 
-    private Boolean is_active;
+    @Builder.Default
+    @Column(name = "is_active")
+    private Boolean is_active = true;
 }

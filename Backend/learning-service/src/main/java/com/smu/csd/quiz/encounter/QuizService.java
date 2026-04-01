@@ -39,7 +39,7 @@ public class QuizService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://game-service:8082}")
+    @Value("${GAME_URL:http://game-service:8082}")
     private String gameServiceUrl;
 
     public QuizService(

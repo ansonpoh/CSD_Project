@@ -35,7 +35,7 @@ public class AuthRoleController {
     private final ContributorRepository contributorRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
 
     @GetMapping("/role/me")
@@ -46,7 +46,7 @@ public class AuthRoleController {
 
         UUID supabaseUserId = UUID.fromString(jwt.getSubject());
 
-        if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "admin", "supabaseUserId", supabaseUserId));
         }
         if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
@@ -71,7 +71,7 @@ public class AuthRoleController {
         UUID supabaseUserId = UUID.fromString(jwt.getSubject());
 
         boolean hasRole = switch (role.toLowerCase()) {
-            case "admin" -> administratorRepository.existsBySupabaseUserId(supabaseUserId);
+            case "admin" -> administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId);
             case "contributor" -> contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId);
             case "learner" -> checkLearnerExists(supabaseUserId.toString());
             default -> false;
@@ -82,7 +82,7 @@ public class AuthRoleController {
 
     @GetMapping("/role/internal/{supabaseUserId}")
     public ResponseEntity<Map<String, String>> internalGetRole(@PathVariable UUID supabaseUserId) {
-        if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "ADMIN"));
         }
         if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {

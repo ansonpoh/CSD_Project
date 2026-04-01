@@ -57,16 +57,17 @@ public class LearnerService {
     }
 
     public Learner getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = repository.findBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+        return learner;
     }
 
     @Transactional
     public Learner awardXpAndGoldBySupabaseUserId(UUID supabaseUserId, Integer xpAwarded, Integer goldAwarded)
             throws ResourceNotFoundException {
         Learner learner = getBySupabaseUserId(supabaseUserId);
-        if (learner == null) {
-            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
-        }
 
         int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(xpAwarded);
         int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
@@ -83,7 +84,7 @@ public class LearnerService {
     }
 
     public boolean existsBySupabaseUserId(UUID supabaseUserId) {
-        return repository.existsBySupabaseUserId(supabaseUserId);
+        return repository.existsBySupabaseUserIdAndIs_activeTrue(supabaseUserId);
     }
 
     @Transactional

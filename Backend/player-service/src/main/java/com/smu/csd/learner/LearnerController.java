@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/learner")
@@ -53,7 +54,7 @@ public class LearnerController {
     }
 
     @PostMapping("/add")
-    public ResponseEntity<Learner> addLearner(@RequestBody Learner learner) throws ResourceAlreadyExistsException {
+    public ResponseEntity<Learner> addLearner(@Valid @RequestBody Learner learner) throws ResourceAlreadyExistsException {
         Learner created = service.createLearner(
                 learner.getSupabaseUserId(),
                 learner.getUsername(),

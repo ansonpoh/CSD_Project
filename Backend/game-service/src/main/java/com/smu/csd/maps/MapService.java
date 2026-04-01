@@ -41,9 +41,9 @@ public class MapService {
     private final AdministratorRepository administratorRepository;
     private final ObjectMapper objectMapper;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
-    @Value("${learning.url:http://learning-service:8083}")
+    @Value("${LEARNING_URL:http://learning-service:8083}")
     private String learningServiceUrl;
 
     public MapService(

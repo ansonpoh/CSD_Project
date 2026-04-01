@@ -18,7 +18,7 @@ public class JwtRoleConverter implements Converter<Jwt, AbstractAuthenticationTo
 
     private final RestTemplate restTemplate;
 
-    @Value("${identity.url:http://localhost:8081}")
+    @Value("${IDENTITY_URL:http://localhost:8081}")
     private String identityUrl;
 
     public JwtRoleConverter() {

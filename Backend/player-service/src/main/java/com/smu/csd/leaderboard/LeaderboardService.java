@@ -43,6 +43,10 @@ public class LeaderboardService {
 
     public void upsertLearnerScore(Learner learner) {
         if (learner == null || learner.getLearnerId() == null) return;
+        if (Boolean.FALSE.equals(learner.getIs_active())) {
+            removeLearner(learner.getLearnerId());
+            return;
+        }
         redisExecutor.run("leaderboard score sync", () -> redisTemplate.opsForZSet().add(
             LEADERBOARD_KEY,
             learner.getLearnerId().toString(),
@@ -71,6 +75,10 @@ public class LeaderboardService {
     public LeaderboardMeResponse getRank(UUID learnerId) throws ResourceNotFoundException {
         Learner learner = learnerRepository.findById(learnerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learner", "id", learnerId));
+
+        if (Boolean.FALSE.equals(learner.getIs_active())) {
+            throw new ResourceNotFoundException("Active Learner", "id", learnerId);
+        }
 
         upsertLearnerScore(learner);
         LeaderboardMeResponse response = redisExecutor.execute(
@@ -109,12 +117,17 @@ public class LeaderboardService {
         }
 
         Map<UUID, String> usernameById = learnerRepository.findAllById(orderedIds).stream()
+                .filter(l -> Boolean.TRUE.equals(l.getIs_active()))
                 .collect(Collectors.toMap(Learner::getLearnerId, Learner::getUsername));
 
         List<LeaderboardEntryResponse> result = new ArrayList<>();
         for (UUID learnerId : orderedIds) {
             String username = usernameById.get(learnerId);
-            if (username == null) continue;
+            if (username == null) {
+                // Remove inactive or missing learner from Redis if found during read
+                removeLearner(learnerId);
+                continue;
+            }
 
             Long rank = redisTemplate.opsForZSet().reverseRank(LEADERBOARD_KEY, learnerId.toString());
             if (rank == null) continue;
@@ -143,7 +156,7 @@ public class LeaderboardService {
     }
 
     private List<LeaderboardEntryResponse> getTopFromDatabase(int limit) {
-        Page<Learner> learnerPage = learnerRepository.findAll(PageRequest.of(0, limit, buildLeaderboardSort()));
+        Page<Learner> learnerPage = learnerRepository.findByIs_activeTrue(PageRequest.of(0, limit, buildLeaderboardSort()));
         List<LeaderboardEntryResponse> result = new ArrayList<>();
         long rank = 1;
 
@@ -160,7 +173,7 @@ public class LeaderboardService {
     }
 
     private LeaderboardMeResponse getRankFromDatabase(Learner learner) {
-        List<Learner> orderedLearners = learnerRepository.findAll(buildLeaderboardSort());
+        List<Learner> orderedLearners = learnerRepository.findByIs_activeTrue(buildLeaderboardSort());
         for (int i = 0; i < orderedLearners.size(); i++) {
             Learner current = orderedLearners.get(i);
             if (current == null || current.getLearnerId() == null) continue;
@@ -182,7 +195,7 @@ public class LeaderboardService {
         int page = 0;
         Page<Learner> learnerPage;
         do {
-            learnerPage = learnerRepository.findAll(PageRequest.of(page, 500));
+            learnerPage = learnerRepository.findByIs_activeTrue(PageRequest.of(page, 500));
             for (Learner learner : learnerPage.getContent()) {
                 upsertLearnerScore(learner);
             }

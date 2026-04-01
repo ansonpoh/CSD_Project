@@ -16,6 +16,8 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
 
     boolean existsBySupabaseUserId(UUID supabaseUserId);
 
+    boolean existsBySupabaseUserIdAndIsActiveTrue(UUID supabaseUserId);
+
     // Check if email already taken (used during registration to prevent duplicates)
     boolean existsByEmail(String email);
 }

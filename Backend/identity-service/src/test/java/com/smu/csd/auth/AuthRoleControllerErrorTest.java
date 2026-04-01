@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpClientErrorException;
 
 import com.smu.csd.roles.administrator.AdministratorRepository;
 import com.smu.csd.roles.contributor.ContributorRepository;
@@ -40,8 +41,10 @@ public class AuthRoleControllerErrorTest {
 
         when(authentication.getPrincipal()).thenReturn(jwt);
         when(jwt.getSubject()).thenReturn(userId.toString());
-        when(administratorRepository.existsBySupabaseUserId(userId)).thenReturn(false);
+        when(administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(false);
         when(contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(false);
+        when(restTemplate.getForEntity(anyString(), eq(Boolean.class)))
+                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
         ResponseEntity<?> response = authRoleController.myRole(authentication);
 
@@ -59,7 +62,7 @@ public class AuthRoleControllerErrorTest {
 
         when(authentication.getPrincipal()).thenReturn(jwt);
         when(jwt.getSubject()).thenReturn(userId.toString());
-        when(administratorRepository.existsBySupabaseUserId(userId)).thenReturn(true);
+        when(administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(true);
         when(contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(true);
 
         ResponseEntity<?> response = authRoleController.myRole(authentication);

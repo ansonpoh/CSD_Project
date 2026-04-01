@@ -40,7 +40,7 @@ public class AuthRoleControllerUnitTest {
         Jwt jwt = mock(Jwt.class);
         when(authentication.getPrincipal()).thenReturn(jwt);
         when(jwt.getSubject()).thenReturn(userId.toString());
-        when(administratorRepository.existsBySupabaseUserId(userId)).thenReturn(true);
+        when(administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(true);
 
         ResponseEntity<?> response = authRoleController.myRole(authentication);
 
@@ -57,7 +57,7 @@ public class AuthRoleControllerUnitTest {
         Jwt jwt = mock(Jwt.class);
         when(authentication.getPrincipal()).thenReturn(jwt);
         when(jwt.getSubject()).thenReturn(userId.toString());
-        when(administratorRepository.existsBySupabaseUserId(userId)).thenReturn(false);
+        when(administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(false);
         when(contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(true);
 
         ResponseEntity<?> response = authRoleController.myRole(authentication);

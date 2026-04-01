@@ -112,20 +112,24 @@ These flows must be reliable before shipping because they directly impact user a
 If you only add a small number of tests, these deliver the most confidence per effort.
 
 1) **Player-service integration: create learner + award XP + leaderboard sync**
-   - End-to-end with real DB + Redis.
-   - Verifies core progression path.
+   - ✅ Done: Implemented `LearnerProgressionIntegrationTest` covering create learner -> award XP -> leaderboard + rank verification.
+   - Verified via `./mvnw -Dtest='LearnerProgressionIntegrationTest' test`.
 
 2) **Learning-service: submit quiz attempt with multi-select scoring**
-   - Validates correctness of learning progression and scoring.
+   - ✅ Done: Added multi-select exact-match and partial-correct scoring coverage in `MapQuizServiceUnitTest`.
+   - Verified via `./mvnw -Dtest='MapQuizServiceUnitTest' test`.
 
 3) **Identity-service: role resolution with admin vs contributor conflict**
-   - Ensures role checks are correct for security.
+   - ✅ Done: Implemented `AuthRoleControllerDownstreamUnitTest` to validate admin precedence when both roles exist.
+   - Verified via `./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest' test`.
 
 4) **Game-service: monsters create/update validation & auth**
-   - Verifies protected endpoints and data validation.
+   - ✅ Done: Extended `MonsterControllerIntegrationTest` with auth-required and invalid UUID-path validation scenarios.
+   - Verified via `./mvnw -Dtest='MonsterControllerIntegrationTest' test`.
 
 5) **Cross-service error mapping for downstream calls**
-   - Confirms resilience when dependent services fail.
+   - ✅ Done: Added downstream `404` mapping assertion in `AuthRoleControllerDownstreamUnitTest` for learner role resolution via `RestTemplate`.
+   - Verified via `./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest' test`.
 
 ## Day 3 Missing Tests (Story 9.2 Gaps)
 These are the concrete missing items to satisfy the Day 3 checklist in `task.md`.

@@ -88,4 +88,17 @@ public class MonsterControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Updated Slime"));
     }
+
+    @Test
+    void shouldRequireAuthenticationForProtectedMonsterEndpoint() throws Exception {
+        mockMvc.perform(get("/api/monsters/all"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldReturnBadRequestForInvalidUuidPath() throws Exception {
+        mockMvc.perform(get("/api/monsters/{id}", "not-a-uuid"))
+                .andExpect(status().isBadRequest());
+    }
 }

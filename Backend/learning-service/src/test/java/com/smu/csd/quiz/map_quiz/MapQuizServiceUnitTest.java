@@ -302,6 +302,94 @@ public class MapQuizServiceUnitTest {
     }
 
     @Test
+    public void testSubmitAttempt_MultiSelectRequiresExactMatch() {
+        UUID userId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        LearnerDto learner = new LearnerDto(UUID.randomUUID(), 0, 1);
+
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).mapId(UUID.randomUUID()).build();
+        UUID questionId = UUID.randomUUID();
+        MapQuizQuestion question = MapQuizQuestion.builder()
+                .questionId(questionId)
+                .quiz(quiz)
+                .isMultiSelect(true)
+                .build();
+
+        MapQuizOption correctA = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption correctB = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption wrong = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(false).build();
+
+        MapQuizSubmitRequest partialRequest = new MapQuizSubmitRequest(
+                quizId,
+                List.of(new MapQuizAnswerRequest(questionId, List.of(correctA.getOptionId())))
+        );
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
+        when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctA, correctB, wrong));
+        when(attemptRepository.save(any(LearnerMapQuizAttempt.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        MapQuizSubmitResponse partialResult = service.submitAttempt(userId, partialRequest);
+
+        assertFalse(partialResult.passed());
+        assertEquals(0, partialResult.score());
+
+        MapQuizSubmitRequest exactRequest = new MapQuizSubmitRequest(
+                quizId,
+                List.of(new MapQuizAnswerRequest(questionId, List.of(correctA.getOptionId(), correctB.getOptionId())))
+        );
+
+        MapQuizSubmitResponse exactResult = service.submitAttempt(userId, exactRequest);
+
+        assertTrue(exactResult.passed());
+        assertEquals(1, exactResult.score());
+    }
+
+    @Test
+    public void testSubmitAttempt_PartialCorrectAcrossQuestions() {
+        UUID userId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        LearnerDto learner = new LearnerDto(UUID.randomUUID(), 0, 1);
+
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).mapId(UUID.randomUUID()).build();
+
+        UUID q1 = UUID.randomUUID();
+        UUID q2 = UUID.randomUUID();
+        UUID q3 = UUID.randomUUID();
+        MapQuizQuestion question1 = MapQuizQuestion.builder().questionId(q1).quiz(quiz).build();
+        MapQuizQuestion question2 = MapQuizQuestion.builder().questionId(q2).quiz(quiz).build();
+        MapQuizQuestion question3 = MapQuizQuestion.builder().questionId(q3).quiz(quiz).build();
+
+        MapQuizOption q1Correct = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption q2Correct = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption q2Wrong = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(false).build();
+        MapQuizOption q3Correct = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption q3Wrong = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(false).build();
+
+        MapQuizSubmitRequest request = new MapQuizSubmitRequest(
+                quizId,
+                List.of(
+                        new MapQuizAnswerRequest(q1, List.of(q1Correct.getOptionId())),
+                        new MapQuizAnswerRequest(q2, List.of(q2Wrong.getOptionId())),
+                        new MapQuizAnswerRequest(q3, List.of(q3Correct.getOptionId()))
+                )
+        );
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
+        when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(optionRepository.findByQuestion_QuestionId(q1)).thenReturn(List.of(q1Correct));
+        when(optionRepository.findByQuestion_QuestionId(q2)).thenReturn(List.of(q2Correct, q2Wrong));
+        when(optionRepository.findByQuestion_QuestionId(q3)).thenReturn(List.of(q3Correct, q3Wrong));
+        when(attemptRepository.save(any(LearnerMapQuizAttempt.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        MapQuizSubmitResponse result = service.submitAttempt(userId, request);
+
+        assertEquals(2, result.score());
+        assertEquals(3, result.totalQuestions());
+        assertFalse(result.passed());
+    }
+
+    @Test
     public void testHasPassedQuiz_NoPublishedQuiz() {
         UUID userId = UUID.randomUUID();
         UUID mapId = UUID.randomUUID();

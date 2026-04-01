@@ -44,7 +44,11 @@ public class AuthRoleController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        UUID supabaseUserId = parseSupabaseUserId(jwt.getSubject());
+        if (supabaseUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid authentication subject"));
+        }
 
         if (administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "admin", "supabaseUserId", supabaseUserId));
@@ -68,7 +72,11 @@ public class AuthRoleController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        UUID supabaseUserId = parseSupabaseUserId(jwt.getSubject());
+        if (supabaseUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid authentication subject"));
+        }
 
         boolean hasRole = switch (role.toLowerCase()) {
             case "admin" -> administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId);
@@ -104,6 +112,17 @@ public class AuthRoleController {
         } catch (Exception e) {
             log.error("Failed to check learner existence for user {} at {}: {}", supabaseUserId, playerServiceUrl, e.getMessage());
             return false;
+        }
+    }
+
+    private UUID parseSupabaseUserId(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(subject);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 }

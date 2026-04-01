@@ -34,6 +34,7 @@ public class ContributorServiceUnitTest {
         contributor.setContributorId(UUID.randomUUID());
 
         when(repository.existsByEmail("test@example.com")).thenReturn(false);
+        when(repository.existsBySupabaseUserId(userId)).thenReturn(false);
         when(repository.save(any(Contributor.class))).thenReturn(contributor);
 
         Contributor result = service.createContributor(userId, "test@example.com", "Test User", "Short bio");
@@ -60,11 +61,24 @@ public class ContributorServiceUnitTest {
         String longBio = "word ".repeat(101).trim();
 
         when(repository.existsByEmail("test@example.com")).thenReturn(false);
+        when(repository.existsBySupabaseUserId(userId)).thenReturn(false);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
             service.createContributor(userId, "test@example.com", "Test User", longBio)
         );
         assertTrue(exception.getMessage().contains("Bio must not exceed 100 words"));
+    }
+
+    @Test
+    public void testCreateContributorDuplicateSupabaseUserId() {
+        UUID userId = UUID.randomUUID();
+        when(repository.existsByEmail("test@example.com")).thenReturn(false);
+        when(repository.existsBySupabaseUserId(userId)).thenReturn(true);
+
+        ResourceAlreadyExistsException exception = assertThrows(ResourceAlreadyExistsException.class, () ->
+            service.createContributor(userId, "test@example.com", "Test User", "Short bio")
+        );
+        assertTrue(exception.getMessage().contains("already exists"));
     }
 
     @Test

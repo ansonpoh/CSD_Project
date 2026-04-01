@@ -415,4 +415,54 @@ public class MapQuizServiceUnitTest {
         );
         assertTrue(exception.getMessage().contains("Learner not found"));
     }
+
+    @Test
+    public void testGetQuizForLearner_PreservesQuestionOrdering() {
+        UUID userId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        LearnerDto learner = new LearnerDto(UUID.randomUUID(), 0, 1);
+
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).mapId(mapId).title("Ordered Quiz").isPublished(true).build();
+        MapQuizQuestion first = MapQuizQuestion.builder()
+                .questionId(UUID.randomUUID())
+                .quiz(quiz)
+                .questionOrder(1)
+                .scenarioText("First")
+                .build();
+        MapQuizQuestion second = MapQuizQuestion.builder()
+                .questionId(UUID.randomUUID())
+                .quiz(quiz)
+                .questionOrder(2)
+                .scenarioText("Second")
+                .build();
+
+        when(restTemplate.getForObject(contains("/api/internal/learners/supabase/"), eq(LearnerDto.class)))
+                .thenReturn(learner);
+        when(restTemplate.getForObject(contains("/api/internal/encounters/all-npcs-completed"), eq(Boolean.class)))
+                .thenReturn(true);
+        when(quizRepository.findByMapIdAndIsPublishedTrue(mapId)).thenReturn(java.util.Optional.of(quiz));
+        when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(first, second));
+        when(optionRepository.findByQuestion_QuestionId(any(UUID.class))).thenReturn(List.of());
+
+        MapQuizResponse response = service.getQuizForLearner(userId, mapId);
+
+        assertEquals(2, response.questions().size());
+        assertEquals(1, response.questions().get(0).questionOrder());
+        assertEquals(2, response.questions().get(1).questionOrder());
+    }
+
+    @Test
+    public void testUnpublishQuiz_DoesNotTouchLearnerAttempts() {
+        UUID quizId = UUID.randomUUID();
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).isPublished(true).build();
+
+        when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(quizRepository.save(quiz)).thenReturn(quiz);
+
+        MapQuizResponse result = service.unpublishQuiz(quizId);
+
+        assertFalse(result.isPublished());
+        verifyNoInteractions(attemptRepository);
+    }
 }

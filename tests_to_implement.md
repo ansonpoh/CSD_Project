@@ -27,53 +27,30 @@ This file is a backlog of test cases to add to strengthen release confidence. It
 ## Service-Specific Backlog
 
 ### identity-service
-- **Admin/Contributor duplication rules**
-  - Attempt to create a second admin for same Supabase user.
-  - Attempt to create contributor with duplicate email or user ID.
-- **JWT/Claims edge cases**
-  - Missing subject claim returns unauthorized or safe error.
-  - Invalid JWT signature (if validation is part of service).
-- **Role resolution**
-  - Contributor inactive should not pass `isContributor`.
-  - Admin precedence over contributor is enforced for all endpoints.
+- ✅ Done: Added duplication coverage and enforcement for admin/contributor creation in `AdministratorServiceUnitTest` and `ContributorServiceUnitTest` (duplicate Supabase user + duplicate email/user ID paths).
+- ✅ Done: Added JWT/claims edge-case coverage in `AuthRoleControllerIntegrationTest` for missing subject and invalid UUID subject (unauthorized responses).
+- ℹ️ Note: JWT signature verification is handled by Spring Security resource-server decoding; service-level test coverage focuses on controller claim handling paths.
+- ✅ Done: Added role-resolution safeguards in `AuthRoleControllerDownstreamUnitTest` for inactive contributor rejection and admin precedence over contributor.
+- Verified via `cd Backend/identity-service && ./mvnw -Dtest='AdministratorServiceUnitTest,ContributorServiceUnitTest,AuthRoleControllerIntegrationTest,AuthRoleControllerDownstreamUnitTest,AdministratorControllerSecurityIntegrationTest,AdministratorControllerErrorTest' test`.
 
 ### game-service
-- **Monsters API validation**
-  - Missing required fields on create/update return `400`.
-  - Invalid UUID in path returns `400` or `404` (consistent).
-- **Domain logic tests**
-  - Any rules for map/encounter/NPC flows:
-    - Interactions gating progression.
-    - Map/encounter dependencies (if any).
-- **Security**
-  - Protected endpoints return `401` without auth, `403` without role.
+- ✅ Done: Added monsters API validation coverage in `MonsterControllerIntegrationTest` for missing/blank required fields on create and update (`400`) and invalid UUID path handling (`400`).
+- ✅ Done: Added domain-rule coverage for encounter/NPC progression gating in `EncounterServiceUnitTest` (monster unlock blocked until required NPC lessons are complete).
+- ✅ Done: Added protected endpoint auth coverage in `MonsterControllerIntegrationTest` for `401` without authentication.
+- Verified via `cd Backend/game-service && ./mvnw -Dtest='MonsterControllerIntegrationTest,EncounterServiceUnitTest' test`.
 
 ### learning-service
-- **Map quiz scoring**
-  - Multi-select questions scoring is correct.
-  - Partial correct answers score correctly.
-  - Question ordering is preserved.
-- **Publish/unpublish rules**
-  - Publish fails if required fields missing.
-  - Unpublish does not invalidate prior attempts incorrectly.
-- **Learner gating**
-  - Learner not found -> correct error.
-  - Quiz not found -> correct error.
-  - NPC completion required -> correct error.
+- ✅ Done: Added/extended map-quiz scoring coverage in `MapQuizServiceUnitTest` for multi-select exact-match scoring, partial-correct scoring across questions, and learner-facing question ordering.
+- ✅ Done: Added/verified publish/unpublish rule coverage in `MapQuizServiceUnitTest` (publish failure when required title is missing; unpublish does not touch learner attempts).
+- ✅ Done: Added/verified learner-gating error coverage in `MapQuizServiceUnitTest` for learner-not-found, quiz-not-found, and NPC-completion-required paths.
+- Verified via `cd Backend/learning-service && ./mvnw -Dtest='MapQuizServiceUnitTest,MapQuizControllerIntegrationTest' test`.
 
 ### player-service
-- **Learner create/update validation**
-  - Invalid email format rejects.
-  - Missing username/full name rejects.
-  - Partial update does not overwrite unspecified fields.
-- **XP/level calculation**
-  - Boundary tests (exact thresholds, large XP, zero/negative).
-  - Overflows or negative values are handled safely.
-- **Leaderboard integration**
-  - Redis available path: write + read + rank.
-  - Learner missing from Redis returns safe fallback.
-- **Auth and profile**
-  - Unauthorized vs forbidden responses are consistent across `/api/players/profile`.
+- ✅ Done: Added learner create/update validation coverage in `LearnerControllerIntegrationTest` and `LearnerProgressionIntegrationTest` for invalid email, missing full name, and partial update preservation of unspecified fields.
+- ✅ Done: Added XP/level boundary and safety coverage in `LearnerServiceUnitTest` for exact thresholds, negative award clamp behavior, and integer-overflow clamping.
+- ✅ Done: Added/verified leaderboard integration coverage in `LearnerProgressionIntegrationTest` and `LeaderboardServiceUnitTest` for redis-available read path and safe fallback behavior.
+- ✅ Done: Verified auth/profile consistency for `/api/players/profile` in `SecurityConfigTest` (`401` unauthenticated, authenticated request allowed through authorization layer).
+- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerServiceUnitTest,LearnerControllerIntegrationTest,LearnerProgressionIntegrationTest,LearnerProfileStateControllerIntegrationTest,LeaderboardServiceUnitTest,SecurityConfigTest' test`.
 
 ## Critical Paths For Production Releases
 These flows must be reliable before shipping because they directly impact user access, core gameplay progression, and data integrity.

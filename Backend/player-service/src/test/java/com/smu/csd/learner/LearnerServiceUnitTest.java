@@ -150,7 +150,7 @@ public class LearnerServiceUnitTest {
     @Test
     public void testExistsBySupabaseUserId() {
         UUID userId = UUID.randomUUID();
-        when(repository.existsBySupabaseUserId(userId)).thenReturn(true);
+        when(repository.existsBySupabaseUserIdAndIs_activeTrue(userId)).thenReturn(true);
 
         boolean result = service.existsBySupabaseUserId(userId);
 
@@ -193,5 +193,63 @@ public class LearnerServiceUnitTest {
         when(repository.existsById(id)).thenReturn(false);
 
         assertThrows(ResourceNotFoundException.class, () -> service.deleteLearner(id));
+    }
+
+    @Test
+    public void testAwardXpAndGold_ExactLevelBoundary() throws ResourceNotFoundException {
+        UUID userId = UUID.randomUUID();
+        Learner learner = new Learner();
+        learner.setLearnerId(UUID.randomUUID());
+        learner.setSupabaseUserId(userId);
+        learner.setTotal_xp(300);
+        learner.setGold(0);
+        learner.setLevel(2);
+
+        when(repository.findBySupabaseUserId(userId)).thenReturn(learner);
+        when(repository.save(learner)).thenReturn(learner);
+
+        Learner result = service.awardXpAndGoldBySupabaseUserId(userId, 100, 0);
+
+        assertEquals(400, result.getTotal_xp());
+        assertEquals(3, result.getLevel());
+    }
+
+    @Test
+    public void testAwardXpAndGold_NegativeValuesClampToZero() throws ResourceNotFoundException {
+        UUID userId = UUID.randomUUID();
+        Learner learner = new Learner();
+        learner.setLearnerId(UUID.randomUUID());
+        learner.setSupabaseUserId(userId);
+        learner.setTotal_xp(50);
+        learner.setGold(5);
+        learner.setLevel(1);
+
+        when(repository.findBySupabaseUserId(userId)).thenReturn(learner);
+        when(repository.save(learner)).thenReturn(learner);
+
+        Learner result = service.awardXpAndGoldBySupabaseUserId(userId, -999, -999);
+
+        assertEquals(0, result.getTotal_xp());
+        assertEquals(0, result.getGold());
+        assertEquals(1, result.getLevel());
+    }
+
+    @Test
+    public void testAwardXpAndGold_OverflowClampedAtIntegerMax() throws ResourceNotFoundException {
+        UUID userId = UUID.randomUUID();
+        Learner learner = new Learner();
+        learner.setLearnerId(UUID.randomUUID());
+        learner.setSupabaseUserId(userId);
+        learner.setTotal_xp(Integer.MAX_VALUE - 10);
+        learner.setGold(Integer.MAX_VALUE - 1);
+        learner.setLevel(1000);
+
+        when(repository.findBySupabaseUserId(userId)).thenReturn(learner);
+        when(repository.save(learner)).thenReturn(learner);
+
+        Learner result = service.awardXpAndGoldBySupabaseUserId(userId, 1_000_000, 1_000_000);
+
+        assertEquals(Integer.MAX_VALUE, result.getTotal_xp());
+        assertEquals(Integer.MAX_VALUE, result.getGold());
     }
 }

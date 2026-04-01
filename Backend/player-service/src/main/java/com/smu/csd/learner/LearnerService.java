@@ -69,8 +69,8 @@ public class LearnerService {
             throws ResourceNotFoundException {
         Learner learner = getBySupabaseUserId(supabaseUserId);
 
-        int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(xpAwarded);
-        int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
+        int updatedXp = addClampedNonNegative(learner.getTotal_xp(), xpAwarded);
+        int updatedGold = addClampedNonNegative(learner.getGold(), goldAwarded);
         int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
 
         learner.setTotal_xp(updatedXp);
@@ -128,5 +128,16 @@ public class LearnerService {
 
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private int addClampedNonNegative(Integer base, Integer delta) {
+        long sum = (long) safeInt(base) + safeInt(delta);
+        if (sum < 0) {
+            return 0;
+        }
+        if (sum > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) sum;
     }
 }

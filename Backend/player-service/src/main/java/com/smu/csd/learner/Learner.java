@@ -37,6 +37,7 @@ public class Learner {
     @Email(message = "Email should be valid")
     @Column (nullable = false)
     private String email;
+    @NotBlank(message = "Full name is mandatory")
     @Column
     private String full_name;
     @Column

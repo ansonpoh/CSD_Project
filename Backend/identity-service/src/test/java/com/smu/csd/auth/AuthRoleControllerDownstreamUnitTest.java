@@ -102,4 +102,34 @@ public class AuthRoleControllerDownstreamUnitTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(false, body.get("hasRole"));
     }
+
+    @Test
+    void hasRole_ContributorReturnsFalseWhenContributorIsInactive() {
+        UUID userId = UUID.randomUUID();
+        Authentication authentication = mock(Authentication.class);
+        Jwt jwt = mock(Jwt.class);
+
+        when(authentication.getPrincipal()).thenReturn(jwt);
+        when(jwt.getSubject()).thenReturn(userId.toString());
+        when(contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(false);
+
+        ResponseEntity<?> response = controller.hasRole("contributor", authentication);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(false, body.get("hasRole"));
+    }
+
+    @Test
+    void internalGetRole_ReturnsAdminWhenAdminAndContributorBothActive() {
+        UUID userId = UUID.randomUUID();
+        when(administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(true);
+        when(contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(userId)).thenReturn(true);
+
+        ResponseEntity<Map<String, String>> response = controller.internalGetRole(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("ADMIN", response.getBody().get("role"));
+    }
 }

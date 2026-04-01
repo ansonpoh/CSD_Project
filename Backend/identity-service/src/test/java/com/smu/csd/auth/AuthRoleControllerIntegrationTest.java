@@ -54,4 +54,19 @@ public class AuthRoleControllerIntegrationTest {
         mockMvc.perform(get("/api/auth/role/me"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void myRole_ReturnsUnauthorizedWhenJwtSubjectMissing() throws Exception {
+        mockMvc.perform(get("/api/auth/role/me")
+                        .with(jwt().jwt(jwt -> jwt.subject(""))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void hasRole_ReturnsUnauthorizedWhenJwtSubjectInvalidUuid() throws Exception {
+        mockMvc.perform(get("/api/auth/role/has/admin")
+                        .with(jwt().jwt(jwt -> jwt.subject("not-a-uuid"))))
+                .andExpect(status().isUnauthorized());
+    }
+
 }

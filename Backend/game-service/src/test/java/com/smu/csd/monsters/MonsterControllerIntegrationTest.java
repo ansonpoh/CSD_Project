@@ -90,6 +90,20 @@ public class MonsterControllerIntegrationTest {
     }
 
     @Test
+    @WithMockUser
+    void shouldReturn400WhenUpdatingMonsterWithBlankName() throws Exception {
+        UUID id = UUID.randomUUID();
+        Monster invalidMonster = Monster.builder()
+                .name("")
+                .build();
+
+        mockMvc.perform(put("/api/monsters/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidMonster)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void shouldRequireAuthenticationForProtectedMonsterEndpoint() throws Exception {
         mockMvc.perform(get("/api/monsters/all"))
                 .andExpect(status().isUnauthorized());

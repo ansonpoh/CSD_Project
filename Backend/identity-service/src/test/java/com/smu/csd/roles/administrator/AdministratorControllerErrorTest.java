@@ -32,7 +32,7 @@ public class AdministratorControllerErrorTest {
     }
 
     @Test
-    public void testCreateAdministrator_DuplicateEmail() {
+    public void testCreateAdministrator_DuplicateEmail() throws Exception {
         // Note: saveAdministrator doesn't throw exceptions - duplicate handling
         // would need to be added to the service layer. This test documents expected behavior.
         Administrator admin = new Administrator();

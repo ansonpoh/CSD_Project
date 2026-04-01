@@ -112,4 +112,36 @@ public class LearnerControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Invalid value")));
     }
+
+    @Test
+    @WithMockUser
+    void addLearner_WithInvalidEmailFormat_ShouldReturnBadRequest() throws Exception {
+        Learner invalidEmailLearner = Learner.builder()
+                .supabaseUserId(UUID.randomUUID())
+                .username("invalid_email_player")
+                .email("not-an-email")
+                .full_name("Invalid Email")
+                .build();
+
+        mockMvc.perform(post("/api/learner/add")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidEmailLearner)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    void addLearner_WithMissingFullName_ShouldReturnBadRequest() throws Exception {
+        Learner missingFullNameLearner = Learner.builder()
+                .supabaseUserId(UUID.randomUUID())
+                .username("missing_full_name_player")
+                .email("missing_full_name_player@example.com")
+                .full_name(" ")
+                .build();
+
+        mockMvc.perform(post("/api/learner/add")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(missingFullNameLearner)))
+                .andExpect(status().isBadRequest());
+    }
 }

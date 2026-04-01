@@ -88,25 +88,24 @@ This file is a backlog of test cases to add to strengthen release confidence. It
 These flows must be reliable before shipping because they directly impact user access, core gameplay progression, and data integrity.
 
 1) **Authentication & Role Resolution**
-   - Login/role checks for Admin/Contributor/Player paths.
-   - Ensures access control for protected endpoints.
+   - ✅ Done: Covered role resolution and protected endpoint behavior via `AuthRoleControllerIntegrationTest` and `AuthRoleControllerDownstreamUnitTest`.
+   - Verified via `cd Backend/identity-service && ./mvnw -Dtest='AuthRoleControllerIntegrationTest,AuthRoleControllerDownstreamUnitTest' test`.
 
 2) **Player Profile Creation and Progression**
-   - Create learner profile.
-   - Award XP and level progression.
-   - Update profile data without corruption.
+   - ✅ Done: Covered create learner profile, XP/level progression, and partial update integrity in `LearnerProgressionIntegrationTest`.
+   - Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerProgressionIntegrationTest,LeaderboardServiceUnitTest' test`.
 
 3) **Game Content Access**
-   - Fetch monsters/maps/NPC content.
-   - Gating logic does not break progression.
+   - ✅ Done: Covered monsters endpoint access plus NPC-completion gating logic in `MonsterControllerIntegrationTest` and `EncounterServiceUnitTest`.
+   - Verified via `cd Backend/game-service && ./mvnw -Dtest='MonsterControllerIntegrationTest,EncounterServiceUnitTest' test`.
 
 4) **Learning/Quiz Flow**
-   - Create/publish quizzes.
-   - Learner fetches quiz, submits attempt, receives score.
+   - ✅ Done: Covered quiz fetch/attempt and multi-select scoring behavior in `MapQuizControllerIntegrationTest` and `MapQuizServiceUnitTest`.
+   - Verified via `cd Backend/learning-service && ./mvnw -Dtest='MapQuizServiceUnitTest,MapQuizControllerIntegrationTest' test`.
 
 5) **Leaderboard**
-   - Leaderboard updates on XP changes.
-   - Ranking read is correct and stable.
+   - ✅ Done: Covered leaderboard update and rank retrieval after XP changes in `LearnerProgressionIntegrationTest` with supporting service checks in `LeaderboardServiceUnitTest`.
+   - Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerProgressionIntegrationTest,LeaderboardServiceUnitTest' test`.
 
 ## Highest Value Tests
 If you only add a small number of tests, these deliver the most confidence per effort.

@@ -74,4 +74,51 @@ public class LearnerProgressionIntegrationTest {
                 .andExpect(jsonPath("$.totalXp").value(225))
                 .andExpect(jsonPath("$.rank").value(1));
     }
+
+    @Test
+    void updateLearner_PartialUpdateKeepsUnspecifiedFieldsIntact() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+
+        Learner createRequest = Learner.builder()
+                .supabaseUserId(supabaseUserId)
+                .username("partial_update_player")
+                .email("partial_update_player@example.com")
+                .full_name("Original Full Name")
+                .build();
+
+        String createResponseBody = mockMvc.perform(post("/api/learner/add")
+                        .with(jwt().jwt(jwt -> jwt.subject(supabaseUserId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        UUID learnerId = UUID.fromString(objectMapper.readTree(createResponseBody).get("learnerId").asText());
+
+        LearnerController.AwardXpRequest awardRequest = new LearnerController.AwardXpRequest(400, 25);
+        mockMvc.perform(post("/api/learner/me/award-xp")
+                        .with(jwt().jwt(jwt -> jwt.subject(supabaseUserId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(awardRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total_xp").value(400))
+                .andExpect(jsonPath("$.gold").value(25));
+
+        Learner partialUpdate = Learner.builder()
+                .username("renamed_player")
+                .build();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/learner/{id}", learnerId)
+                        .with(jwt().jwt(jwt -> jwt.subject(supabaseUserId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("renamed_player"))
+                .andExpect(jsonPath("$.full_name").value("Original Full Name"))
+                .andExpect(jsonPath("$.total_xp").value(400))
+                .andExpect(jsonPath("$.gold").value(25));
+    }
+
 }

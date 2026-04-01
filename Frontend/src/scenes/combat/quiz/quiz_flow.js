@@ -65,7 +65,7 @@ export const combatSceneQuizFlowMethods = {
         this.setQuizOptionsEnabled(false);
         this._recordAnswer(question, [selectedOptionIndex]);
         this._highlightSelected(selectedOptionIndex);
-        this.playPlayerQuizAttack();
+        this.playPlayerQuizAttack({ applyDamage: false, confirmedCorrect: false });
         this.time.delayedCall(600, () => {
           this.answerLocked = false;
           this._advanceQuestion();
@@ -119,7 +119,7 @@ export const combatSceneQuizFlowMethods = {
     if (this.confirmBtn) this.confirmBtn.setEnabled(false);
 
     this._recordAnswer(question, Array.from(this.currentSelections));
-    this.playPlayerQuizAttack();
+    this.playPlayerQuizAttack({ applyDamage: false, confirmedCorrect: false });
 
     this.time.delayedCall(600, () => {
       this.answerLocked = false;
@@ -163,8 +163,10 @@ export const combatSceneQuizFlowMethods = {
 
   _advanceQuestion() {
     this.currentQuestionIndex += 1;
-    this.monsterHP = Math.max(0, this.monsterHP - this.damagePerCorrect);
-    this.updateHealthBars();
+    if (!this.usingMapQuiz) {
+      this.monsterHP = Math.max(0, this.monsterHP - this.damagePerCorrect);
+      this.updateHealthBars();
+    }
     this.evaluateEncounterState();
   },
 
@@ -214,8 +216,10 @@ export const combatSceneQuizFlowMethods = {
 
     try {
       const result = await apiService.submitMapQuizAttempt(this.mapQuizId, this.collectedAnswers);
-      const { passed, score, totalQuestions } = result;
-      this.correctAnswers = score ?? 0;
+      const score = Number(result?.score ?? 0);
+      const totalQuestions = Number(result?.totalQuestions ?? this.totalQuestions ?? this.collectedAnswers.length);
+      const passed = result?.passed === true || (totalQuestions > 0 && (score * 100 / totalQuestions) >= 70);
+      this.correctAnswers = score;
       this.addLog(`Result: ${this.correctAnswers}/${totalQuestions} correct.`);
 
       if (passed) {

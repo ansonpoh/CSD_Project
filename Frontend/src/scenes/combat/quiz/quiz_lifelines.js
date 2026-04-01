@@ -47,6 +47,18 @@ export const combatSceneQuizLifelineMethods = {
     return null;
   },
 
+  getHintInventoryCount() {
+    const inventory = gameState.getInventory();
+    return inventory
+      .filter((item) => this.isHintItem(item))
+      .reduce((total, item) => total + Math.max(0, Number(item?.quantity || 0)), 0);
+  },
+
+  findHintInventoryItem() {
+    const inventory = gameState.getInventory();
+    return inventory.find((item) => this.isHintItem(item) && Math.max(0, Number(item?.quantity || 0)) > 0) || null;
+  },
+
   isHeartItem(item) {
     if (!item) return false;
     const name = String(item?.name || '').toLowerCase();
@@ -57,6 +69,20 @@ export const combatSceneQuizLifelineMethods = {
       blob.includes('lifeline') ||
       blob.includes('revive') ||
       blob.includes('extra life')
+    );
+  },
+
+  isHintItem(item) {
+    if (!item) return false;
+    const name = String(item?.name || '').toLowerCase();
+    const description = String(item?.description || '').toLowerCase();
+    const itemType = String(item?.item_type || '').toLowerCase();
+    const blob = `${name} ${description}`;
+    return (
+      itemType === 'quiz_hint' ||
+      blob.includes('quiz hint') ||
+      blob.includes('hint token') ||
+      (blob.includes('hint') && blob.includes('quiz'))
     );
   },
 

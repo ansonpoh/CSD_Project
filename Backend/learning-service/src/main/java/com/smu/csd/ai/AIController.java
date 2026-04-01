@@ -48,4 +48,9 @@ public class AIController {
     public record GenerateNarrationsRequest(UUID topicId, String title, String description) {}
 
     public record GenerateNarrationsResponse(List<String> narrations) {}
+
+    @PostMapping("/quiz-hint")
+    public ResponseEntity<QuizHintResponse> generateQuizHint(@RequestBody QuizHintRequest request) {
+        return ResponseEntity.ok(aiService.generateQuizHint(request));
+    }
 }

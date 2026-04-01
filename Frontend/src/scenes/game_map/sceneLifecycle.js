@@ -62,8 +62,7 @@ export async function createGameMapScene() {
   const width = this.cameras.main.width;
   const height = this.cameras.main.height;
   const isContributorMap = Boolean(
-    this.editorMapData
-    || this.mapConfig?.isEditorMap
+    this.mapConfig?.isEditorMap
     || String(this.mapConfig?.asset || '').startsWith('editor-draft:')
   );
   showMapLoadingOverlay(this);
@@ -198,7 +197,7 @@ export function updateGameMapScene() {
       this.placeNameLabel(sprite, nameText, offsetY);
     }
     const statusBadge = sprite.getData('statusBadge');
-    if (statusBadge) statusBadge.setPosition(sprite.x, sprite.y - 58);
+    if (statusBadge) this.placeStatusBadge(sprite, statusBadge);
   });
 
   this.monsterSprites.forEach((sprite) => {

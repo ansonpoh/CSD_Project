@@ -9,7 +9,7 @@ const DEFAULT_THEMES = [
     biome: 'Forest',
     difficulty: 'Novice',
     estimatedMinutes: 8,
-    learningGoal: 'Master the basics through low-pressure encounters.',
+    learningGoal: 'A gentle intro to what Gen Alpha terms are, where they come from, and why they matter.',
     creatorName: 'Studio Archive',
     creatorBadge: 'Curated',
     featured: true,
@@ -51,7 +51,7 @@ const DEFAULT_THEMES = [
     biome: 'Cavern',
     difficulty: 'Skilled',
     estimatedMinutes: 12,
-    learningGoal: 'Test retention under pressure with harder quiz encounters.',
+    learningGoal: 'Learn the most common foundational terms and their straightforward meanings.',
     creatorName: 'Depth Cartographer Ivo',
     creatorBadge: 'Community Pick',
     featured: false,
@@ -93,7 +93,7 @@ const DEFAULT_THEMES = [
     biome: 'Mountain',
     difficulty: 'Expert',
     estimatedMinutes: 16,
-    learningGoal: 'Push full mastery with boss-level encounter requirements.',
+    learningGoal: 'Build a reliable vocabulary set you will repeatedly see in conversations and content.',
     creatorName: 'Highpeak Council',
     creatorBadge: 'Verified',
     featured: true,
@@ -135,7 +135,7 @@ const DEFAULT_THEMES = [
     biome: 'Settlement',
     difficulty: 'Adaptive',
     estimatedMinutes: 10,
-    learningGoal: 'Experiment with creator-authored encounters and map remix ideas.',
+    learningGoal: 'Practice using terms correctly in day-to-day chat, captions, and casual interactions.',
     creatorName: 'Prototype Guild',
     creatorBadge: 'Lab',
     featured: false,
@@ -209,11 +209,9 @@ class MapDiscoveryService {
 
   resolveMapKey(map) {
     const raw = String(map?.mapKey || map?.asset || map?.name || '').toLowerCase();
-    if (raw === 'map1' || raw.includes('forest')) return 'map1';
-    if (raw === 'map2' || raw.includes('cave')) return 'map2';
-    if (raw === 'map3' || raw.includes('mountain')) return 'map3';
-    if (raw === 'map4' || raw.includes('test') || raw.includes('garden') || raw.includes('terrain')) return 'map4';
-    return 'map1';
+    const directMatch = raw.match(/\bmap([1-4])\b/);
+    if (directMatch) return `map${directMatch[1]}`;
+    return null;
   }
 
   getThemeDefaults(map) {
@@ -273,12 +271,12 @@ class MapDiscoveryService {
     return {
       ...map,
       mapId: map?.mapId || map?.id || this.getMapId(map),
-      mapKey: map?.mapKey || this.resolveMapKey(map),
+      mapKey: map?.mapKey || this.resolveMapKey(map) || null,
       theme: defaults.theme,
       biome: defaults.biome,
       difficulty: defaults.difficulty,
       estimatedMinutes: defaults.estimatedMinutes,
-      learningGoal: defaults.learningGoal,
+      learningGoal: String(map?.description || '').trim() || 'No map description available.',
       creatorName: defaults.creatorName,
       creatorBadge: defaults.creatorBadge,
       featured: Boolean(defaults.featured || state.featured),

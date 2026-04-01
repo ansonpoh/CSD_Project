@@ -198,7 +198,7 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  async submitCombatResult(won) {
+  async submitCombatResult() {
     if (this.submittedCombatResult) return;
 
     const mapId = this.mapId;
@@ -209,9 +209,7 @@ export class CombatScene extends Phaser.Scene {
     try {
       await apiService.submitEncounterCombatResult({
         mapId,
-        npcId: this.npcId,
-        monsterId,
-        won: Boolean(won)
+        monsterId
       });
     } catch (error) {
       this.submittedCombatResult = false;
@@ -226,7 +224,7 @@ export class CombatScene extends Phaser.Scene {
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     this.addLog('You fled the encounter.');
-    void this.submitCombatResult(false);
+    void this.submitCombatResult();
     this.time.delayedCall(900, () => {
       this.exitBattle();
     });
@@ -239,7 +237,7 @@ export class CombatScene extends Phaser.Scene {
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     if (!this.isRematch) {
-      await this.submitCombatResult(true);
+      await this.submitCombatResult();
     }
 
     if (this.monsterSprite && this.canPlayAnim(`${this.monsterName}_dead`)) {
@@ -272,7 +270,7 @@ export class CombatScene extends Phaser.Scene {
     this.runBtn?.setEnabled(false);
     this.addLog(reason);
     this.addLog('Retry assist will strengthen your next attempt.');
-    void this.submitCombatResult(false);
+    void this.submitCombatResult();
 
     if (this.playerSprite && this.canPlayAnim('dead')) this.playerSprite.play('dead', true);
 

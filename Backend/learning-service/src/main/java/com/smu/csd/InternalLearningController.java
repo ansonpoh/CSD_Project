@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.smu.csd.contents.Content;
@@ -20,6 +21,7 @@ import com.smu.csd.contents.ratings.ContentRatingService;
 import com.smu.csd.contents.topics.Topic;
 import com.smu.csd.contents.topics.TopicService;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.quiz.map_quiz.MapQuizService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +36,7 @@ public class InternalLearningController {
     private final ContentRepository contentRepository;
     private final ContentRatingService contentRatingService;
     private final TopicService topicService;
+    private final MapQuizService mapQuizService;
 
     @GetMapping("/contents/{id}")
     public ResponseEntity<Map<String, Object>> getContent(@PathVariable UUID id) {
@@ -66,6 +69,14 @@ public class InternalLearningController {
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/map-quizzes/passed")
+    public ResponseEntity<Boolean> hasPassedPublishedMapQuiz(
+        @RequestParam UUID learnerId,
+        @RequestParam UUID mapId
+    ) {
+        return ResponseEntity.ok(mapQuizService.hasPassedPublishedQuizForLearner(learnerId, mapId));
     }
 
     private Map<String, Object> buildContentPayload(Content c) {

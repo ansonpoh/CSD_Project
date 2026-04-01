@@ -231,6 +231,14 @@ public class MapQuizService {
             .orElse(true); // no quiz published = no gate
     }
 
+    public boolean hasPassedPublishedQuizForLearner(UUID learnerId, UUID mapId) {
+        if (learnerId == null || mapId == null) return false;
+        return quizRepository.findByMapIdAndIsPublishedTrue(mapId)
+            .map(quiz -> attemptRepository.existsByLearnerIdAndQuiz_QuizIdAndStatus(
+                learnerId, quiz.getQuizId(), LearnerMapQuizAttempt.Status.PASSED))
+            .orElse(false);
+    }
+
     private LearnerDto fetchLearner(UUID supabaseUserId) {
         try {
             String url = playerServiceUrl + "/api/internal/learners/supabase/" + supabaseUserId;

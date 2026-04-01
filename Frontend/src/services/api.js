@@ -219,11 +219,6 @@ class ApiService {
     return data;
   }
 
-  async assignEncounterPair(mapId, npcId, monsterId) {
-    const { data } = await this.api.put(`/encounters/map/${mapId}/pair`, { npcId, monsterId });
-    return data;
-  }
-
   async markEncounterNpcInteracted(mapId, npcId) {
     const { data } = await this.api.put(`/encounters/map/${mapId}/npc/${npcId}/interact`);
     return data;

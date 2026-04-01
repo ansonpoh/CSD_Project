@@ -130,22 +130,11 @@ export const encounterStateMethods = {
       };
     }
 
-    // Determine which monster slot this is (0 = first, 1 = second) for question splitting
-    const sortedPairs = (this.encounterState?.pairs || [])
-      .slice()
-      .sort((a, b) => (a?.encounterOrder ?? 0) - (b?.encounterOrder ?? 0));
-    let monsterIndex = 0;
-    if (sortedPairs.length) {
-      const monsterNpcId = String(npcId || monster?.npcId || '');
-      const idx = sortedPairs.findIndex((p) => String(p?.npcId || '') === monsterNpcId);
-      monsterIndex = idx >= 0 ? idx : 0;
-    } else {
-      // Fallback pairing: use position in the monsters array
-      const idx = this.monsters.findIndex(
-        (m) => String(this.getMonsterId(m) || '') === String(this.getMonsterId(monster) || '')
-      );
-      monsterIndex = idx >= 0 ? idx : 0;
-    }
+    // Pairing metadata is deprecated; use position in the monsters array.
+    const idx = this.monsters.findIndex(
+      (m) => String(this.getMonsterId(m) || '') === String(this.getMonsterId(monster) || '')
+    );
+    const monsterIndex = idx >= 0 ? idx : 0;
 
     const monsterState = this.getEncounterMonsterState(monster);
     const isRematch = Boolean(monsterState?.monsterDefeated);
@@ -155,33 +144,6 @@ export const encounterStateMethods = {
 
   createNpcMonsterMapping() {
     this.npcMonsterMap.clear();
-    const pairRows = Array.isArray(this.encounterState?.pairs) ? [...this.encounterState.pairs] : [];
-
-    if (pairRows.length) {
-      const npcById = new Map(this.npcs.map((npc) => [String(this.getNpcId(npc) || ''), npc]));
-      const monsterById = new Map(this.monsters.map((monster) => [String(this.getMonsterId(monster) || ''), monster]));
-      let resolvedPairs = 0;
-
-      pairRows
-        .sort((a, b) => (a?.encounterOrder ?? 0) - (b?.encounterOrder ?? 0))
-        .forEach((pair) => {
-          const npc = npcById.get(String(pair?.npcId || ''));
-          const monster = monsterById.get(String(pair?.monsterId || ''));
-          if (!npc || !monster) return;
-
-          resolvedPairs += 1;
-          this.npcMonsterMap.set(this.getNpcKey(npc), {
-            npc,
-            monster: {
-              ...monster,
-              name: pair?.monsterName || monster?.name
-            },
-            pair
-          });
-        });
-
-      if (resolvedPairs > 0) return;
-    }
 
     const maxPairs = Math.min(this.npcs.length, this.monsters.length);
     for (let index = 0; index < maxPairs; index += 1) {

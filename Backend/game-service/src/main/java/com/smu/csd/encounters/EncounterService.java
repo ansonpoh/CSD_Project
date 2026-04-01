@@ -45,6 +45,9 @@ public class EncounterService {
     @Value("${player.url:http://player-service:8084}")
     private String playerServiceUrl;
 
+    @Value("${learning.url:http://learning-service:8081}")
+    private String learningServiceUrl;
+
     public EncounterService(
         NPCService npcService,
         MonsterService monsterService,
@@ -116,7 +119,6 @@ public class EncounterService {
     ) {
         UUID mapId = request == null ? null : request.mapId();
         UUID monsterId = request == null ? null : request.monsterId();
-        Boolean won = request == null ? null : request.won();
 
         if (mapId == null || monsterId == null) {
             throw new IllegalArgumentException("mapId and monsterId are required.");
@@ -131,7 +133,7 @@ public class EncounterService {
         }
 
         MonsterProgress progress = getOrCreateMonsterProgress(learner, mapId, monsterId);
-        boolean didWin = Boolean.TRUE.equals(won);
+        boolean didWin = hasPassedAuthoritativeMapQuiz(learner.learnerId(), mapId);
 
         progress.setAttempts(safeInt(progress.getAttempts()) + 1);
         progress.setWins(safeInt(progress.getWins()) + (didWin ? 1 : 0));
@@ -156,6 +158,20 @@ public class EncounterService {
             Boolean.TRUE.equals(saved.getMonsterDefeated()),
             Boolean.TRUE.equals(saved.getRewardClaimed())
         );
+    }
+
+    private boolean hasPassedAuthoritativeMapQuiz(UUID learnerId, UUID mapId) {
+        try {
+            String url = learningServiceUrl
+                + "/api/internal/map-quizzes/passed?learnerId="
+                + learnerId
+                + "&mapId="
+                + mapId;
+            ResponseEntity<Boolean> response = restTemplate.getForEntity(url, Boolean.class);
+            return response.getStatusCode().is2xxSuccessful() && Boolean.TRUE.equals(response.getBody());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public EncounterClaimRewardResponseDto claimReward(UUID mapId, UUID monsterId, UUID supabaseUserId) {

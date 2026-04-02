@@ -11,17 +11,27 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Map;
 
 @Service
 public class ChatbotClient {
+    private static final Logger log = LoggerFactory.getLogger(ChatbotClient.class);
+    private static final String WARMUP_CONVERSATION_ID = "__startup_warmup__";
 
     private final RestTemplate restTemplate;
 
     @Value("${chatbot.url:http://chatbot:8080}")
     private String chatbotUrl;
+
+    @Value("${chatbot.warmup.query:Warm up chatbot runtime.}")
+    private String warmupQuery;
+
+    @Value("${chatbot.warmup.max-chunks:1}")
+    private int warmupMaxChunks;
 
     public ChatbotClient(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -64,6 +74,25 @@ public class ChatbotClient {
                 .queryParam("conversation_id", conversationId)
                 .toUriString();
         return restTemplate.postForObject(url, null, Map.class);
+    }
+
+    public boolean warmup() {
+        try {
+            QueryResponse response = query(warmupQuery, WARMUP_CONVERSATION_ID, warmupMaxChunks);
+            if (response == null || response.response() == null || response.response().isBlank()) {
+                log.warn("Chatbot warm-up returned an empty response.");
+                return false;
+            }
+            try {
+                clearHistory(WARMUP_CONVERSATION_ID);
+            } catch (Exception ignored) {
+                // Ignore cleanup errors; warm-up has already succeeded.
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("Chatbot warm-up attempt failed: {}", e.getMessage());
+            return false;
+        }
     }
 
     public record QueryResponse(String response, String conversation_id, Map<String, Object> additional_kwargs) {}

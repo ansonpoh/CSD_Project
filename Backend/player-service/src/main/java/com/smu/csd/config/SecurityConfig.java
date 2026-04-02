@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/internal/**").permitAll()
                 .requestMatchers("/api/learner/check/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/swagger-ui").permitAll()
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/swagger-ui.html").permitAll()

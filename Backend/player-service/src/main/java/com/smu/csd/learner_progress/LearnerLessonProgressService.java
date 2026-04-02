@@ -29,13 +29,13 @@ public class LearnerLessonProgressService {
     }
 
     public List<LessonProgressResponse> getMyProgress(UUID supabaseUserId) {
-        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = requireLearner(supabaseUserId);
         return repository.findByLearnerLearnerId(learner.getLearnerId()).stream().map(this::toResponse).toList();
     }
 
     @Transactional
     public LessonProgressResponse enroll(UUID supabaseUserId, LessonProgressRequest req) {
-        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = requireLearner(supabaseUserId);
         LocalDateTime now = LocalDateTime.now();
 
         LearnerLessonProgress progress = repository
@@ -60,7 +60,7 @@ public class LearnerLessonProgressService {
 
     @Transactional
     public LessonProgressResponse complete(UUID supabaseUserId, LessonProgressRequest req) {
-        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = requireLearner(supabaseUserId);
         LocalDateTime now = LocalDateTime.now();
 
         LearnerLessonProgress progress = repository
@@ -91,6 +91,14 @@ public class LearnerLessonProgressService {
         );
 
         return toResponse(saved);
+    }
+
+    private Learner requireLearner(UUID supabaseUserId) {
+        Learner learner = learnerRepository.findBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new IllegalArgumentException("Learner profile not found for current user.");
+        }
+        return learner;
     }
 
     private LessonProgressResponse toResponse(LearnerLessonProgress p) {

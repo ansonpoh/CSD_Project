@@ -61,7 +61,11 @@ public class LearnerService {
     }
 
     public Learner getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = repository.findBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+        return learner;
     }
 
     @Transactional

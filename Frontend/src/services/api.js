@@ -219,6 +219,11 @@ class ApiService {
     return data;
   }
 
+  async getEncounterRuntimeBundle(mapId) {
+    const { data } = await this.api.get(`/encounters/map/${mapId}/runtime`);
+    return data;
+  }
+
   async markEncounterNpcInteracted(mapId, npcId) {
     const { data } = await this.api.put(`/encounters/map/${mapId}/npc/${npcId}/interact`);
     return data;

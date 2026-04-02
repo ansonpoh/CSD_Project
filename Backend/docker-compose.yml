@@ -48,8 +48,6 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      DB_POOL_MAX_SIZE: 2
-      DB_POOL_MIN_IDLE: 0
       DB_DDL_AUTO: update
       ZIPKIN_URL: http://zipkin:9411
       GAME_URL: http://game-service:8082
@@ -86,8 +84,6 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      DB_POOL_MAX_SIZE: 2
-      DB_POOL_MIN_IDLE: 0
       DB_DDL_AUTO: update
       ZIPKIN_URL: http://zipkin:9411
       LEARNING_URL: http://learning-service:8083
@@ -121,8 +117,6 @@ services:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DB_POOL_MAX_SIZE: 2
-      DB_POOL_MIN_IDLE: 0
       DB_DDL_AUTO: update
       ZIPKIN_URL: http://zipkin:9411
       IDENTITY_URL: http://identity-service:8081
@@ -156,8 +150,6 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      DB_POOL_MAX_SIZE: 2
-      DB_POOL_MIN_IDLE: 0
       DB_DDL_AUTO: update
       ZIPKIN_URL: http://zipkin:9411
       REDIS_HOST: redis

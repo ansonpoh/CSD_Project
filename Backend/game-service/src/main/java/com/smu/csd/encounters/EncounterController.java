@@ -18,6 +18,7 @@ import com.smu.csd.encounters.dtos.EncounterClaimRewardResponseDto;
 import com.smu.csd.encounters.dtos.EncounterCombatResultRequestDto;
 import com.smu.csd.encounters.dtos.EncounterCombatResultResponseDto;
 import com.smu.csd.encounters.dtos.EncounterNpcInteractResponseDto;
+import com.smu.csd.encounters.dtos.EncounterRuntimeDto;
 import com.smu.csd.encounters.dtos.EncounterStateDto;
 import com.smu.csd.encounters.dtos.EncounterTelemetryDashboardDto;
 
@@ -34,6 +35,11 @@ public class EncounterController {
     @GetMapping("/map/{mapId}/state")
     public EncounterStateDto getEncounterState(@PathVariable UUID mapId, Authentication authentication) {
         return encounterService.getEncounterState(mapId, getSupabaseUserId(authentication));
+    }
+
+    @GetMapping("/map/{mapId}/runtime")
+    public EncounterRuntimeDto getEncounterRuntime(@PathVariable UUID mapId, Authentication authentication) {
+        return encounterService.getEncounterRuntime(mapId, getSupabaseUserId(authentication));
     }
 
     @PutMapping("/map/{mapId}/npc/{npcId}/interact")

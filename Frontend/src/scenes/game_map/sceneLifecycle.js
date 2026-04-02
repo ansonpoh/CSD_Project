@@ -118,16 +118,24 @@ export async function createGameMapScene() {
       const currentMap = gameState.getCurrentMap();
       const mapId = currentMap?.mapId || currentMap?.id;
       if (mapId) {
-        const [monsters, npcs, encounterState] = await Promise.all([
-          apiService.getMonstersByMap(mapId),
-          apiService.getNPCsByMap(mapId),
-          apiService.getEncounterState(mapId).catch(() => null)
-        ]);
+        const runtimeBundle = await apiService.getEncounterRuntimeBundle(mapId).catch(() => null);
         if (isStaleLoad()) return;
 
-        this.monsters = monsters || [];
-        this.npcs = npcs || [];
-        this.encounterState = encounterState;
+        if (runtimeBundle) {
+          this.monsters = Array.isArray(runtimeBundle.monsters) ? runtimeBundle.monsters : [];
+          this.npcs = Array.isArray(runtimeBundle.npcs) ? runtimeBundle.npcs : [];
+          this.encounterState = runtimeBundle.encounterState || null;
+        } else {
+          const [monsters, npcs, encounterState] = await Promise.all([
+            apiService.getMonstersByMap(mapId),
+            apiService.getNPCsByMap(mapId),
+            apiService.getEncounterState(mapId).catch(() => null)
+          ]);
+          if (isStaleLoad()) return;
+          this.monsters = monsters || [];
+          this.npcs = npcs || [];
+          this.encounterState = encounterState;
+        }
         this.hydrateEncounterProgress();
       } else {
         this.monsters = [];

@@ -22,6 +22,7 @@ import com.smu.csd.encounters.dtos.EncounterClaimRewardResponseDto;
 import com.smu.csd.encounters.dtos.EncounterCombatResultRequestDto;
 import com.smu.csd.encounters.dtos.EncounterCombatResultResponseDto;
 import com.smu.csd.encounters.dtos.EncounterNpcInteractResponseDto;
+import com.smu.csd.encounters.dtos.EncounterRuntimeDto;
 import com.smu.csd.encounters.dtos.EncounterStateDto;
 import com.smu.csd.encounters.dtos.EncounterTelemetryDashboardDto;
 import com.smu.csd.encounters.dtos.MonsterStateDto;
@@ -68,7 +69,24 @@ public class EncounterService {
 
         List<NPCMapLessonResponse> npcs = getMapNpcs(mapId);
         List<Monster> monsters = getMapMonsters(mapId);
+        return buildEncounterState(mapId, learner, npcs, monsters);
+    }
 
+    public EncounterRuntimeDto getEncounterRuntime(UUID mapId, UUID supabaseUserId) {
+        if (mapId == null) throw new IllegalArgumentException("mapId is required.");
+        LearnerDto learner = requireLearner(supabaseUserId);
+        List<NPCMapLessonResponse> npcs = getMapNpcs(mapId);
+        List<Monster> monsters = getMapMonsters(mapId);
+        EncounterStateDto encounterState = buildEncounterState(mapId, learner, npcs, monsters);
+        return new EncounterRuntimeDto(mapId, npcs, monsters, encounterState);
+    }
+
+    private EncounterStateDto buildEncounterState(
+        UUID mapId,
+        LearnerDto learner,
+        List<NPCMapLessonResponse> npcs,
+        List<Monster> monsters
+    ) {
         List<UUID> lessonContentIds = npcs.stream()
             .map(NPCMapLessonResponse::contentId)
             .filter(id -> id != null)

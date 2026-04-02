@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { SHOP_LAYOUT, SHOP_PALETTE } from './constants.js';
 
 export const shopUiMethods = {
@@ -120,18 +121,103 @@ export const shopUiMethods = {
     }
   },
 
-  showPurchaseFlash(itemName) {
+  dismissPurchaseToast() {
+    if (!this.purchaseToast) return;
+    const { root, timer } = this.purchaseToast;
+    if (timer) timer.remove(false);
+    if (root?.active) {
+      root.destroy(true);
+    }
+    this.purchaseToast = null;
+  },
+
+  showPurchaseFlash(item) {
     const width = this.cameras.main.width;
-    const flash = this.add.text(width / 2, 120, `Purchased ${itemName}!`, {
-      fontSize: '18px',
+    const typeColor = this.getTypeColor(item?.item_type);
+    const itemName = item?.name || 'Item';
+
+    this.dismissPurchaseToast();
+
+    const root = this.add.container(width / 2, 126);
+    root.setDepth(3000);
+    root.setAlpha(0);
+    root.setScale(0.94);
+    root.y -= 14;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(SHOP_PALETTE.bgPanel, 0.96);
+    panel.fillRoundedRect(-190, -30, 380, 60, 10);
+    panel.lineStyle(2, SHOP_PALETTE.borderGlow, 0.85);
+    panel.strokeRoundedRect(-190, -30, 380, 60, 10);
+    panel.fillStyle(typeColor, 0.2);
+    panel.fillRoundedRect(-188, -28, 376, 24, { tl: 8, tr: 8, bl: 0, br: 0 });
+    root.add(panel);
+
+    const title = this.add.text(0, -8, 'Purchase Complete', {
+      fontSize: '14px',
       fontStyle: 'bold',
       color: SHOP_PALETTE.textGreen,
       stroke: '#060814',
-      strokeThickness: 5,
-      backgroundColor: 'rgba(8,10,28,0.9)',
-      padding: { x: 14, y: 6 }
+      strokeThickness: 3
     }).setOrigin(0.5);
+    root.add(title);
 
-    this.time.delayedCall(1500, () => flash.destroy());
+    const detail = this.add.text(0, 11, itemName, {
+      fontSize: '17px',
+      fontStyle: 'bold',
+      color: SHOP_PALETTE.textMain,
+      stroke: '#060814',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+    root.add(detail);
+
+    // Small celebratory burst to make a purchase feel rewarding.
+    const particles = [];
+    for (let i = 0; i < 7; i += 1) {
+      const dot = this.add.circle(-12, -2, 2 + (i % 2), typeColor, 0.95);
+      particles.push(dot);
+      root.add(dot);
+
+      const angle = Phaser.Math.DegToRad(-35 + i * 12);
+      const distance = 28 + i * 6;
+      this.tweens.add({
+        targets: dot,
+        x: dot.x + Math.cos(angle) * distance,
+        y: dot.y + Math.sin(angle) * distance - 4,
+        alpha: 0,
+        scale: 0.45,
+        duration: 460,
+        ease: 'Cubic.easeOut'
+      });
+    }
+
+    this.tweens.add({
+      targets: root,
+      alpha: 1,
+      scale: 1,
+      y: root.y + 14,
+      duration: 220,
+      ease: 'Back.easeOut'
+    });
+
+    const timer = this.time.delayedCall(1500, () => {
+      if (!root.active) return;
+      this.tweens.add({
+        targets: root,
+        alpha: 0,
+        y: root.y - 10,
+        scale: 0.96,
+        duration: 220,
+        ease: 'Quad.easeIn',
+        onComplete: () => {
+          if (root?.active) root.destroy(true);
+          if (this.purchaseToast?.root === root) {
+            this.purchaseToast = null;
+          }
+        }
+      });
+    });
+
+    this.purchaseToast = { root, timer, particles };
   }
 };

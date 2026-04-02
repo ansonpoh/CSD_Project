@@ -32,7 +32,7 @@ export const shopPurchaseMethods = {
 
         this.updateGoldDisplay();
         this.displayItems();
-        this.showPurchaseFlash(item.name);
+        this.showPurchaseFlash(item);
 
         void Promise.all([
           apiService.getMyInventory().catch(() => null),

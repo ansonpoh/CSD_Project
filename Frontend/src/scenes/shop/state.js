@@ -6,4 +6,5 @@ export function initializeShopSceneState(scene) {
   scene.gold = Number(learner?.gold ?? 0);
   scene.goldText = null;
   scene.itemContainers = [];
+  scene.purchaseToast = null;
 }

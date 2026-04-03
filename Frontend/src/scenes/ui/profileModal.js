@@ -2,6 +2,7 @@ import { apiService } from '../../services/api.js';
 import { gameState } from '../../services/gameState.js';
 import { soldier } from '../../characters/soldier/Soldier.js';
 import { applyPlayerProfileToSprite, getDefaultPlayerProfile } from '../../services/playerProfile.js';
+import { showAnalyticsModal } from './analyticsModal.js';
 import {
   buildProfilePanel,
   ensureProfileIdleAnimation,
@@ -133,6 +134,30 @@ export async function showUserProfile(scene) {
       ease: 'Sine.easeInOut'
     });
 
+    // --- NEW: VIEW ANALYTICS BUTTON ---
+    nodes.push(
+      createUiButton(scene, {
+        x: width / 2,
+        y: panelTop + rows * tileSize - 115, // Placed slightly above the Logout button
+        width: 180,
+        height: 36,
+        label: 'VIEW ANALYTICS',
+        fillNormal: 0x0f3460, // Deep Blue
+        fillHover: 0x1a5294,  // Bright Blue
+        borderNormal: 0x1f477a,
+        borderHover: 0x3a7bd5,
+        depth: depth + 4,
+        onPress: () => {
+          // Open the HTML DOM overlay over the Phaser canvas
+          // Default to 'me' if learner ID cannot be extracted directly
+          const currentId = learnerData?.id || learnerData?.learnerId || 'me';
+          showAnalyticsModal(currentId);
+        }
+      })
+    );
+    // ----------------------------------
+
+    // Existing: LOGOUT BUTTON
     nodes.push(
       createUiButton(scene, {
         x: width / 2,

@@ -20,6 +20,16 @@ export const entityRenderingMethods = {
       });
     };
 
+    // Reserve broad side lanes where persistent HUD panels/buttons live.
+    // This prevents entities from spawning behind translucent UI cards.
+    const topHudBuffer = 126;
+    const bottomHudBuffer = 92;
+    const sideLaneHeight = Math.max(0, cam.height - topHudBuffer - bottomHudBuffer);
+    const leftLaneWidth = 340;
+    const rightLaneWidth = 320;
+    pushRect(0, topHudBuffer, leftLaneWidth, sideLaneHeight, 0);
+    pushRect(cam.width - rightLaneWidth, topHudBuffer, rightLaneWidth, sideLaneHeight, 0);
+
     // BACK / SHOP buttons
     pushRect(20, 70, 120, 40);
     pushRect(cam.width - 140, 70, 120, 40);
@@ -106,22 +116,36 @@ export const entityRenderingMethods = {
     return false;
   },
 
-  isTooCloseToOccupied(x, y, occupied, minDistance) {
+  getEntityFootprintRadius(config, fallback = 16) {
+    const frameWidth = Number(config?.frameWidth);
+    const frameHeight = Number(config?.frameHeight);
+    const scale = Number(config?.scale);
+    if (!Number.isFinite(frameWidth) || !Number.isFinite(frameHeight) || !Number.isFinite(scale)) {
+      return fallback;
+    }
+
+    const maxDimension = Math.max(frameWidth, frameHeight) * Math.max(scale, 0.1);
+    return Math.max(fallback, Math.round(maxDimension * 0.5));
+  },
+
+  isTooCloseToOccupied(x, y, candidateRadius, occupied, minGap) {
     if (!Array.isArray(occupied) || !occupied.length) return false;
-    const minDistSq = minDistance * minDistance;
     return occupied.some((point) => {
       if (!point) return false;
       const dx = x - point.x;
       const dy = y - point.y;
-      return (dx * dx + dy * dy) < minDistSq;
+      const otherRadius = Number.isFinite(point.radius) ? point.radius : 0;
+      const requiredDistance = candidateRadius + otherRadius + Math.max(0, minGap);
+      return (dx * dx + dy * dy) < (requiredDistance * requiredDistance);
     });
   },
 
   getWalkableSpawnPoint(preferredX, preferredY, occupied = [], options = {}) {
-    const minDistance = Number.isFinite(options.minDistance) ? options.minDistance : 72;
+    const minGap = Number.isFinite(options.minGap) ? options.minGap : 18;
     const maxRadius = Number.isFinite(options.maxRadius) ? options.maxRadius : 260;
     const maxAttempts = Number.isFinite(options.maxAttempts) ? options.maxAttempts : 120;
     const spawnRadius = Number.isFinite(options.spawnRadius) ? options.spawnRadius : 14;
+    const footprintRadius = Number.isFinite(options.footprintRadius) ? options.footprintRadius : spawnRadius;
 
     const bounds = this.physics?.world?.bounds;
     const minX = Number.isFinite(bounds?.x) ? bounds.x + spawnRadius : spawnRadius;
@@ -140,13 +164,14 @@ export const entityRenderingMethods = {
       const y = clampY(preferredY + Math.sin(angle) * radius);
       if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
       if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
-      if (this.isTooCloseToOccupied(x, y, occupied, minDistance)) continue;
+      if (this.isTooCloseToOccupied(x, y, footprintRadius, occupied, minGap)) continue;
       return { x, y };
     }
 
     if (
       !this.isBlockedByCollisionAt(fallback.x, fallback.y, spawnRadius)
       && !this.isBlockedByUiAt(fallback.x, fallback.y, spawnRadius)
+      && !this.isTooCloseToOccupied(fallback.x, fallback.y, footprintRadius, occupied, minGap)
     ) return fallback;
 
     for (let i = 0; i < maxAttempts; i += 1) {
@@ -154,10 +179,11 @@ export const entityRenderingMethods = {
       const y = Phaser.Math.FloatBetween(minY, maxY);
       if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
       if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
-      if (this.isTooCloseToOccupied(x, y, occupied, minDistance)) continue;
+      if (this.isTooCloseToOccupied(x, y, footprintRadius, occupied, minGap)) continue;
       return { x, y };
     }
 
+    console.warn('Could not satisfy non-overlap spawn spacing; using clamped fallback position.');
     return fallback;
   },
 
@@ -176,16 +202,17 @@ export const entityRenderingMethods = {
       const row = Math.floor(index / columns);
       const preferredX = startX + col * spacingX + Phaser.Math.Between(-20, 20);
       const preferredY = startY + row * spacingY + Phaser.Math.Between(-12, 12);
-      const { x, y } = this.getWalkableSpawnPoint(preferredX, preferredY, occupied, {
-        minDistance: 84,
-        maxRadius: 280,
-        maxAttempts: 160,
-        spawnRadius: 16
-      });
-      occupied.push({ x, y });
-
       const npcName = npc.name;
       const config = NPCRegistry[npcName] || NPCRegistry.orc;
+      const footprintRadius = this.getEntityFootprintRadius(config, 28);
+      const { x, y } = this.getWalkableSpawnPoint(preferredX, preferredY, occupied, {
+        minGap: 20,
+        maxRadius: 280,
+        maxAttempts: 160,
+        spawnRadius: 16,
+        footprintRadius
+      });
+      occupied.push({ x, y, radius: footprintRadius });
       if (!this.textures.exists(npcName)) {
         console.warn(`Missing texture for ${npc.asset}`);
       }
@@ -197,6 +224,7 @@ export const entityRenderingMethods = {
       sprite.setData('labelOffsetY', config.labelOffsetY);
       sprite.setData('statusBadgeOffsetY', Number.isFinite(config.statusBadgeOffsetY) ? config.statusBadgeOffsetY : 14);
       sprite.setData('npcKey', this.getNpcKey(npc));
+      sprite.setData('footprintRadius', footprintRadius);
 
       const nameText = this.add.text(x, y, npcName, {
         fontSize: '14px',
@@ -229,7 +257,11 @@ export const entityRenderingMethods = {
     const mappings = Array.from(this.npcMonsterMap.entries());
     const totalMonsters = mappings.length;
     const occupied = [
-      ...(this.npcSprites || []).map((sprite) => ({ x: sprite.x, y: sprite.y }))
+      ...(this.npcSprites || []).map((sprite) => ({
+        x: sprite.x,
+        y: sprite.y,
+        radius: Number.isFinite(sprite.getData('footprintRadius')) ? sprite.getData('footprintRadius') : 28
+      }))
     ];
 
     mappings.forEach(([npcKey, mapping], index) => {
@@ -244,16 +276,17 @@ export const entityRenderingMethods = {
         totalMonsters,
         isBossEncounter: Boolean(mapping?.pair?.bossEncounter) || (totalMonsters > 0 && index === totalMonsters - 1)
       };
-      const { x, y } = this.getWalkableSpawnPoint(npcSprite.x + 90, npcSprite.y - 20, occupied, {
-        minDistance: 60,
-        maxRadius: 150,
-        maxAttempts: 120,
-        spawnRadius: 16
-      });
-      occupied.push({ x, y });
-
       const monsterName = encounterMonster.name;
       const config = monsterRegistry[monsterName] || monsterRegistry.orc;
+      const footprintRadius = this.getEntityFootprintRadius(config, 28);
+      const { x, y } = this.getWalkableSpawnPoint(npcSprite.x + 90, npcSprite.y - 20, occupied, {
+        minGap: 16,
+        maxRadius: 150,
+        maxAttempts: 120,
+        spawnRadius: 16,
+        footprintRadius
+      });
+      occupied.push({ x, y, radius: footprintRadius });
       if (!this.textures.exists(monsterName)) {
         console.warn(`Missing texture for ${encounterMonster.asset}, fallback to orc`);
       }
@@ -263,6 +296,7 @@ export const entityRenderingMethods = {
       sprite.setDepth(4);
       sprite.setData('monster', encounterMonster);
       sprite.setData('npcKey', npcKey);
+      sprite.setData('footprintRadius', footprintRadius);
       sprite.setVisible(false);
       sprite.setActive(false);
       sprite.body.enable = false;

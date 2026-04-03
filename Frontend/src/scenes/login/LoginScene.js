@@ -6,14 +6,12 @@ import {
   readLoginForm,
   readRegisterForm,
   validateLoginForm,
-  validateRegisterForm,
-  validateGoogleRegisterForm
+  validateRegisterForm
 } from './formState.js';
 import {
   loginWithRole,
-  loginWithGoogle,
+  continueWithGoogle,
   registerWithRole,
-  registerWithGoogle,
   resumeGoogleOAuthIntent
 } from './authFlow.js';
 
@@ -129,18 +127,12 @@ export class LoginScene extends Phaser.Scene {
   async handleGoogleAuth() {
     try {
       if (this.authMode === 'login') {
-        await loginWithGoogle({ role: this.role });
+        await continueWithGoogle({ role: this.role });
         return;
       }
 
       const form = readRegisterForm(this.loginForm);
-      const validationError = validateGoogleRegisterForm(form);
-      if (validationError) {
-        this.setMessage(validationError);
-        return;
-      }
-
-      await registerWithGoogle(form);
+      await continueWithGoogle(form);
     } catch (error) {
       this.setMessage(error.message || 'Google authentication failed');
     }

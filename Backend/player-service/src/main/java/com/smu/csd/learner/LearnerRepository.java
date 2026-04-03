@@ -21,6 +21,8 @@ public interface LearnerRepository extends JpaRepository<Learner, UUID> {
     boolean existsBySupabaseUserIdAndIs_activeTrue(@Param("supabaseUserId") UUID supabaseUserId);
 
     boolean existsByEmail(String email);
+    
+    boolean existsByUsernameIgnoreCase(String username);
 
     @Query("""
         select l

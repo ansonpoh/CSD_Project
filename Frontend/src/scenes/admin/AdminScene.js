@@ -365,10 +365,30 @@ export class AdminScene extends Phaser.Scene {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const uid = session?.user?.id;
-      if (!uid) throw new Error('No active admin session');
+      if (!uid) {
+        await this.rejectUnverifiedAdminSession('No active admin session. Please login again.');
+        return;
+      }
+
+      let adminProfile = null;
+      try {
+        adminProfile = await apiService.getAdministratorBySupabaseId(uid);
+      } catch {
+        adminProfile = null;
+      }
+
+      const hasVerifiedProfile = Boolean(
+        adminProfile?.administratorId
+        && adminProfile?.supabaseUserId
+        && String(adminProfile.supabaseUserId) === String(uid)
+        && adminProfile?.isActive !== false
+      );
+      if (!hasVerifiedProfile) {
+        await this.rejectUnverifiedAdminSession('Unable to verify admin identity. Please login with an authorized admin account.');
+        return;
+      }
 
       const [
-        adminProfile,
         reviewQueue,
         mapReviewQueue,
         approvedUnpublishedMaps,
@@ -380,7 +400,6 @@ export class AdminScene extends Phaser.Scene {
         missions,
         flaggedReflections
       ] = await Promise.all([
-        apiService.getAdministratorBySupabaseId(uid).catch(() => null),
         apiService.getContentQueue().catch(() => []),
         apiService.getMapReviewQueue().catch(() => []),
         apiService.getApprovedUnpublishedMaps().catch(() => []),
@@ -435,6 +454,17 @@ export class AdminScene extends Phaser.Scene {
       this.renderMissionsSection();
       this.setStatus(getErrorMessage(error, 'Unable to load admin dashboard'), true);
     }
+  }
+
+  async rejectUnverifiedAdminSession(message = 'Unable to verify admin identity. Please login again.') {
+    this.setStatus(message, true);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore sign-out errors and continue to hard-stop navigation.
+    }
+    gameState.clearState();
+    routeToLogin(this, { hardReload: true });
   }
 
   renderProfile() {

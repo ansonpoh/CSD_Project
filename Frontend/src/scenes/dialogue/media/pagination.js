@@ -1,4 +1,15 @@
 export const dialogueScenePaginationMethods = {
+  buildSyncedLessonTitle(pageTitle = '') {
+    const totalPages = this.lessonPages.length || 0;
+    const currentPage = totalPages > 0 ? this.pageIndex + 1 : 0;
+    const normalizedTitle = String(pageTitle || '').trim();
+
+    // Remove any stale embedded page counter from content titles (e.g. "(2/10)").
+    const titleWithoutCounter = normalizedTitle.replace(/\s*\(\s*\d+\s*\/\s*\d+\s*\)\s*$/u, '').trim();
+    const baseTitle = titleWithoutCounter || 'Lesson';
+    return `${baseTitle} (${currentPage}/${totalPages})`;
+  },
+
   typeText(text) {
     if (this.typingTimer) {
       this.typingTimer.remove();
@@ -34,7 +45,7 @@ export const dialogueScenePaginationMethods = {
     this.fullCurrentText = dialogue;
     this.dialogueText.setText('');
     this.typeText(dialogue);
-    this.lessonTitleText.setText(page.lessonTitle);
+    this.lessonTitleText.setText(this.buildSyncedLessonTitle(page.lessonTitle));
     this.lessonBodyText.setText(page.lessonBody);
     this.pageIndicatorText.setText(`${this.pageIndex + 1}/${this.lessonPages.length}`);
 

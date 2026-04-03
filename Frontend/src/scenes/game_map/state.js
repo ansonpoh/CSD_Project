@@ -39,6 +39,8 @@ export function initializeSceneState(scene) {
   scene.sideChallengeButton = null;
   scene.eventOverlay = null;
   scene.eventPanel = null;
+  scene.rewardClaimFx = null;
+  scene.rewardClaimFxTimer = null;
   scene.mapCompletionRecorded = false;
   scene.mapStartedCompleted = false;
   scene.activeLoadToken = null;
@@ -82,6 +84,8 @@ export function resetSceneState(scene, data) {
   scene.sideChallengeButton = null;
   scene.eventOverlay = null;
   scene.eventPanel = null;
+  scene.rewardClaimFx = null;
+  scene.rewardClaimFxTimer = null;
   scene.mapCompletionRecorded = false;
   scene.mapStartedCompleted = false;
   scene.activeLoadToken = null;

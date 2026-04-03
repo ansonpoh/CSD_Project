@@ -35,8 +35,8 @@ public class JwtRoleConverter implements Converter<Jwt, AbstractAuthenticationTo
     @Value("${security.role-cache-ttl-seconds:120}")
     private long roleCacheTtlSeconds;
 
-    public JwtRoleConverter() {
-        this.restTemplate = new RestTemplate();
+    public JwtRoleConverter(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {

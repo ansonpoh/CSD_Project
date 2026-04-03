@@ -219,11 +219,6 @@ class ApiService {
     return data;
   }
 
-  async assignEncounterPair(mapId, npcId, monsterId) {
-    const { data } = await this.api.put(`/encounters/map/${mapId}/pair`, { npcId, monsterId });
-    return data;
-  }
-
   async markEncounterNpcInteracted(mapId, npcId) {
     const { data } = await this.api.put(`/encounters/map/${mapId}/npc/${npcId}/interact`);
     return data;
@@ -303,6 +298,12 @@ class ApiService {
 
   async getLearner(id) {
     const { data } = await this.api.get(`/learner/${id}`);
+    return data;
+  }
+
+  async getLearnerAnalytics(learnerId) {
+    const id = learnerId || 'me';
+    const { data } = await this.api.get(`/learner/${id}/analytics`);
     return data;
   }
 

@@ -1,8 +1,120 @@
+import Phaser from 'phaser';
 import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
 import { dailyQuestService } from '../../services/dailyQuests.js';
 
 export const questPanelMethods = {
+  resetMapCursor() {
+    const canvas = this.input?.manager?.canvas;
+    if (canvas?.style) {
+      canvas.style.cursor = 'default';
+    }
+  },
+
+  dismissRewardClaimCelebration() {
+    if (this.rewardClaimFxTimer) {
+      this.rewardClaimFxTimer.remove(false);
+      this.rewardClaimFxTimer = null;
+    }
+
+    if (this.rewardClaimFx) {
+      this.rewardClaimFx.destroy(true);
+      this.rewardClaimFx = null;
+    }
+  },
+
+  showRewardClaimCelebration({ xp = 0, gold = 0 } = {}) {
+    this.dismissRewardClaimCelebration();
+
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+    const overlay = this.add.container(0, 0).setScrollFactor(0).setDepth(260);
+    const backdrop = this.add.rectangle(width / 2, height / 2, width, height, 0x020611, 0.35).setScrollFactor(0);
+
+    const card = this.add.container(width / 2, height / 2).setScrollFactor(0).setScale(0.72).setAlpha(0);
+    const cardBg = this.add.graphics().setScrollFactor(0);
+    cardBg.fillStyle(0x0d1f16, 0.95);
+    cardBg.fillRoundedRect(-210, -84, 420, 168, 12);
+    cardBg.lineStyle(2, 0xf2c14b, 0.95);
+    cardBg.strokeRoundedRect(-210, -84, 420, 168, 12);
+
+    const title = this.add.text(0, -36, 'Reward Claimed!', {
+      fontSize: '32px',
+      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontStyle: 'bold',
+      color: '#ffecc3',
+      stroke: '#04110b',
+      strokeThickness: 6
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    const amountText = this.add.text(
+      0,
+      6,
+      `+${Math.max(0, Number(xp || 0))} XP   |   +${Math.max(0, Number(gold || 0))} Gold`,
+      {
+        fontSize: '22px',
+        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontStyle: 'bold',
+        color: '#c8ffd6',
+        stroke: '#04110b',
+        strokeThickness: 5
+      }
+    ).setOrigin(0.5).setScrollFactor(0);
+
+    const hint = this.add.text(0, 44, 'Quest chain progress updated', {
+      fontSize: '14px',
+      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      color: '#9cd8b0',
+      stroke: '#04110b',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    card.add([cardBg, title, amountText, hint]);
+    overlay.add([backdrop, card]);
+
+    const sparkles = [];
+    for (let i = 0; i < 14; i += 1) {
+      const particle = this.add.circle(width / 2, height / 2 + 4, Phaser.Math.Between(2, 4), 0xf7d67a, 1)
+        .setScrollFactor(0)
+        .setDepth(261);
+      sparkles.push(particle);
+
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.Between(56, 170);
+      this.tweens.add({
+        targets: particle,
+        x: width / 2 + Math.cos(angle) * distance,
+        y: height / 2 + Math.sin(angle) * distance,
+        alpha: 0,
+        duration: Phaser.Math.Between(520, 880),
+        ease: 'Cubic.Out',
+        onComplete: () => particle.destroy()
+      });
+    }
+
+    this.tweens.add({
+      targets: card,
+      scale: 1,
+      alpha: 1,
+      duration: 220,
+      ease: 'Back.Out'
+    });
+
+    this.rewardClaimFx = overlay;
+    this.rewardClaimFxTimer = this.time.delayedCall(1400, () => {
+      this.tweens.add({
+        targets: [card, backdrop],
+        alpha: 0,
+        duration: 220,
+        ease: 'Sine.In',
+        onComplete: () => {
+          sparkles.forEach((node) => node.destroy());
+          this.dismissRewardClaimCelebration();
+        }
+      });
+    });
+  },
+
   getQuestProgressForEncounter(encounter) {
     const npcProgress = this.getEncounterProgress(encounter?.npc) || {};
     const monsterProgress = this.getEncounterMonsterState(encounter?.monster) || {};
@@ -205,6 +317,7 @@ export const questPanelMethods = {
     }
 
     this.claimRewardButton?.setEnabled(false);
+    this.resetMapCursor();
 
     try {
       const result = await apiService.claimEncounterReward(mapId, monsterId);
@@ -249,6 +362,9 @@ export const questPanelMethods = {
       const xp = Number(result?.xpAwarded || 0);
       const gold = Number(result?.goldAwarded || 0);
       dailyQuestService.recordEvent('reward_claimed');
+      if (result?.rewardClaimed) {
+        this.showRewardClaimCelebration({ xp, gold });
+      }
       this.showMapToast(
         xp > 0 || gold > 0
           ? `Reward claimed: +${xp} XP, +${gold} Gold`
@@ -266,6 +382,7 @@ export const questPanelMethods = {
       this.showMapToast(message);
     } finally {
       this.claimRewardButton?.setEnabled(Boolean(this.getActiveQuest()?.progress?.monsterDefeated));
+      this.resetMapCursor();
     }
   },
 

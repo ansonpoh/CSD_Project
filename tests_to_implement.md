@@ -1,126 +1,186 @@
 # Tests To Implement
 
-This file is a backlog of test cases to add to strengthen release confidence. It is organized by cross-cutting gaps and by service. The **Critical Paths** and **Highest Value Tests** sections at the end highlight what matters most for production release readiness.
+Coverage baseline from `Backend/coverage-report/target/site/jacoco-aggregate/jacoco.csv`:
+- `player-service`: instruction 10.1%, branch 1.3%
+- `learning-service`: instruction 15.5%, branch 1.4%
+- `game-service`: instruction 8.9%, branch 0.5%
 
-## Cross-Cutting Gaps
+Goal: prioritize branch-heavy service logic first, then controller/API paths.
 
-### 1) Persistence Integration (Beyond Simple Repository Tests)
-- ✅ Done: Added `LearnerRepositoryDataJpaTest` (`@DataJpaTest`) to validate soft-delete behavior (`findByIs_activeTrue` / `existsBySupabaseUserIdAndIs_activeTrue`) and persistence constraints (`username` validation failure path).
-- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerRepositoryDataJpaTest,LearnerControllerIntegrationTest,LeaderboardServiceUnitTest' test`.
+Total planned tests: **102**
+- `player-service`: 38
+- `learning-service`: 34
+- `game-service`: 30
 
-### 2) Validation and Error Mapping
-- ✅ Done: Extended `LearnerControllerIntegrationTest` with malformed JSON and invalid UUID path tests, and updated `GlobalExceptionHandler` in player-service to map these to consistent `400` responses.
-- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerRepositoryDataJpaTest,LearnerControllerIntegrationTest,LeaderboardServiceUnitTest' test`.
+## Implementation Order
 
-### 3) Authorization and Role Enforcement
-- ✅ Done: Added `AdministratorControllerSecurityIntegrationTest` to assert `401` (missing auth), `403` (non-admin role), and successful admin access for protected admin endpoints.
-- Verified via `cd Backend/identity-service && ./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest,AdministratorControllerSecurityIntegrationTest' test`.
+### Phase 1 (Highest Coverage ROI first)
 
-### 4) Downstream Service Interactions
-- ✅ Done: Extended `AuthRoleControllerDownstreamUnitTest` with downstream `5xx` behavior; together with existing `404` coverage it verifies safe fallback role resolution for `RestTemplate` failures.
-- Verified via `cd Backend/identity-service && ./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest,AdministratorControllerSecurityIntegrationTest' test`.
+#### 1) game-service (`MapService`, `EncounterService`, `NPCService`) — 30 tests
 
-### 5) Redis-Backed Paths
-- ✅ Done: Expanded `LeaderboardServiceUnitTest` with Redis-available read path, empty-leaderboard path, and rebuild-index behavior assertions.
-- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerRepositoryDataJpaTest,LearnerControllerIntegrationTest,LeaderboardServiceUnitTest' test`.
+`MapService` (14)
+- [x] `getAllMaps(true)` returns all maps.
+- [x] `getAllMaps(false)` returns published-only maps.
+- [x] `updateMapLike` inserts like when `liked=true` and no existing record.
+- [x] `updateMapLike` prunes duplicate like rows.
+- [x] `updateMapLike` removes existing likes when `liked=false`.
+- [x] `updateMapRating` enforces rating bounds `1..5`.
+- [x] `updateMapRating` creates new rating row when absent.
+- [x] `updateMapRating` deduplicates extra rating rows when multiple exist.
+- [x] `saveMap` applies defaults for status/published/publishedAt.
+- [x] `saveDraft` rejects draft update by non-owner.
+- [x] `submitDraft` rejects non-owner access.
+- [x] `approveMap` rejects non-`PENDING_REVIEW` map.
+- [x] `rejectMap` requires non-blank reason.
+- [x] `publishApprovedMap` requires valid topic and approved map status.
 
-## Service-Specific Backlog
+`EncounterService` (10)
+- [x] `getEncounterState` rejects null `mapId`.
+- [x] `markNpcInteracted` rejects null `mapId`/`npcId`.
+- [x] `recordCombatResult` rejects null `mapId`/`monsterId`.
+- [x] `recordCombatResult` rejects monster not belonging to map.
+- [x] `recordCombatResult` rejects when NPC completion gate is not met.
+- [x] Win path increments attempts/wins and marks defeated.
+- [x] Loss path increments attempts/losses/loss streak.
+- [x] `claimReward` rejects when monster not defeated.
+- [x] `claimReward` first claim awards XP/gold and marks reward claimed.
+- [x] `claimReward` second claim is idempotent (no double award).
 
-### identity-service
-- ✅ Done: Added duplication coverage and enforcement for admin/contributor creation in `AdministratorServiceUnitTest` and `ContributorServiceUnitTest` (duplicate Supabase user + duplicate email/user ID paths).
-- ✅ Done: Added JWT/claims edge-case coverage in `AuthRoleControllerIntegrationTest` for missing subject and invalid UUID subject (unauthorized responses).
-- ℹ️ Note: JWT signature verification is handled by Spring Security resource-server decoding; service-level test coverage focuses on controller claim handling paths.
-- ✅ Done: Added role-resolution safeguards in `AuthRoleControllerDownstreamUnitTest` for inactive contributor rejection and admin precedence over contributor.
-- Verified via `cd Backend/identity-service && ./mvnw -Dtest='AdministratorServiceUnitTest,ContributorServiceUnitTest,AuthRoleControllerIntegrationTest,AuthRoleControllerDownstreamUnitTest,AdministratorControllerSecurityIntegrationTest,AdministratorControllerErrorTest' test`.
+`NPCService` (6)
+- [x] `getNPCsByMapId` filters out non-approved content entries.
+- [x] `getNPCsByMapId` returns empty safely when content-batch lookup fails.
+- [x] `assignContent` rejects unpublished map.
+- [x] `assignContent` rejects missing/unavailable content.
+- [x] `assignContent` updates existing NPC-map mapping instead of duplicate.
+- [x] `assignContent` rejects when approved NPC cap per map is exceeded.
 
-### game-service
-- ✅ Done: Added monsters API validation coverage in `MonsterControllerIntegrationTest` for missing/blank required fields on create and update (`400`) and invalid UUID path handling (`400`).
-- ✅ Done: Added domain-rule coverage for encounter/NPC progression gating in `EncounterServiceUnitTest` (monster unlock blocked until required NPC lessons are complete).
-- ✅ Done: Added protected endpoint auth coverage in `MonsterControllerIntegrationTest` for `401` without authentication.
-- Verified via `cd Backend/game-service && ./mvnw -Dtest='MonsterControllerIntegrationTest,EncounterServiceUnitTest' test`.
+#### 2) player-service (`FriendshipService`, `ChatService`, `AchievementService`) — 30 tests
 
-### learning-service
-- ✅ Done: Added/extended map-quiz scoring coverage in `MapQuizServiceUnitTest` for multi-select exact-match scoring, partial-correct scoring across questions, and learner-facing question ordering.
-- ✅ Done: Added/verified publish/unpublish rule coverage in `MapQuizServiceUnitTest` (publish failure when required title is missing; unpublish does not touch learner attempts).
-- ✅ Done: Added/verified learner-gating error coverage in `MapQuizServiceUnitTest` for learner-not-found, quiz-not-found, and NPC-completion-required paths.
-- Verified via `cd Backend/learning-service && ./mvnw -Dtest='MapQuizServiceUnitTest,MapQuizControllerIntegrationTest' test`.
+`FriendshipService` (12)
+1. `searchByUsername` rejects query shorter than 2 chars.
+2. `searchByUsername` returns empty list when no candidates.
+3. `searchByUsername` resolves `NONE` relationship when no friendship exists.
+4. `sendRequest` rejects self-request.
+5. `sendRequest` creates pending request when no prior friendship exists.
+6. `sendRequest` rejects when friendship already `ACCEPTED`.
+7. `sendRequest` rejects duplicate outgoing pending request.
+8. `sendRequest` rejects when incoming pending already exists.
+9. `sendRequest` reopens `DECLINED` friendship into new pending request.
+10. `acceptRequest` rejects non-addressee user.
+11. `acceptRequest` rejects non-pending friendship.
+12. `removeFriend` rejects non-accepted friendship and succeeds for accepted one.
 
-### player-service
-- ✅ Done: Added learner create/update validation coverage in `LearnerControllerIntegrationTest` and `LearnerProgressionIntegrationTest` for invalid email, missing full name, and partial update preservation of unspecified fields.
-- ✅ Done: Added XP/level boundary and safety coverage in `LearnerServiceUnitTest` for exact thresholds, negative award clamp behavior, and integer-overflow clamping.
-- ✅ Done: Added/verified leaderboard integration coverage in `LearnerProgressionIntegrationTest` and `LeaderboardServiceUnitTest` for redis-available read path and safe fallback behavior.
-- ✅ Done: Verified auth/profile consistency for `/api/players/profile` in `SecurityConfigTest` (`401` unauthenticated, authenticated request allowed through authorization layer).
-- Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerServiceUnitTest,LearnerControllerIntegrationTest,LearnerProgressionIntegrationTest,LearnerProfileStateControllerIntegrationTest,LeaderboardServiceUnitTest,SecurityConfigTest' test`.
+`ChatService` (10)
+1. `openOrCreateConversation` rejects chatting with self.
+2. `openOrCreateConversation` rejects non-friends.
+3. `openOrCreateConversation` returns existing conversation if present.
+4. `openOrCreateConversation` creates new conversation if absent.
+5. `listConversations` returns empty when no conversations exist.
+6. `listMessages` rejects cursor from a different conversation.
+7. `listMessages` returns `nextCursor` when page size exceeded.
+8. `sendMessage` rejects when either side is blocked.
+9. `sendMessage` rejects blank/oversized body and accepts trimmed valid body.
+10. `updateSettings` creates default settings row when none exists.
 
-## Critical Paths For Production Releases
-These flows must be reliable before shipping because they directly impact user access, core gameplay progression, and data integrity.
+`AchievementService` (8)
+1. `recordEvent` no-ops for null learnerId/blank event type.
+2. `recordEvent` no-ops on duplicate idempotency key.
+3. `recordEvent` no-ops when learner not found.
+4. `recordEvent` creates progress row for first matching achievement.
+5. `recordEvent` handles BOOLEAN progress type correctly.
+6. `recordEvent` unlocks achievement when target reached.
+7. `claimAchievementForSupabaseUser` rejects invalid/not-unlocked cases.
+8. `claimAchievementForSupabaseUser` applies XP/gold and calls leaderboard update once.
 
-1) **Authentication & Role Resolution**
-   - ✅ Done: Covered role resolution and protected endpoint behavior via `AuthRoleControllerIntegrationTest` and `AuthRoleControllerDownstreamUnitTest`.
-   - Verified via `cd Backend/identity-service && ./mvnw -Dtest='AuthRoleControllerIntegrationTest,AuthRoleControllerDownstreamUnitTest' test`.
+### Phase 2 (Mid ROI)
 
-2) **Player Profile Creation and Progression**
-   - ✅ Done: Covered create learner profile, XP/level progression, and partial update integrity in `LearnerProgressionIntegrationTest`.
-   - Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerProgressionIntegrationTest,LeaderboardServiceUnitTest' test`.
+#### 3) learning-service (`QuizService`, `QuestionBankService`, `ContentService`) — 21 tests
 
-3) **Game Content Access**
-   - ✅ Done: Covered monsters endpoint access plus NPC-completion gating logic in `MonsterControllerIntegrationTest` and `EncounterServiceUnitTest`.
-   - Verified via `cd Backend/game-service && ./mvnw -Dtest='MonsterControllerIntegrationTest,EncounterServiceUnitTest' test`.
+`QuizService` (8)
+1. `generateMonsterEncounterQuiz` rejects null request/mapId.
+2. Boss encounter sets hard difficulty and stricter accuracy.
+3. Normal encounter sets normal difficulty and expected required-correct count.
+4. Monster-name resolution falls back to `"monster"` on game-service failure.
+5. Lesson-line loading handles null/bad payload safely.
+6. Question builder falls back when vocabulary pool is weak.
+7. Cloze builder falls back to line-recall when no target word exists.
+8. Output question count always matches configured total.
 
-4) **Learning/Quiz Flow**
-   - ✅ Done: Covered quiz fetch/attempt and multi-select scoring behavior in `MapQuizControllerIntegrationTest` and `MapQuizServiceUnitTest`.
-   - Verified via `cd Backend/learning-service && ./mvnw -Dtest='MapQuizServiceUnitTest,MapQuizControllerIntegrationTest' test`.
+`QuestionBankService` (7)
+1. `generateDraft` rejects when map content summary is empty.
+2. `generateDraft` rejects malformed AI output with parse error.
+3. `saveQuestions` rejects unknown map.
+4. `saveQuestions` marks `isMultiSelect` true for >1 correct options.
+5. `approveQuestion` rejects non-`PENDING_REVIEW`.
+6. `rejectQuestion` rejects non-`PENDING_REVIEW`.
+7. `addBankQuestionToQuiz` rejects non-approved bank question.
 
-5) **Leaderboard**
-   - ✅ Done: Covered leaderboard update and rank retrieval after XP changes in `LearnerProgressionIntegrationTest` with supporting service checks in `LeaderboardServiceUnitTest`.
-   - Verified via `cd Backend/player-service && ./mvnw -Dtest='LearnerProgressionIntegrationTest,LeaderboardServiceUnitTest' test`.
+`ContentService` (6)
+1. `submitContent` rejects invalid narration serialization.
+2. `submitContent` rejects exact duplicate fingerprint.
+3. `submitContent` rejects semantic duplicate from vector similarity.
+4. `submitContent` rolls back saved content when NPC/map assignment fails.
+5. `approveContent` rejects non-`PENDING_REVIEW`.
+6. `rejectContent` rejects non-`PENDING_REVIEW`.
 
-## Highest Value Tests
-If you only add a small number of tests, these deliver the most confidence per effort.
+#### 4) player-service (`LearnerProfileStateService`, `PurchaseService`) — 8 tests
 
-1) **Player-service integration: create learner + award XP + leaderboard sync**
-   - ✅ Done: Implemented `LearnerProgressionIntegrationTest` covering create learner -> award XP -> leaderboard + rank verification.
-   - Verified via `./mvnw -Dtest='LearnerProgressionIntegrationTest' test`.
+`LearnerProfileStateService` (4)
+1. `getProfileState` creates default state for new learner.
+2. `recordDailyQuestEvent(lesson_completed)` increments quest + learning streak.
+3. Daily quest state resets on date rollover.
+4. Daily streak increments only when all quests complete and not already completed today.
 
-2) **Learning-service: submit quiz attempt with multi-select scoring**
-   - ✅ Done: Added multi-select exact-match and partial-correct scoring coverage in `MapQuizServiceUnitTest`.
-   - Verified via `./mvnw -Dtest='MapQuizServiceUnitTest' test`.
+`PurchaseService` (4)
+1. `createPurchase` rejects unknown learner.
+2. `createPurchase` rejects insufficient gold.
+3. `createPurchase` creates purchase lines, deducts gold, updates inventory, emits event.
+4. `createPurchase` coerces non-positive quantity to 1 and handles null item price as 0.
 
-3) **Identity-service: role resolution with admin vs contributor conflict**
-   - ✅ Done: Implemented `AuthRoleControllerDownstreamUnitTest` to validate admin precedence when both roles exist.
-   - Verified via `./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest' test`.
+### Phase 3 (Completeness + branch cleanup)
 
-4) **Game-service: monsters create/update validation & auth**
-   - ✅ Done: Extended `MonsterControllerIntegrationTest` with auth-required and invalid UUID-path validation scenarios.
-   - Verified via `./mvnw -Dtest='MonsterControllerIntegrationTest' test`.
+#### 5) learning-service (`ContentFlagService`, `ContentRatingService`, `MissionService`) — 13 tests
 
-5) **Cross-service error mapping for downstream calls**
-   - ✅ Done: Added downstream `404` mapping assertion in `AuthRoleControllerDownstreamUnitTest` for learner role resolution via `RestTemplate`.
-   - Verified via `./mvnw -Dtest='AuthRoleControllerDownstreamUnitTest' test`.
+`ContentFlagService` (5)
+1. `createFlag` requires reason.
+2. `createFlag` requires details when reason is `OTHER`.
+3. `createFlag` rejects non-approved content.
+4. `createFlag` rejects duplicate open flag by same reporter.
+5. `reviewFlag` enforces valid review status + dismissal note + open-only review.
 
-## Day 3 Missing Tests (Story 9.2 Gaps)
-These are the concrete missing items to satisfy the Day 3 checklist in `task.md`.
+`ContentRatingService` (4)
+1. `updateRating` enforces rating bounds `1..5`.
+2. `updateRating` rejects rating for non-approved content.
+3. `updateRating` creates record when none exists.
+4. `updateRating` deduplicates multiple historical rows for same learner/content.
 
-### Required: 1 Integration Test per Microservice (Critical Controller Endpoint)
-- **gateway**
-  - ✅ Done: Added gateway integration coverage for route fallback endpoint via `FallbackControllerIntegrationTest`.
-- **identity-service**
-  - ✅ Done: Added controller integration test for auth/role endpoint via `AuthRoleControllerIntegrationTest`.
-- **learning-service**
-  - ✅ Done: Added controller integration test for quiz endpoint via `MapQuizControllerIntegrationTest`.
-- **game-service**
-  - Already has `MonsterControllerIntegrationTest` (counts).
-- **player-service**
-  - Already has `LearnerControllerIntegrationTest` (counts).
+`MissionService` (4)
+1. `getDailyMissions` tops up when active+completed below daily cap.
+2. `getDailyMissions` does not top up when cap already reached.
+3. `submitReflection` approved path grants reward + marks mission completed.
+4. `submitReflection` rejected/flagged path does not grant reward.
 
-### Required: At Least 2 Unit Tests for Core Service Classes per Microservice
-- **gateway**
-  - ✅ Done: Added gateway unit tests for rate limiter behavior via `RateLimiterConfigUnitTest` (fallback unit test coverage already exists).
-- **identity-service**
-  - Already has multiple unit tests (AuthRole, Admin, Contributor) — OK.
-- **learning-service**
-  - ✅ Done: Added second core service unit test via `TopicServiceUnitTest` (in addition to `MapQuizServiceUnitTest`).
-- **game-service**
-  - ✅ Done: Added second core service unit test via `NPCServiceUnitTest` (in addition to `MonsterServiceUnitTest`).
-- **player-service**
-  - ✅ Done: Added second core service unit test via `LeaderboardServiceUnitTest` (in addition to `LearnerServiceUnitTest`).
+## Suggested File Mapping (where to add tests)
+
+- `Backend/game-service/src/test/java/com/smu/csd/maps/MapServiceUnitTest.java` (new)
+- `Backend/game-service/src/test/java/com/smu/csd/encounters/EncounterServiceUnitTest.java` (extend)
+- `Backend/game-service/src/test/java/com/smu/csd/npcs/NPCServiceUnitTest.java` (extend)
+- `Backend/player-service/src/test/java/com/smu/csd/friendship/FriendshipServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/chat/ChatServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/achievements/AchievementServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/learner_profile/LearnerProfileStateServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/economy/purchase/PurchaseServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/quiz/encounter/QuizServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/quiz/question_bank/QuestionBankServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/contents/ContentServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/contents/flags/ContentFlagServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/contents/ratings/ContentRatingServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/missions/MissionServiceUnitTest.java` (new)
+
+## Execution Plan
+
+1. Implement and run Phase 1 service-by-service.
+2. Re-run aggregate coverage report.
+3. Implement Phase 2 based on remaining top missed classes.
+4. Re-run aggregate coverage report.
+5. Finish Phase 3 and re-check for any classes still below 40% instruction or 30% branch.

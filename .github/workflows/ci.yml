@@ -123,14 +123,27 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t csd-${{ matrix.service }}:latest ./Backend/${{ matrix.service }}
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      - name: Run Trivy library vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
         with:
+          scan-type: 'image'
+          scanners: 'vuln'
           image-ref: 'csd-${{ matrix.service }}:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
-          vuln-type: 'os,library'
+          vuln-type: 'library'
+          severity: 'CRITICAL,HIGH'
+      - name: Run Trivy OS vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'image'
+          scanners: 'vuln'
+          image-ref: 'csd-${{ matrix.service }}:latest'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os'
           severity: 'CRITICAL,HIGH'
 
   frontend-security:

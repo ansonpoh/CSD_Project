@@ -12,9 +12,31 @@ public interface LearnerRepository extends JpaRepository<Learner, UUID> {
 
     boolean existsBySupabaseUserId(UUID supabaseUserId);
 
+    @Query("""
+        select (count(l) > 0)
+        from Learner l
+        where l.supabaseUserId = :supabaseUserId
+          and l.is_active = true
+    """)
+    boolean existsBySupabaseUserIdAndIs_activeTrue(@Param("supabaseUserId") UUID supabaseUserId);
+
     boolean existsByEmail(String email);
     
     boolean existsByUsernameIgnoreCase(String username);
+
+    @Query("""
+        select l
+        from Learner l
+        where l.is_active = true
+    """)
+    org.springframework.data.domain.Page<Learner> findByIs_activeTrue(org.springframework.data.domain.Pageable pageable);
+
+    @Query("""
+        select l
+        from Learner l
+        where l.is_active = true
+    """)
+    java.util.List<Learner> findByIs_activeTrue(org.springframework.data.domain.Sort sort);
 
     @Query("""
         select l

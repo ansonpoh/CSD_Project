@@ -112,7 +112,7 @@ public class InternalLearningController {
         // 2. Fetch EXP Graph (AC 3) - Last 7 Days of Missions
         try {
             LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-            List<MissionAttempt> recentMissions = missionAttemptRepository.findByLearnerIdAndSubmittedAtAfter(learnerId.toString(), sevenDaysAgo);
+            List<MissionAttempt> recentMissions = missionAttemptRepository.findByLearnerIdAndSubmittedAtAfter(learnerId, sevenDaysAgo);
 
             // Setup a map of the last 7 days defaulting to 0 EXP
             Map<LocalDate, Integer> last7DaysExp = new LinkedHashMap<>();

@@ -1,0 +1,86 @@
+package com.smu.csd.learner;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.util.UUID;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import com.smu.csd.exception.ResourceAlreadyExistsException;
+import com.smu.csd.exception.ResourceNotFoundException;
+
+public class LearnerControllerErrorTest {
+
+    private LearnerController controller;
+    private LearnerService service;
+
+    @BeforeEach
+    public void setUp() {
+        service = mock(LearnerService.class);
+        controller = new LearnerController(service);
+    }
+
+    @Test
+    public void testGetLearnerById_NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(service.getById(id)).thenThrow(new ResourceNotFoundException("Learner", "id", id));
+
+        Exception exception = assertThrows(ResourceNotFoundException.class, () -> controller.getLearnerById(id));
+        assertTrue(exception.getMessage().contains("not found"));
+    }
+
+    @Test
+    public void testCreateLearner_DuplicateEmail() throws Exception {
+        Learner learner = new Learner();
+        learner.setEmail("test@example.com");
+        when(service.createLearner(any(), any(), any(), any()))
+                .thenThrow(new ResourceAlreadyExistsException("Learner", "email", "test@example.com"));
+
+        Exception exception = assertThrows(ResourceAlreadyExistsException.class, () ->
+            controller.addLearner(learner)
+        );
+        assertTrue(exception.getMessage().contains("email"));
+    }
+
+    @Test
+    public void testCreateLearner_ProfileAlreadyExists() throws Exception {
+        Learner learner = new Learner();
+        learner.setEmail("test@example.com");
+        when(service.createLearner(any(), any(), any(), any()))
+                .thenThrow(new ResourceAlreadyExistsException("Learner profile already exists for this user"));
+
+        Exception exception = assertThrows(ResourceAlreadyExistsException.class, () ->
+            controller.addLearner(learner)
+        );
+        assertTrue(exception.getMessage().contains("already exists"));
+    }
+
+    @Test
+    public void testUpdateLearner_NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        Learner learner = new Learner();
+        when(service.updateLearner(eq(id), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new ResourceNotFoundException("Learner", "id", id));
+
+        Exception exception = assertThrows(ResourceNotFoundException.class, () ->
+            controller.updateLearner(id, learner)
+        );
+        assertTrue(exception.getMessage().contains("not found"));
+    }
+
+    @Test
+    public void testDeleteLearner_NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(new ResourceNotFoundException("Learner", "id", id)).when(service).deleteLearner(id);
+
+        Exception exception = assertThrows(ResourceNotFoundException.class, () ->
+            controller.deleteLearner(id)
+        );
+        assertTrue(exception.getMessage().contains("not found"));
+    }
+
+    // Note: awardXp requires Authentication which needs Spring context to test properly
+    // This is tested via integration tests instead
+}

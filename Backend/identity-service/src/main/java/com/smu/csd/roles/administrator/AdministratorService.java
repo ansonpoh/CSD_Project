@@ -42,7 +42,17 @@ public class AdministratorService {
     //     // Save to database and return the saved entity
     //     return repository.save(admin);
     // }
-    public Administrator saveAdministrator(Administrator administrator) {
+    public Administrator saveAdministrator(Administrator administrator) throws ResourceAlreadyExistsException {
+        if (administrator == null) {
+            throw new IllegalArgumentException("Administrator payload is required.");
+        }
+        if (administrator.getEmail() != null && repository.existsByEmail(administrator.getEmail())) {
+            throw new ResourceAlreadyExistsException("Administrator", "email", administrator.getEmail());
+        }
+        if (administrator.getSupabaseUserId() != null
+                && repository.existsBySupabaseUserId(administrator.getSupabaseUserId())) {
+            throw new ResourceAlreadyExistsException("Administrator profile already exists for this user");
+        }
         return repository.save(administrator);
     }
     

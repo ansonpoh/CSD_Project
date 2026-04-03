@@ -8,6 +8,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +25,7 @@ public class Monster {
     @UuidGenerator
     @Column(name = "monster_id")
     private UUID monsterId;
+    @NotBlank(message = "Monster name is mandatory")
     @Column(unique = true)
     private String name;
     @Column

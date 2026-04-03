@@ -12,18 +12,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.leaderboard.LeaderboardService;
-
 import com.smu.csd.learner_profile.LearnerProfileState;
 import com.smu.csd.learner_profile.LearnerProfileStateRepository;
 import com.smu.csd.learner_progress.LearnerLessonProgressRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.client.RestTemplate;
 
 @Service
 public class LearnerService {
@@ -71,7 +70,7 @@ public class LearnerService {
                 .total_xp(0)
                 .gold(0)
                 .build();
-        
+
         Learner saved = repository.save(learner);
         leaderboardService.upsertLearnerScore(saved);
         return saved;
@@ -87,21 +86,22 @@ public class LearnerService {
     }
 
     public Learner getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = repository.findBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+        return learner;
     }
 
     @Transactional
     public Learner awardXpAndGoldBySupabaseUserId(UUID supabaseUserId, Integer xpAwarded, Integer goldAwarded)
             throws ResourceNotFoundException {
         Learner learner = getBySupabaseUserId(supabaseUserId);
-        if (learner == null) {
-            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
-        }
 
-        int xpBefore = learner.getTotal_xp() != null ? learner.getTotal_xp() : 0;
+        int xpBefore = safeInt(learner.getTotal_xp());
         int xpDelta = safeInt(xpAwarded);
-        int updatedXp = xpBefore + xpDelta;
-        int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
+        int updatedXp = addClampedNonNegative(learner.getTotal_xp(), xpAwarded);
+        int updatedGold = addClampedNonNegative(learner.getGold(), goldAwarded);
         int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
 
         learner.setTotal_xp(updatedXp);
@@ -110,7 +110,7 @@ public class LearnerService {
         learner.setUpdated_at(LocalDateTime.now());
 
         Learner updated = repository.save(learner);
-        if (xpDelta != 0) {
+        if (xpDelta != 0 && learnerXpRepository != null) {
             ZoneId zone = ZoneId.systemDefault();
             learnerXpRepository.save(LearnerXp.builder()
                     .learner(updated)
@@ -126,11 +126,12 @@ public class LearnerService {
     }
 
     public boolean existsBySupabaseUserId(UUID supabaseUserId) {
-        return repository.existsBySupabaseUserId(supabaseUserId);
+        return repository.existsBySupabaseUserIdAndIs_activeTrue(supabaseUserId);
     }
 
     @Transactional
-    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Integer gold, Boolean isActive)
+    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level,
+            Integer gold, Boolean isActive)
             throws ResourceNotFoundException {
         Learner learner = getById(id);
 
@@ -172,6 +173,17 @@ public class LearnerService {
         return value == null ? 0 : value;
     }
 
+    private int addClampedNonNegative(Integer base, Integer delta) {
+        long sum = (long) safeInt(base) + safeInt(delta);
+        if (sum < 0) {
+            return 0;
+        }
+        if (sum > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) sum;
+    }
+
     private static Map<LocalDate, Integer> xpByDayFromRows(List<Object[]> rows) {
         Map<LocalDate, Integer> map = new HashMap<>();
         if (rows == null) {
@@ -199,11 +211,9 @@ public class LearnerService {
         return LocalDate.parse(dayObj.toString());
     }
 
-    // --- Analytics Implementation ---
     public LearnerAnalyticsResponse getLearnerAnalytics(UUID learnerId) throws ResourceNotFoundException {
         LearnerAnalyticsResponse response = new LearnerAnalyticsResponse();
 
-        // 1. Fetch Learner for Level and XP
         Learner learner = getById(learnerId);
         int level = learner.getLevel() != null ? learner.getLevel() : 1;
         int totalXp = learner.getTotal_xp() != null ? learner.getTotal_xp() : 0;
@@ -215,38 +225,41 @@ public class LearnerService {
         response.setCurrentExp(Math.max(0, totalXp - xpForCurrentLevel));
         response.setExpToNextLevel(Math.max(1, xpForNextLevel - xpForCurrentLevel));
 
-        // 2. Fetch Profile State for Streaks safely
         try {
             LearnerProfileState profile = profileStateRepository.findById(learnerId).orElse(null);
             if (profile != null) {
                 int streak = profile.getLearningStreak() != null ? profile.getLearningStreak() : 0;
                 response.setCurrentStreak(streak);
-                response.setLongestStreak(streak); // Using current as longest for now
+                response.setLongestStreak(streak);
             }
         } catch (Exception e) {
             System.err.println("Warning: Could not load profile streaks: " + e.getMessage());
         }
 
-        // 3. Fetch Local Topic Progress safely
         try {
             List<Object[]> topicStats = lessonProgressRepository.countTopicProgressByStatus(learnerId);
             if (topicStats != null) {
                 for (Object[] stat : topicStats) {
-                    if (stat == null || stat[0] == null || stat[1] == null) continue; // Prevent NPE
-                    
+                    if (stat == null || stat[0] == null || stat[1] == null) {
+                        continue;
+                    }
+
                     String status = stat[0].toString();
                     int count = ((Number) stat[1]).intValue();
-                    
-                    if ("COMPLETED".equals(status)) response.setTopicsCompleted(count);
-                    else if ("IN_PROGRESS".equals(status)) response.setTopicsInProgress(count);
-                    else if ("NOT_STARTED".equals(status)) response.setTopicsNotStarted(count);
+
+                    if ("COMPLETED".equals(status)) {
+                        response.setTopicsCompleted(count);
+                    } else if ("IN_PROGRESS".equals(status)) {
+                        response.setTopicsInProgress(count);
+                    } else if ("NOT_STARTED".equals(status)) {
+                        response.setTopicsNotStarted(count);
+                    }
                 }
             }
         } catch (Exception e) {
             System.err.println("Warning: Could not load topic stats: " + e.getMessage());
         }
 
-        // 4. EXP in last 7 days from Supabase learner_xp (ledger)
         try {
             ZoneId zone = ZoneId.systemDefault();
             LocalDate today = LocalDate.now(zone);
@@ -271,7 +284,6 @@ public class LearnerService {
             response.setExpHistory(List.of());
         }
 
-        // 5. Quiz & mission stats from learning-service (no EXP chart — that comes from learner_xp above)
         try {
             String url = "http://learning-service/api/internal/learning/analytics/" + learnerId;
             LearnerAnalyticsResponse remoteStats = restTemplate.getForObject(url, LearnerAnalyticsResponse.class);

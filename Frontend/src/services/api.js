@@ -746,7 +746,7 @@ class ApiService {
   }
 
   async submitMapQuizAttempt(quizId, answers) {
-    const { data } = await this.api.post('/map-quizzes/submit', { quizId, answers });
+    const { data } = await this.api.post('/map-quizzes/submit', { quizId, answers }, { timeout: 15000 });
     return data;
   }
 

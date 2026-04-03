@@ -11,7 +11,7 @@ public interface MissionAttemptRepository extends JpaRepository<MissionAttempt, 
 
     List<MissionAttempt> findByStatus(MissionAttempt.Status status);
 
-    List<MissionAttempt> findByLearnerIdAndSubmittedAtAfter(String learnerId, LocalDateTime startDate);
+    List<MissionAttempt> findByLearnerIdAndSubmittedAtAfter(UUID learnerId, LocalDateTime startDate);
 
     Optional<MissionAttempt> findByLearnerIdAndMission_MissionId(UUID learnerId, UUID missionId);
 }

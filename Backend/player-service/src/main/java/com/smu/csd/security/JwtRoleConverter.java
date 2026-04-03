@@ -28,7 +28,7 @@ public class JwtRoleConverter implements Converter<Jwt, AbstractAuthenticationTo
     private final RestTemplate restTemplate;
     private final ConcurrentMap<UUID, CachedRole> roleCache = new ConcurrentHashMap<>();
 
-    @Value("${identity.url:http://localhost:8081}")
+    @Value("${IDENTITY_URL:http://localhost:8081}")
     private String identityUrl;
 
     @Value("${security.role-cache-ttl-seconds:120}")

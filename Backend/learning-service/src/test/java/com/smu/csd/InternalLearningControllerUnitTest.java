@@ -18,6 +18,7 @@ import com.smu.csd.contents.Content;
 import com.smu.csd.contents.ContentRepository;
 import com.smu.csd.contents.ratings.ContentRatingService;
 import com.smu.csd.contents.topics.TopicService;
+import com.smu.csd.quiz.map_quiz.MapQuizService;
 
 public class InternalLearningControllerUnitTest {
 
@@ -25,13 +26,15 @@ public class InternalLearningControllerUnitTest {
     private ContentRepository contentRepository;
     private ContentRatingService contentRatingService;
     private TopicService topicService;
+    private MapQuizService mapQuizService;
 
     @BeforeEach
     public void setUp() {
         contentRepository = mock(ContentRepository.class);
         contentRatingService = mock(ContentRatingService.class);
         topicService = mock(TopicService.class);
-        controller = new InternalLearningController(contentRepository, contentRatingService, topicService);
+        mapQuizService = mock(MapQuizService.class);
+        controller = new InternalLearningController(contentRepository, contentRatingService, topicService, mapQuizService);
     }
 
     @Test

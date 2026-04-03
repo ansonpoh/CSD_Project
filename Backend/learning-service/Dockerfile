@@ -18,8 +18,8 @@ RUN set -eux; \
 
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
-FROM gcr.io/distroless/java21-debian12:nonroot
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build --chown=nonroot:nonroot /app/target/*.jar /app/app.jar
+COPY --from=build /app/target/*.jar /app/app.jar
 EXPOSE 8083
-CMD ["-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

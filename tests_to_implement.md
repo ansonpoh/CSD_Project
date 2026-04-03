@@ -126,16 +126,16 @@ Total planned tests: **102**
 #### 4) player-service (`LearnerProfileStateService`, `PurchaseService`) — 8 tests
 
 `LearnerProfileStateService` (4)
-1. `getProfileState` creates default state for new learner.
-2. `recordDailyQuestEvent(lesson_completed)` increments quest + learning streak.
-3. Daily quest state resets on date rollover.
-4. Daily streak increments only when all quests complete and not already completed today.
+1. [x] `getProfileState` creates default state for new learner.
+2. [x] `recordDailyQuestEvent(lesson_completed)` increments quest + learning streak.
+3. [x] Daily quest state resets on date rollover.
+4. [x] Daily streak increments only when all quests complete and not already completed today.
 
 `PurchaseService` (4)
-1. `createPurchase` rejects unknown learner.
-2. `createPurchase` rejects insufficient gold.
-3. `createPurchase` creates purchase lines, deducts gold, updates inventory, emits event.
-4. `createPurchase` coerces non-positive quantity to 1 and handles null item price as 0.
+1. [x] `createPurchase` rejects unknown learner.
+2. [x] `createPurchase` rejects insufficient gold.
+3. [x] `createPurchase` creates purchase lines, deducts gold, updates inventory, emits event.
+4. [x] `createPurchase` coerces non-positive quantity to 1 and handles null item price as 0.
 
 ### Phase 3 (Completeness + branch cleanup)
 

@@ -1,5 +1,9 @@
 # Tests To Implement
 
+Release gate note:
+- Treat this file as complete only after `cd Backend && ./mvnw test` passes on Java 21 and the aggregate JaCoCo report is regenerated under `Backend/coverage-report/target/site/jacoco-aggregate/`.
+- Local Java is already aligned to 21. Node should be aligned to 20 via [`.nvmrc`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.nvmrc) before frontend verification.
+
 Current coverage after implementing Phases 1-4:
 - `player-service`: instruction 55%, branch 37%
 - `learning-service`: instruction 53%, branch 41%

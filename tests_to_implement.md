@@ -142,23 +142,23 @@ Total planned tests: **102**
 #### 5) learning-service (`ContentFlagService`, `ContentRatingService`, `MissionService`) — 13 tests
 
 `ContentFlagService` (5)
-1. `createFlag` requires reason.
-2. `createFlag` requires details when reason is `OTHER`.
-3. `createFlag` rejects non-approved content.
-4. `createFlag` rejects duplicate open flag by same reporter.
-5. `reviewFlag` enforces valid review status + dismissal note + open-only review.
+1. [x] `createFlag` requires reason.
+2. [x] `createFlag` requires details when reason is `OTHER`.
+3. [x] `createFlag` rejects non-approved content.
+4. [x] `createFlag` rejects duplicate open flag by same reporter.
+5. [x] `reviewFlag` enforces valid review status + dismissal note + open-only review.
 
 `ContentRatingService` (4)
-1. `updateRating` enforces rating bounds `1..5`.
-2. `updateRating` rejects rating for non-approved content.
-3. `updateRating` creates record when none exists.
-4. `updateRating` deduplicates multiple historical rows for same learner/content.
+1. [x] `updateRating` enforces rating bounds `1..5`.
+2. [x] `updateRating` rejects rating for non-approved content.
+3. [x] `updateRating` creates record when none exists.
+4. [x] `updateRating` deduplicates multiple historical rows for same learner/content.
 
 `MissionService` (4)
-1. `getDailyMissions` tops up when active+completed below daily cap.
-2. `getDailyMissions` does not top up when cap already reached.
-3. `submitReflection` approved path grants reward + marks mission completed.
-4. `submitReflection` rejected/flagged path does not grant reward.
+1. [x] `getDailyMissions` tops up when active+completed below daily cap.
+2. [x] `getDailyMissions` does not top up when cap already reached.
+3. [x] `submitReflection` approved path grants reward + marks mission completed.
+4. [x] `submitReflection` rejected/flagged path does not grant reward.
 
 ## Suggested File Mapping (where to add tests)
 

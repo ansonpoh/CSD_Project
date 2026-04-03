@@ -62,7 +62,8 @@ export class ContributorScene extends Phaser.Scene {
         pageSize: 10
       },
       isGenerating: false,
-      isSubmitting: false
+      isSubmitting: false,
+      editingContent: null,
     };
   }
 
@@ -77,7 +78,70 @@ export class ContributorScene extends Phaser.Scene {
     this.events.once('destroy', () => this.destroyPortal());
   }
 
+  ensureFeedbackStyles() {
+    const STYLE_ID = 'dash-feedback-styles';
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      .dash-feedback-block {
+        margin-top: 12px;
+        padding: 12px 16px;
+        border-left: 3px solid #ffb8c6;
+        background: rgba(255, 184, 198, 0.07);
+        border-radius: 0 6px 6px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dash-feedback-block--banner {
+        border-left-color: #f0a843;
+        background: rgba(240, 168, 67, 0.08);
+        margin-bottom: 18px;
+      }
+      .dash-feedback-block__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .dash-feedback-block__label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #ffb8c6;
+      }
+      .dash-feedback-block--banner .dash-feedback-block__label {
+        color: #f0a843;
+      }
+      .dash-feedback-block__reason,
+      .dash-feedback-block__comments {
+        font-size: 0.88rem;
+        line-height: 1.55;
+      }
+      .dash-resubmission-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: #a0b4cc;
+        background: rgba(160, 180, 204, 0.12);
+        border: 1px solid rgba(160, 180, 204, 0.25);
+        border-radius: 4px;
+        padding: 2px 7px;
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   mountPortal() {
+    this.ensureFeedbackStyles();
     this.portalRoot = createDashboardRoot('contributor');
     this.portalRoot.innerHTML = `
       <div class="dash-shell__backdrop"></div>
@@ -248,6 +312,27 @@ export class ContributorScene extends Phaser.Scene {
       const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
       this.state.contentPagination.page = Math.min(totalPages, currentPage + 1);
       this.renderContentSection();
+      return;
+    }
+
+    if (action === 'resubmit-content') {
+      event.preventDefault();
+      const contentId = actionEl.dataset.contentId;
+      const row = this.state.contents.find(
+        (c) => String(c?.contentId || '') === String(contentId || '')
+      );
+      if (row) {
+        this.state.editingContent = row;
+        this.renderSubmitSection();
+        this.showSection('submit');
+      }
+      return;
+    }
+
+    if (action === 'cancel-resubmit') {
+      event.preventDefault();
+      this.state.editingContent = null;
+      this.renderSubmitSection();
       return;
     }
   };
@@ -605,23 +690,71 @@ export class ContributorScene extends Phaser.Scene {
       ratingsPerContent.map((item) => [String(item?.contentId || ''), item])
     );
 
-    const cards = pagedRows.map((row) => `
-      <article class="dash-row-card">
-        <div class="dash-row-card__header">
-          <div>
-            <div class="dash-row-card__title">${escapeHtml(row?.title || 'Untitled content')}</div>
-            <div class="dash-row-card__meta">
-              <span>${escapeHtml(row?.topic?.topicName || 'Unknown topic')}</span>
-              <span>${escapeHtml(formatDate(row?.submittedAt))}</span>
-              <span>${escapeHtml(row?.contentId || 'Missing id')}</span>
-              <span>Rating ${Number(ratingByContentId.get(String(row?.contentId || ''))?.averageRating || 0).toFixed(2)}* (${Number(ratingByContentId.get(String(row?.contentId || ''))?.ratingCount || 0)})</span>
+    const cards = pagedRows.map((row) => {
+      const status = String(row?.status || '').toUpperCase();
+      const isRejected = status === 'REJECTED';
+
+      const feedbackBlock = isRejected
+        ? `
+          <div class="dash-feedback-block">
+            <div class="dash-feedback-block__header">
+              <span class="dash-feedback-block__label">Admin Feedback</span>
+              ${row?.feedbackDate
+                ? `<span class="dash-muted">${escapeHtml(formatDate(row.feedbackDate))}</span>`
+                : ''}
+            </div>
+            ${row?.rejectionReason
+              ? `<div class="dash-feedback-block__reason"><strong>Rejection reason:</strong> ${escapeHtml(row.rejectionReason)}</div>`
+              : ''}
+            ${row?.adminComments
+              ? `<div class="dash-feedback-block__comments"><strong>Admin comments:</strong> ${escapeHtml(row.adminComments)}</div>`
+              : ''}
+            ${!row?.rejectionReason && !row?.adminComments
+              ? `<div class="dash-muted">No detailed feedback was provided for this rejection.</div>`
+              : ''}
+          </div>
+        `
+        : '';
+
+      const resubmitButton = isRejected
+        ? `<button
+             type="button"
+             class="dash-button dash-button--secondary"
+             data-action="resubmit-content"
+             data-content-id="${escapeHtml(String(row?.contentId || ''))}"
+           >Edit &amp; Resubmit</button>`
+        : '';
+
+      const resubmissionNote = row?.resubmittedFromId
+        ? `<span class="dash-resubmission-badge" title="Resubmission of ${escapeHtml(row.resubmittedFromId)}">↩ Resubmission</span>`
+        : '';
+
+      return `
+        <article class="dash-row-card">
+          <div class="dash-row-card__header">
+            <div>
+              <div class="dash-row-card__title">
+                ${escapeHtml(row?.title || 'Untitled content')}
+                ${resubmissionNote}
+              </div>
+              <div class="dash-row-card__meta">
+                <span>${escapeHtml(row?.topic?.topicName || 'Unknown topic')}</span>
+                <span>${escapeHtml(formatDate(row?.submittedAt))}</span>
+                <span>${escapeHtml(row?.contentId || 'Missing id')}</span>
+                <span>Rating ${Number(ratingByContentId.get(String(row?.contentId || ''))?.averageRating || 0).toFixed(2)}★ (${Number(ratingByContentId.get(String(row?.contentId || ''))?.ratingCount || 0)})</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+              ${renderBadge(row?.status || 'UNKNOWN')}
+              ${resubmitButton}
             </div>
           </div>
-          ${renderBadge(row?.status || 'UNKNOWN')}
-        </div>
-        <div class="dash-row-card__body">${escapeHtml(buildContentPreview(row))}</div>
-      </article>
-    `).join('');
+          <div class="dash-row-card__body">${escapeHtml(buildContentPreview(row))}</div>
+          ${feedbackBlock}
+        </article>
+      `;
+    }).join('');
+
     container.innerHTML = `
       <div class="dash-card" style="margin-bottom:18px;">
         <div class="dash-inline">
@@ -714,7 +847,11 @@ export class ContributorScene extends Phaser.Scene {
       );
       return;
     }
-    if (!this.state.availableMaps.length) {
+
+    const editing = this.state.editingContent;
+    const isResubmission = Boolean(editing);
+
+    if (!this.state.availableMaps.length && !isResubmission) {
       container.innerHTML = renderEmptyState(
         'No map slots available',
         `All maps already have ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs. Pick another NPC/map pairing after moderation changes or map updates.`
@@ -722,28 +859,71 @@ export class ContributorScene extends Phaser.Scene {
       return;
     }
 
-    const topicOptions = this.state.topics.map((topic) => (
-      `<option value="${escapeHtml(topic?.topicId || '')}">${escapeHtml(topic?.topicName || 'Untitled Topic')}</option>`
-    )).join('');
-    const npcOptions = this.state.npcs.map((npc) => (
-      `<option value="${escapeHtml(npc?.npc_id || '')}">${escapeHtml(npc?.name || 'Unnamed NPC')}</option>`
-    )).join('');
-    const mapOptions = this.state.availableMaps.map((map) => (
-      `<option value="${escapeHtml(map?.mapId || '')}">${escapeHtml(map?.name || 'Unnamed Map')} (${Number(this.state.mapApprovedNpcCounts[String(map?.mapId || '')] || 0)}/${MAX_APPROVED_NPCS_PER_MAP})</option>`
-    )).join('');
+    const mapsForForm = isResubmission ? this.state.maps : this.state.availableMaps;
+
+    const topicOptions = this.state.topics.map((topic) => {
+      const selected = isResubmission && String(topic?.topicId || '') === String(editing?.topic?.topicId || '') ? ' selected' : '';
+      return `<option value="${escapeHtml(topic?.topicId || '')}"${selected}>${escapeHtml(topic?.topicName || 'Untitled Topic')}</option>`;
+    }).join('');
+
+    const npcOptions = this.state.npcs.map((npc) => {
+      const selected = isResubmission && String(npc?.npcId || '') === String(editing?.npcId || '') ? ' selected' : '';
+      return `<option value="${escapeHtml(npc?.npcId || '')}"${selected}>${escapeHtml(npc?.name || 'Unnamed NPC')}</option>`;
+    }).join('');
+
+    const mapOptions = mapsForForm.map((map) => {
+      const selected = isResubmission && String(map?.mapId || '') === String(editing?.mapId || '') ? ' selected' : '';
+      const count = Number(this.state.mapApprovedNpcCounts[String(map?.mapId || '')] || 0);
+      return `<option value="${escapeHtml(map?.mapId || '')}"${selected}>${escapeHtml(map?.name || 'Unnamed Map')} (${count}/${MAX_APPROVED_NPCS_PER_MAP})</option>`;
+    }).join('');
+
+    const existingNarrations = isResubmission && Array.isArray(editing?.narrations)
+      ? editing.narrations
+      : [];
+
+    const feedbackBanner = isResubmission
+      ? `
+        <div class="dash-feedback-block dash-feedback-block--banner" style="margin-bottom:18px;">
+          <div class="dash-feedback-block__header">
+            <span class="dash-feedback-block__label">Editing a rejected lesson — address feedback before resubmitting</span>
+            ${editing?.feedbackDate
+              ? `<span class="dash-muted">Rejected on ${escapeHtml(formatDate(editing.feedbackDate))}</span>`
+              : ''}
+          </div>
+          ${editing?.rejectionReason
+            ? `<div class="dash-feedback-block__reason"><strong>Rejection reason:</strong> ${escapeHtml(editing.rejectionReason)}</div>`
+            : ''}
+          ${editing?.adminComments
+            ? `<div class="dash-feedback-block__comments"><strong>Admin comments:</strong> ${escapeHtml(editing.adminComments)}</div>`
+            : ''}
+          ${!editing?.rejectionReason && !editing?.adminComments
+            ? `<div class="dash-muted">No detailed feedback was provided. Review and improve the content before resubmitting.</div>`
+            : ''}
+          <p style="margin-top:10px; margin-bottom:0;">Update the fields below to address the feedback above, then hit <strong>Resubmit lesson</strong>.</p>
+        </div>
+      `
+      : '';
 
     container.innerHTML = `
       <div class="dash-card" style="margin-bottom:18px;">
         <div class="dash-inline">
           <div>
-            <h3 style="margin:0 0 8px;">Create a new lesson</h3>
-            <p>Pair a topic with a world location, generate draft narrations, then submit everything in one clean pass.</p>
+            <h3 style="margin:0 0 8px;">${isResubmission ? 'Edit &amp; Resubmit Lesson' : 'Create a new lesson'}</h3>
+            <p>${isResubmission
+              ? 'Update the rejected content below based on admin feedback, then resubmit for review.'
+              : 'Pair a topic with a world location, generate draft narrations, then submit everything in one clean pass.'}</p>
           </div>
           <button type="button" class="dash-button dash-button--secondary" data-action="open-map-editor">Need a map?</button>
         </div>
       </div>
 
+      ${feedbackBanner}
+
       <form id="contributor-submit-form" class="dash-form">
+        ${isResubmission
+          ? `<input type="hidden" id="content-resubmit-from-id" value="${escapeHtml(String(editing?.contentId || ''))}" />`
+          : ''}
+
         <div class="dash-form__grid">
           <div class="dash-field">
             <label for="content-topic">Topic</label>
@@ -765,12 +945,20 @@ export class ContributorScene extends Phaser.Scene {
 
         <div class="dash-field">
           <label for="content-title">Title</label>
-          <input id="content-title" class="dash-input" type="text" maxlength="120" placeholder="Give the lesson a clear, specific title" />
+          <input
+            id="content-title"
+            class="dash-input"
+            type="text"
+            maxlength="120"
+            placeholder="Give the lesson a clear, specific title"
+            value="${escapeHtml(isResubmission ? (editing?.title || '') : '')}"
+          />
         </div>
 
         <div class="dash-field">
           <label for="content-description">Description</label>
-          <textarea id="content-description" class="dash-textarea" placeholder="Describe what learners should understand after this lesson."></textarea>
+          <textarea id="content-description" class="dash-textarea"
+            placeholder="Describe what learners should understand after this lesson.">${escapeHtml(isResubmission ? (editing?.description || editing?.body || '') : '')}</textarea>
         </div>
 
         <div class="dash-card">
@@ -790,15 +978,26 @@ export class ContributorScene extends Phaser.Scene {
         <div id="contributor-submit-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <div class="dash-button-group">
-          <button id="contributor-submit-button" type="submit" class="dash-button"${this.state.isSubmitting ? ' disabled' : ''}>${this.state.isSubmitting ? 'Submitting...' : 'Submit lesson'}</button>
+          <button id="contributor-submit-button" type="submit" class="dash-button"${this.state.isSubmitting ? ' disabled' : ''}>
+            ${this.state.isSubmitting
+              ? (isResubmission ? 'Resubmitting...' : 'Submitting...')
+              : (isResubmission ? 'Resubmit lesson' : 'Submit lesson')}
+          </button>
           <button type="button" class="dash-button dash-button--secondary" data-action="add-narration">Add another narration</button>
+          ${isResubmission
+            ? `<button type="button" class="dash-button dash-button--ghost" data-action="cancel-resubmit">Cancel</button>`
+            : ''}
         </div>
       </form>
     `;
 
     const narrationContainer = this.portalRoot.querySelector('#contributor-narrations');
-    if (narrationContainer && !narrationContainer.children.length) {
-      this.addNarrationRow();
+    if (narrationContainer) {
+      if (existingNarrations.length) {
+        existingNarrations.forEach((line) => this.addNarrationRow(line));
+      } else {
+        this.addNarrationRow();
+      }
     }
     this.setSubmitUiState();
   }
@@ -829,7 +1028,9 @@ export class ContributorScene extends Phaser.Scene {
   }
 
   collectNarrations() {
-    return Array.from(this.portalRoot?.querySelectorAll('[data-role="narration-line"]') || [])
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    const scope = form ?? this.portalRoot;
+    return Array.from(scope?.querySelectorAll('[data-role="narration-line"]') || [])
       .map((textarea) => textarea.value.trim())
       .filter(Boolean);
   }
@@ -837,9 +1038,10 @@ export class ContributorScene extends Phaser.Scene {
   async generateNarrations() {
     if (this.state.isGenerating) return;
 
-    const topicId = this.portalRoot?.querySelector('#content-topic')?.value?.trim();
-    const title = this.portalRoot?.querySelector('#content-title')?.value?.trim();
-    const description = this.portalRoot?.querySelector('#content-description')?.value?.trim();
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    const topicId = form?.querySelector('#content-topic')?.value?.trim();
+    const title = form?.querySelector('#content-title')?.value?.trim();
+    const description = form?.querySelector('#content-description')?.value?.trim();
     if (!topicId || !title || !description) {
       this.setSubmitStatus('Fill in topic, title, and description before generating narrations.', true);
       return;
@@ -870,19 +1072,33 @@ export class ContributorScene extends Phaser.Scene {
   async submitContent() {
     if (this.state.isSubmitting || !this.state.profile) return;
 
-    const topicId = this.portalRoot?.querySelector('#content-topic')?.value?.trim();
-    const npcId = this.portalRoot?.querySelector('#content-npc')?.value?.trim();
-    const mapId = this.portalRoot?.querySelector('#content-map')?.value?.trim();
-    const title = this.portalRoot?.querySelector('#content-title')?.value?.trim();
-    const description = this.portalRoot?.querySelector('#content-description')?.value?.trim();
-    const videoFile = this.portalRoot?.querySelector('#content-video')?.files?.[0] || null;
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+
+    const topicId = form.querySelector('#content-topic')?.value?.trim();
+    const npcId = form.querySelector('#content-npc')?.value?.trim();
+    const mapId = form.querySelector('#content-map')?.value?.trim();
+    const title = form.querySelector('#content-title')?.value?.trim();
+    const description = form.querySelector('#content-description')?.value?.trim();
+    const videoFile = form.querySelector('#content-video')?.files?.[0] || null;
     const narrations = this.collectNarrations();
 
-    if (!topicId || !npcId || !mapId || !title || !description) {
-      this.setSubmitStatus('Topic, NPC, map, title, and description are required.', true);
+    const resubmitFromId = form.querySelector('#content-resubmit-from-id')?.value?.trim() || null;
+    const isResubmission = Boolean(resubmitFromId);
+
+    const missing = [
+      !topicId && 'topic',
+      !npcId && 'NPC',
+      !mapId && 'map',
+      !title && 'title',
+      !description && 'description',
+    ].filter(Boolean);
+    if (missing.length) {
+      this.setSubmitStatus(`Missing required fields: ${missing.join(', ')}. Please fill them in and try again.`, true);
+      console.warn('[ContributorScene] submitContent: missing fields', { topicId, npcId, mapId, title, description });
       return;
     }
-    if (!this.isMapSelectable(mapId)) {
+    if (!isResubmission && !this.isMapSelectable(mapId)) {
       this.setSubmitStatus(`Selected map is no longer available. Maps with ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs cannot be used for new content.`, true);
       return;
     }
@@ -893,7 +1109,7 @@ export class ContributorScene extends Phaser.Scene {
 
     this.state.isSubmitting = true;
     this.setSubmitUiState();
-    this.setSubmitStatus('Submitting lesson content...', false);
+    this.setSubmitStatus(isResubmission ? 'Resubmitting lesson...' : 'Submitting lesson content...', false);
 
     try {
       let videoUrl = null;
@@ -901,7 +1117,7 @@ export class ContributorScene extends Phaser.Scene {
         videoUrl = await this.uploadContentVideo(videoFile, this.state.profile.contributorId);
       }
 
-      await apiService.submitContent({
+      const payload = {
         contributorId: this.state.profile.contributorId,
         topicId,
         npcId,
@@ -909,16 +1125,25 @@ export class ContributorScene extends Phaser.Scene {
         title,
         description,
         narrations,
-        videoUrl
-      });
+        videoUrl,
+        ...(isResubmission && { resubmittedFromId: resubmitFromId })
+      };
 
-      showToast(this.toastHost, 'Lesson submitted for review.');
-      this.setSubmitStatus('Lesson submitted successfully. Your content list is refreshing.', false);
+      await apiService.submitContent(payload);
+
+      const successMsg = isResubmission
+        ? 'Lesson resubmitted successfully. Status is now Pending Review.'
+        : 'Lesson submitted for review.';
+
+      showToast(this.toastHost, successMsg);
+      this.setSubmitStatus(`${successMsg} Your content list is refreshing.`, false);
+
+      this.state.editingContent = null;
       await this.loadInitialData();
       this.showSection('content');
       this.resetSubmissionForm();
     } catch (error) {
-      this.setSubmitStatus(getErrorMessage(error, 'Submission failed'), true);
+      this.setSubmitStatus(getErrorMessage(error, isResubmission ? 'Resubmission failed' : 'Submission failed'), true);
     } finally {
       this.state.isSubmitting = false;
       this.setSubmitUiState();
@@ -967,6 +1192,7 @@ export class ContributorScene extends Phaser.Scene {
     const generateButton = this.portalRoot?.querySelector('[data-action="generate-narrations"]');
     const submitButton = this.portalRoot?.querySelector('#contributor-submit-button');
     const addButtons = this.portalRoot?.querySelectorAll('[data-action="add-narration"]');
+    const isResubmission = Boolean(this.state.editingContent);
 
     if (generateButton) {
       generateButton.disabled = this.state.isGenerating || this.state.isSubmitting;
@@ -974,7 +1200,9 @@ export class ContributorScene extends Phaser.Scene {
     }
     if (submitButton) {
       submitButton.disabled = this.state.isSubmitting;
-      submitButton.textContent = this.state.isSubmitting ? 'Submitting...' : 'Submit lesson';
+      submitButton.textContent = this.state.isSubmitting
+        ? (isResubmission ? 'Resubmitting...' : 'Submitting...')
+        : (isResubmission ? 'Resubmit lesson' : 'Submit lesson');
     }
     addButtons?.forEach((button) => {
       button.disabled = this.state.isGenerating || this.state.isSubmitting;

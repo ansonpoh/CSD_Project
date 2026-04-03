@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd Frontend
-          npm ci
+          npm install
       - name: Run tests
         run: |
           cd Frontend
@@ -96,7 +96,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd Frontend
-          npm ci
+          npm install
       - name: Build frontend
         env:
           VITE_API_BASE_URL: https://example-gateway.invalid
@@ -147,7 +147,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd Frontend
-          npm ci
+          npm install
       - name: npm audit
         run: |
           cd Frontend

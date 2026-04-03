@@ -427,8 +427,8 @@ public class EncounterServiceUnitTest {
         UUID supabaseUserId = UUID.randomUUID();
         UUID learnerId = UUID.randomUUID();
         UUID mapId = UUID.randomUUID();
-        UUID normalMonsterId = UUID.randomUUID();
-        UUID bossMonsterId = UUID.randomUUID();
+        UUID normalMonsterId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID bossMonsterId = UUID.fromString("00000000-0000-0000-0000-0000000000ff");
         LearnerDto learner = new LearnerDto(learnerId, 10, 1, 5);
         LearnerDto updatedLearner = new LearnerDto(learnerId, 100, 2, 105);
         Monster normal = Monster.builder().monsterId(normalMonsterId).name("Normal").build();

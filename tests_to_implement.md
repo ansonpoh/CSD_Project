@@ -97,31 +97,31 @@ Total planned tests: **102**
 #### 3) learning-service (`QuizService`, `QuestionBankService`, `ContentService`) — 21 tests
 
 `QuizService` (8)
-1. `generateMonsterEncounterQuiz` rejects null request/mapId.
-2. Boss encounter sets hard difficulty and stricter accuracy.
-3. Normal encounter sets normal difficulty and expected required-correct count.
-4. Monster-name resolution falls back to `"monster"` on game-service failure.
-5. Lesson-line loading handles null/bad payload safely.
-6. Question builder falls back when vocabulary pool is weak.
-7. Cloze builder falls back to line-recall when no target word exists.
-8. Output question count always matches configured total.
+- [x] `generateMonsterEncounterQuiz` rejects null request/mapId.
+- [x] Boss encounter sets hard difficulty and stricter accuracy.
+- [x] Normal encounter sets normal difficulty and expected required-correct count.
+- [x] Monster-name resolution falls back to `"monster"` on game-service failure.
+- [x] Lesson-line loading handles null/bad payload safely.
+- [x] Question builder falls back when vocabulary pool is weak.
+- [x] Cloze builder falls back to line-recall when no target word exists.
+- [x] Output question count always matches configured total.
 
 `QuestionBankService` (7)
-1. `generateDraft` rejects when map content summary is empty.
-2. `generateDraft` rejects malformed AI output with parse error.
-3. `saveQuestions` rejects unknown map.
-4. `saveQuestions` marks `isMultiSelect` true for >1 correct options.
-5. `approveQuestion` rejects non-`PENDING_REVIEW`.
-6. `rejectQuestion` rejects non-`PENDING_REVIEW`.
-7. `addBankQuestionToQuiz` rejects non-approved bank question.
+- [x] `generateDraft` rejects when map content summary is empty.
+- [x] `generateDraft` rejects malformed AI output with parse error.
+- [x] `saveQuestions` rejects unknown map.
+- [x] `saveQuestions` marks `isMultiSelect` true for >1 correct options.
+- [x] `approveQuestion` rejects non-`PENDING_REVIEW`.
+- [x] `rejectQuestion` rejects non-`PENDING_REVIEW`.
+- [x] `addBankQuestionToQuiz` rejects non-approved bank question.
 
 `ContentService` (6)
-1. `submitContent` rejects invalid narration serialization.
-2. `submitContent` rejects exact duplicate fingerprint.
-3. `submitContent` rejects semantic duplicate from vector similarity.
-4. `submitContent` rolls back saved content when NPC/map assignment fails.
-5. `approveContent` rejects non-`PENDING_REVIEW`.
-6. `rejectContent` rejects non-`PENDING_REVIEW`.
+- [x] `submitContent` rejects invalid narration serialization.
+- [x] `submitContent` rejects exact duplicate fingerprint.
+- [x] `submitContent` rejects semantic duplicate from vector similarity.
+- [x] `submitContent` rolls back saved content when NPC/map assignment fails.
+- [x] `approveContent` rejects non-`PENDING_REVIEW`.
+- [x] `rejectContent` rejects non-`PENDING_REVIEW`.
 
 #### 4) player-service (`LearnerProfileStateService`, `PurchaseService`) — 8 tests
 

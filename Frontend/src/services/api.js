@@ -648,10 +648,13 @@ class ApiService {
     return data;
   }
 
-  async rejectContent(id) {
-    const { data } = await this.api.put(`/contents/${id}/reject`);
+  async rejectContent(id, rejectionReason, adminComments = '') {
+    const { data } = await this.api.put(`/contents/${id}/reject`, {
+        rejectionReason,
+        adminComments
+    });
     return data;
-  }
+``}
 
   async getContentModeration(id) {
     const { data } = await this.api.get(`/contents/${id}/moderation`);

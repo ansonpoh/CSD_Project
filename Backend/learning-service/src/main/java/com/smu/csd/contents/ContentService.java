@@ -47,13 +47,20 @@ public class ContentService {
     }
 
     public Content submitContent(UUID contributorId, UUID topicId, UUID npcId, UUID mapId,
-            String title, String description, List<String> narrations, String videoUrl)
+            String title, String description, List<String> narrations, String videoUrl, UUID resubmittedFromId)
             throws ResourceNotFoundException {
         Topic topic = topicService.getById(topicId);
 
         String body;
         try {
             body = objectMapper.writeValueAsString(narrations);
+            if (resubmittedFromId != null) {
+                Content original = contentRepository.findById(resubmittedFromId)
+                    .orElseThrow(() -> new ResourceNotFoundException("original submission", "submissionid", resubmittedFromId));
+                if (original.getStatus() != Content.Status.REJECTED) {
+                    throw new IllegalStateException("Can only resubmit rejected content");
+                }
+            }
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid narrations format: " + e.getMessage());
         }
@@ -98,6 +105,7 @@ public class ContentService {
                 .status(Content.Status.PENDING_REVIEW)
                 .videoUrl(videoUrl)
                 .contentFingerprint(fingerprint)
+                .resubmittedFromId(resubmittedFromId)
                 .build();
 
         content = contentRepository.save(content);
@@ -173,7 +181,8 @@ public class ContentService {
     }
 
     @Transactional
-    public Content rejectContent(UUID contentId) throws ResourceNotFoundException {
+    public Content rejectContent(UUID contentId, String rejectionReason, String adminComments) 
+            throws ResourceNotFoundException {
         Content content = getById(contentId);
 
         if (content.getStatus() != Content.Status.PENDING_REVIEW) {
@@ -181,6 +190,9 @@ public class ContentService {
         }
 
         content.setStatus(Content.Status.REJECTED);
+        content.setRejectionReason(rejectionReason);
+        content.setAdminComments(adminComments);
+        content.setFeedbackDate(java.time.LocalDateTime.now());
         return contentRepository.save(content);
     }
 }

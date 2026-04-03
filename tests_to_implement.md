@@ -57,40 +57,40 @@ Total planned tests: **102**
 #### 2) player-service (`FriendshipService`, `ChatService`, `AchievementService`) — 30 tests
 
 `FriendshipService` (12)
-1. `searchByUsername` rejects query shorter than 2 chars.
-2. `searchByUsername` returns empty list when no candidates.
-3. `searchByUsername` resolves `NONE` relationship when no friendship exists.
-4. `sendRequest` rejects self-request.
-5. `sendRequest` creates pending request when no prior friendship exists.
-6. `sendRequest` rejects when friendship already `ACCEPTED`.
-7. `sendRequest` rejects duplicate outgoing pending request.
-8. `sendRequest` rejects when incoming pending already exists.
-9. `sendRequest` reopens `DECLINED` friendship into new pending request.
-10. `acceptRequest` rejects non-addressee user.
-11. `acceptRequest` rejects non-pending friendship.
-12. `removeFriend` rejects non-accepted friendship and succeeds for accepted one.
+- [x] `searchByUsername` rejects query shorter than 2 chars.
+- [x] `searchByUsername` returns empty list when no candidates.
+- [x] `searchByUsername` resolves `NONE` relationship when no friendship exists.
+- [x] `sendRequest` rejects self-request.
+- [x] `sendRequest` creates pending request when no prior friendship exists.
+- [x] `sendRequest` rejects when friendship already `ACCEPTED`.
+- [x] `sendRequest` rejects duplicate outgoing pending request.
+- [x] `sendRequest` rejects when incoming pending already exists.
+- [x] `sendRequest` reopens `DECLINED` friendship into new pending request.
+- [x] `acceptRequest` rejects non-addressee user.
+- [x] `acceptRequest` rejects non-pending friendship.
+- [x] `removeFriend` rejects non-accepted friendship and succeeds for accepted one.
 
 `ChatService` (10)
-1. `openOrCreateConversation` rejects chatting with self.
-2. `openOrCreateConversation` rejects non-friends.
-3. `openOrCreateConversation` returns existing conversation if present.
-4. `openOrCreateConversation` creates new conversation if absent.
-5. `listConversations` returns empty when no conversations exist.
-6. `listMessages` rejects cursor from a different conversation.
-7. `listMessages` returns `nextCursor` when page size exceeded.
-8. `sendMessage` rejects when either side is blocked.
-9. `sendMessage` rejects blank/oversized body and accepts trimmed valid body.
-10. `updateSettings` creates default settings row when none exists.
+- [x] `openOrCreateConversation` rejects chatting with self.
+- [x] `openOrCreateConversation` rejects non-friends.
+- [x] `openOrCreateConversation` returns existing conversation if present.
+- [x] `openOrCreateConversation` creates new conversation if absent.
+- [x] `listConversations` returns empty when no conversations exist.
+- [x] `listMessages` rejects cursor from a different conversation.
+- [x] `listMessages` returns `nextCursor` when page size exceeded.
+- [x] `sendMessage` rejects when either side is blocked.
+- [x] `sendMessage` rejects blank/oversized body and accepts trimmed valid body.
+- [x] `updateSettings` creates default settings row when none exists.
 
 `AchievementService` (8)
-1. `recordEvent` no-ops for null learnerId/blank event type.
-2. `recordEvent` no-ops on duplicate idempotency key.
-3. `recordEvent` no-ops when learner not found.
-4. `recordEvent` creates progress row for first matching achievement.
-5. `recordEvent` handles BOOLEAN progress type correctly.
-6. `recordEvent` unlocks achievement when target reached.
-7. `claimAchievementForSupabaseUser` rejects invalid/not-unlocked cases.
-8. `claimAchievementForSupabaseUser` applies XP/gold and calls leaderboard update once.
+- [x] `recordEvent` no-ops for null learnerId/blank event type.
+- [x] `recordEvent` no-ops on duplicate idempotency key.
+- [x] `recordEvent` no-ops when learner not found.
+- [x] `recordEvent` creates progress row for first matching achievement.
+- [x] `recordEvent` handles BOOLEAN progress type correctly.
+- [x] `recordEvent` unlocks achievement when target reached.
+- [x] `claimAchievementForSupabaseUser` rejects invalid/not-unlocked cases.
+- [x] `claimAchievementForSupabaseUser` applies XP/gold and calls leaderboard update once.
 
 ### Phase 2 (Mid ROI)
 

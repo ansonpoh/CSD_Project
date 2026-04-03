@@ -1,16 +1,16 @@
 # Tests To Implement
 
-Current coverage after implementing the original test plan:
+Current coverage after implementing Phases 1-4:
 - `player-service`: instruction 55%, branch 37%
 - `learning-service`: instruction 53%, branch 41%
-- `game-service`: instruction 38%, branch 23%
+- `game-service`: instruction 64%, branch 46%
 
 Goal: prioritize branch-heavy service logic first, then controller/API paths.
 
-Total planned tests: **129**
-- `player-service`: 38
-- `learning-service`: 34
-- `game-service`: 57
+Total planned tests: **197**
+- `player-service`: 70
+- `learning-service`: 56
+- `game-service`: 71
 
 ## Implementation Order
 
@@ -203,22 +203,134 @@ These are the next best game-service tests based on the current JaCoCo gaps. The
 3. [x] `GET /api/internal/encounters/all-npcs-completed` proxies the encounter-service result correctly.
 4. [x] `GET /api/internal/monsters/{monsterId}` returns `"monster"` when a found monster has a null name.
 
+### Phase 5 (Cross-service push toward 70/60)
+
+#### 7) learning-service follow-up — 22 tests
+
+These target the largest remaining instruction and branch gaps in learning-service after the earlier service/unit coverage work.
+
+`AIService` (12)
+1. [x] `generateBody` strips markdown code fences from AI output.
+2. [x] `generateBody` removes trailing commas before closing JSON delimiters.
+3. [x] `screenContent` saves moderation result and approves content when verdict is `APPROVED`.
+4. [x] `screenContent` saves moderation result and rejects content when verdict is `REJECTED`.
+5. [x] `screenContent` leaves content in review state when verdict is `NEEDS_REVIEW`.
+6. [x] `screenContent` falls back to a `NEEDS_REVIEW` moderation result when AI parsing throws.
+7. [x] `reviewReflection` returns the AI verdict and note on successful parse.
+8. [x] `reviewReflection` falls back to `FLAGGED_FOR_REVIEW` when AI parsing throws.
+9. [x] `generateQuizHint` returns fallback hint when prompt is blank or options are insufficient.
+10. [x] `generateQuizHint` resolves correct option indexes from DB options when `questionId` is provided.
+11. [x] `generateQuizHint` falls back to caller-supplied correct indexes when DB options are unavailable.
+12. [x] `generateQuizHint` rejects answer-leaking AI hints and falls back to the safe hint.
+
+`InternalLearningController` (6)
+1. [x] `GET /api/internal/contents/{id}` returns content payload with rating fields when rating lookup succeeds.
+2. [x] `GET /api/internal/contents/{id}` falls back to zero ratings when rating lookup throws.
+3. [x] `POST /api/internal/contents/batch` returns an empty list for null or empty IDs.
+4. [x] `GET /api/internal/topics/{id}` returns `404` when `TopicService` throws `ResourceNotFoundException`.
+5. [x] `GET /api/internal/learning/analytics/{learnerId}` maps quiz summary and mission EXP history into the response.
+6. [x] `GET /api/internal/learning/analytics/{learnerId}` tolerates repository exceptions and still returns a partial `200` response.
+
+`QuestionBankService` follow-up (4)
+1. [x] `getContentSummary` maps game-service content rows into summary DTOs.
+2. [x] `getContentSummary` returns an empty list when game-service lookup throws.
+3. [x] `updateQuestion` replaces old options and recomputes `isMultiSelect`.
+4. [x] `getAllBankQuestions` returns question responses with option payloads and map-name fallback applied.
+
+#### 8) player-service follow-up — 32 tests
+
+These target the remaining high-value gaps in learner analytics, internal APIs, inventory/progress flows, and the still-undercovered friendship/chat logic.
+
+`LearnerService` follow-up (11)
+1. [x] `createLearner` rejects duplicate usernames case-insensitively.
+2. [x] `getBySupabaseUserId` throws `ResourceNotFoundException` when no learner exists.
+3. [x] `awardXpAndGoldBySupabaseUserId` skips `learnerXpRepository.save` when XP delta is zero.
+4. [x] `updateLearner` applies provided fields including `isActive` and still syncs leaderboard.
+5. [x] `getLearnerAnalytics` computes current EXP and EXP-to-next-level correctly from total XP and level.
+6. [x] `getLearnerAnalytics` uses profile streak data when profile state exists.
+7. [x] `getLearnerAnalytics` maps topic progress counts by `COMPLETED`, `IN_PROGRESS`, and `NOT_STARTED`.
+8. [x] `getLearnerAnalytics` builds a 7-day EXP history from sparse `learner_xp` rows.
+9. [x] `getLearnerAnalytics` falls back to zero EXP history when `learnerXpRepository` throws.
+10. [x] `getLearnerAnalytics` applies remote quiz analytics from learning-service when available.
+11. [x] `getLearnerAnalytics` ignores learning-service lookup failures and still returns local analytics.
+
+`LearnerInventoryService` (5)
+1. [x] `getMyInventory` maps learner inventory entities into response DTOs with item details.
+2. [x] `addOrIncrement` creates a new inventory row with default quantity `1` when quantity is null.
+3. [x] `addOrIncrement` increments quantity on an existing inventory row.
+4. [x] `removeOrDecrement` deletes the inventory row when quantity reaches zero or below.
+5. [x] `removeOrDecrement` decrements quantity and keeps the row when items remain.
+
+`LearnerLessonProgressService` (4)
+1. [x] `getMyProgress` maps repository rows into `LessonProgressResponse`.
+2. [x] `enroll` creates a new `ENROLLED` progress row when none exists.
+3. [x] `enroll` preserves `COMPLETED` status when re-enrolling an already completed lesson.
+4. [x] `complete` creates or updates progress, sets timestamps correctly, and records the achievement event.
+
+`InternalPlayerController` (6)
+1. [x] `GET /api/internal/learners/supabase/{supabaseUserId}` returns default `0/1/0` values when learner XP, level, or gold are null.
+2. [x] `POST /api/internal/learners/{learnerId}/award-xp` updates learner stats and leaderboard for a found learner.
+3. [x] `POST /api/internal/progress/check-completed` returns `false` for an empty content list.
+4. [x] `POST /api/internal/progress/check-completed` returns `true` only when completed count meets requested content count.
+5. [x] `POST /api/internal/progress/content-completed/batch` returns an empty list for null or invalid request bodies.
+6. [x] `GET /api/internal/progress/npc-completed` and `GET /api/internal/progress/content-completed` proxy repository booleans correctly.
+
+`FriendshipService` follow-up (3)
+1. [x] `declineRequest` updates status and timestamps for a valid pending request.
+2. [x] `cancelOutgoingRequest` updates status and timestamps for a valid pending request.
+3. [x] `listFriends` filters out inactive learners and sorts remaining friends alphabetically.
+
+`ChatService` follow-up (3)
+1. [x] `listConversations` sorts by last-message timestamp and falls back to `"Unknown"` when the friend record is missing.
+2. [x] `clearConversationMessages` soft-deletes messages and clears `lastMessageAt`.
+3. [x] `updateSettings` rejects self-targeting and updates an existing settings row cleanly.
+
+#### 9) game-service final push — 14 tests
+
+These target the remaining big instruction and branch contributors in game-service after the earlier map/editor/auth work.
+
+`MapService` final follow-up (6)
+1. [x] `getMapCatalog` returns an empty list when no maps exist.
+2. [x] `getMapCatalog` still returns catalog entries when learner lookup fails and the request falls back to anonymous state.
+3. [x] `getMapCatalog` maps average rating, rating count, like count, current-user rating, and current-user liked state correctly.
+4. [x] `getDraft` throws `ResourceNotFoundException` when the draft is owned by another contributor.
+5. [x] `publishApprovedMap` rejects missing `topicId`.
+6. [x] `publishApprovedMap` rejects when topic lookup in learning-service fails.
+
+`EncounterService` follow-up (5)
+1. [x] `getEncounterState` builds NPC summary and monster state from completed content and stored monster progress.
+2. [x] `markNpcInteracted` returns the completed message when the NPC lesson is already completed.
+3. [x] `claimReward` awards boss-monster XP differently from a normal monster.
+4. [x] `getTelemetryDashboard` filters by `mapId` and computes win/loss percentages correctly.
+5. [x] `hasAllNpcsCompletedOnMap` returns `false` when the player-service check throws.
+
+`MapController` follow-up (3)
+1. [x] `GET /api/maps/{mapId}` returns the optional map payload from the service.
+2. [x] `GET /api/maps/world/{worldId}` delegates world filtering correctly.
+3. [x] `GET /api/maps/editor-data/{mapId}` returns the editor runtime payload from the service.
+
 ## Suggested File Mapping (where to add tests)
 
-- `Backend/game-service/src/test/java/com/smu/csd/maps/MapServiceUnitTest.java` (new)
+- `Backend/game-service/src/test/java/com/smu/csd/maps/MapServiceUnitTest.java` (extend)
 - `Backend/game-service/src/test/java/com/smu/csd/maps/MapControllerIntegrationTest.java` (new)
 - `Backend/game-service/src/test/java/com/smu/csd/maps/MapEditorDraftStoreUnitTest.java` (new)
 - `Backend/game-service/src/test/java/com/smu/csd/encounters/EncounterServiceUnitTest.java` (extend)
 - `Backend/game-service/src/test/java/com/smu/csd/npcs/NPCServiceUnitTest.java` (extend)
 - `Backend/game-service/src/test/java/com/smu/csd/security/JwtRoleConverterUnitTest.java` (new)
 - `Backend/game-service/src/test/java/com/smu/csd/InternalGameControllerUnitTest.java` (extend)
-- `Backend/player-service/src/test/java/com/smu/csd/friendship/FriendshipServiceUnitTest.java` (new)
-- `Backend/player-service/src/test/java/com/smu/csd/chat/ChatServiceUnitTest.java` (new)
-- `Backend/player-service/src/test/java/com/smu/csd/achievements/AchievementServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/ai/AIServiceUnitTest.java` (new)
+- `Backend/learning-service/src/test/java/com/smu/csd/InternalLearningControllerUnitTest.java` (extend)
+- `Backend/learning-service/src/test/java/com/smu/csd/quiz/question_bank/QuestionBankServiceUnitTest.java` (extend)
+- `Backend/player-service/src/test/java/com/smu/csd/friendship/FriendshipServiceUnitTest.java` (extend)
+- `Backend/player-service/src/test/java/com/smu/csd/chat/ChatServiceUnitTest.java` (extend)
+- `Backend/player-service/src/test/java/com/smu/csd/achievements/AchievementServiceUnitTest.java` (extend)
 - `Backend/player-service/src/test/java/com/smu/csd/learner_profile/LearnerProfileStateServiceUnitTest.java` (new)
 - `Backend/player-service/src/test/java/com/smu/csd/economy/purchase/PurchaseServiceUnitTest.java` (new)
-- `Backend/learning-service/src/test/java/com/smu/csd/quiz/encounter/QuizServiceUnitTest.java` (new)
-- `Backend/learning-service/src/test/java/com/smu/csd/quiz/question_bank/QuestionBankServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/economy/inventory/LearnerInventoryServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/learner/LearnerServiceUnitTest.java` (extend)
+- `Backend/player-service/src/test/java/com/smu/csd/learner_progress/LearnerLessonProgressServiceUnitTest.java` (new)
+- `Backend/player-service/src/test/java/com/smu/csd/InternalPlayerControllerUnitTest.java` (extend)
+- `Backend/learning-service/src/test/java/com/smu/csd/quiz/encounter/QuizServiceUnitTest.java` (extend)
 - `Backend/learning-service/src/test/java/com/smu/csd/contents/ContentServiceUnitTest.java` (new)
 - `Backend/learning-service/src/test/java/com/smu/csd/contents/flags/ContentFlagServiceUnitTest.java` (new)
 - `Backend/learning-service/src/test/java/com/smu/csd/contents/ratings/ContentRatingServiceUnitTest.java` (new)
@@ -232,3 +344,4 @@ These are the next best game-service tests based on the current JaCoCo gaps. The
 4. Re-run aggregate coverage report.
 5. Finish Phase 3 and re-check for any classes still below 40% instruction or 30% branch.
 6. Implement Phase 4 for game-service, then re-check `MapService`, `MapController`, `MapEditorDraftStore`, `JwtRoleConverter`, and `InternalGameController` specifically.
+7. Implement Phase 5 in the order `learning-service -> player-service -> game-service`, then re-run the aggregate report and re-rank the remaining classes by missed instructions and missed branches.

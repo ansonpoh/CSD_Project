@@ -194,4 +194,94 @@ public class QuestionBankServiceUnitTest {
         assertEquals("Only APPROVED bank questions can be added to a quiz.", exception.getMessage());
         verify(mapQuizQuestionRepository, never()).save(any(MapQuizQuestion.class));
     }
+
+    @Test
+    void getContentSummary_MapsGameServiceContentRowsIntoSummaryDtos() {
+        UUID mapId = UUID.randomUUID();
+        when(restTemplate.getForObject(anyString(), eq(List.class))).thenReturn(List.of(Map.of(
+                "npcName", "Guide",
+                "contentTitle", "Lesson",
+                "contentBody", "Body"
+        )));
+
+        List<MapContentSummaryResponse> result = service.getContentSummary(mapId);
+
+        assertEquals(1, result.size());
+        assertEquals("Guide", result.get(0).npcName());
+        assertEquals("Lesson", result.get(0).contentTitle());
+        assertEquals("Body", result.get(0).contentBody());
+    }
+
+    @Test
+    void getContentSummary_ReturnsEmptyListWhenGameServiceLookupThrows() {
+        when(restTemplate.getForObject(anyString(), eq(List.class))).thenThrow(new RuntimeException("down"));
+
+        List<MapContentSummaryResponse> result = service.getContentSummary(UUID.randomUUID());
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void updateQuestion_ReplacesOldOptionsAndRecomputesIsMultiSelect() {
+        UUID bankQuestionId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        BankQuestion question = BankQuestion.builder()
+                .bankQuestionId(bankQuestionId)
+                .mapId(mapId)
+                .scenarioText("Old")
+                .status(BankQuestion.Status.PENDING_REVIEW)
+                .isMultiSelect(false)
+                .build();
+
+        when(bankQuestionRepository.findById(bankQuestionId)).thenReturn(Optional.of(question));
+        when(bankQuestionRepository.save(any(BankQuestion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bankOptionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenThrow(new RuntimeException("missing"));
+
+        BankQuestionResponse result = service.updateQuestion(bankQuestionId, new BankQuestionRequest(
+                "Updated scenario",
+                false,
+                List.of(
+                        new BankQuestionOptionRequest("A", true),
+                        new BankQuestionOptionRequest("B", true),
+                        new BankQuestionOptionRequest("C", false)
+                )
+        ));
+
+        assertEquals("Updated scenario", result.scenarioText());
+        assertTrue(result.isMultiSelect());
+        assertEquals("Map " + mapId, result.mapName());
+        verify(bankOptionRepository).deleteByBankQuestion_BankQuestionId(bankQuestionId);
+        verify(bankOptionRepository).saveAll(any());
+    }
+
+    @Test
+    void getAllBankQuestions_ReturnsQuestionResponsesWithOptionPayloadsAndMapNameFallbackApplied() {
+        UUID mapId = UUID.randomUUID();
+        UUID bankQuestionId = UUID.randomUUID();
+        BankQuestion question = BankQuestion.builder()
+                .bankQuestionId(bankQuestionId)
+                .mapId(mapId)
+                .scenarioText("Scenario")
+                .status(BankQuestion.Status.APPROVED)
+                .isMultiSelect(false)
+                .build();
+        BankQuestionOption option = BankQuestionOption.builder()
+                .bankOptionId(UUID.randomUUID())
+                .bankQuestion(question)
+                .optionText("Option A")
+                .isCorrect(true)
+                .build();
+
+        when(bankQuestionRepository.findAll()).thenReturn(List.of(question));
+        when(bankOptionRepository.findByBankQuestion_BankQuestionId(bankQuestionId)).thenReturn(List.of(option));
+        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenThrow(new RuntimeException("missing"));
+
+        List<BankQuestionResponse> result = service.getAllBankQuestions();
+
+        assertEquals(1, result.size());
+        assertEquals("Map " + mapId, result.get(0).mapName());
+        assertEquals(1, result.get(0).options().size());
+        assertEquals("Option A", result.get(0).options().get(0).optionText());
+    }
 }

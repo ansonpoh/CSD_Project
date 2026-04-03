@@ -22,9 +22,11 @@ import com.smu.csd.contents.topics.Topic;
 import com.smu.csd.dtos.LearnerDto;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.maps.likes.MapLike;
+import com.smu.csd.maps.likes.MapLikeCountProjection;
 import com.smu.csd.maps.likes.MapLikeRepository;
 import com.smu.csd.maps.ratings.MapRating;
 import com.smu.csd.maps.ratings.MapRatingRepository;
+import com.smu.csd.maps.ratings.MapRatingSummaryProjection;
 import com.smu.csd.roles.Administrator;
 import com.smu.csd.roles.AdministratorRepository;
 import com.smu.csd.roles.Contributor;
@@ -101,6 +103,60 @@ public class MapServiceUnitTest {
         assertEquals(1, result.size());
         assertEquals("Published", result.get(0).getName());
         verify(repository).findByPublishedTrueOrPublishedIsNull();
+    }
+
+    @Test
+    void getMapCatalog_ReturnsEmptyListWhenNoMapsExist() {
+        when(repository.findAll()).thenReturn(List.of());
+
+        List<MapCatalogResponse> result = mapService.getMapCatalog(UUID.randomUUID(), true);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getMapCatalog_StillReturnsCatalogEntriesWhenLearnerLookupFailsAndFallsBackToAnonymousState() {
+        UUID mapId = UUID.randomUUID();
+        Map map = Map.builder().mapId(mapId).name("Anonymous").published(true).build();
+        when(repository.findAll()).thenReturn(List.of(map));
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenThrow(new RuntimeException("player down"));
+        when(mapRatingRepository.summarizeByMapIds(List.of(mapId))).thenReturn(List.of());
+        when(mapLikeRepository.summarizeByMapIds(List.of(mapId))).thenReturn(List.of());
+
+        List<MapCatalogResponse> result = mapService.getMapCatalog(UUID.randomUUID(), true);
+
+        assertEquals(1, result.size());
+        assertEquals(mapId, result.get(0).mapId());
+        assertEquals(null, result.get(0).currentUserRating());
+        assertEquals(false, result.get(0).currentUserLiked());
+        verify(mapRatingRepository, never()).findAllByLearnerIdAndMapMapIdIn(any(), anyList());
+        verify(mapLikeRepository, never()).findAllByLearnerIdAndMapMapIdIn(any(), anyList());
+    }
+
+    @Test
+    void getMapCatalog_MapsAverageRatingRatingCountLikeCountCurrentUserRatingAndLikedStateCorrectly() {
+        UUID supabaseUserId = UUID.randomUUID();
+        UUID learnerId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        Map map = Map.builder().mapId(mapId).name("Rated").published(true).build();
+        MapRating currentRating = MapRating.builder().map(map).learnerId(learnerId).rating(4).build();
+        MapLike currentLike = MapLike.builder().map(map).learnerId(learnerId).build();
+
+        when(repository.findAll()).thenReturn(List.of(map));
+        stubLearner(supabaseUserId, learnerId);
+        when(mapRatingRepository.summarizeByMapIds(List.of(mapId))).thenReturn(List.of(ratingSummary(mapId, 4.236, 9L)));
+        when(mapLikeRepository.summarizeByMapIds(List.of(mapId))).thenReturn(List.of(likeCount(mapId, 6L)));
+        when(mapRatingRepository.findAllByLearnerIdAndMapMapIdIn(learnerId, List.of(mapId))).thenReturn(List.of(currentRating));
+        when(mapLikeRepository.findAllByLearnerIdAndMapMapIdIn(learnerId, List.of(mapId))).thenReturn(List.of(currentLike));
+
+        List<MapCatalogResponse> result = mapService.getMapCatalog(supabaseUserId, true);
+
+        assertEquals(1, result.size());
+        assertEquals(4.24, result.get(0).averageRating());
+        assertEquals(9L, result.get(0).ratingCount());
+        assertEquals(6L, result.get(0).likeCount());
+        assertEquals(4, result.get(0).currentUserRating());
+        assertEquals(true, result.get(0).currentUserLiked());
     }
 
     @Test
@@ -578,6 +634,57 @@ public class MapServiceUnitTest {
         assertEquals(adminId, published.getPublishedByAdmin().getAdministratorId());
     }
 
+    @Test
+    void getDraft_ThrowsResourceNotFoundExceptionWhenDraftIsOwnedByAnotherContributor() {
+        UUID ownerSupabaseUserId = UUID.randomUUID();
+        UUID currentContributorId = UUID.randomUUID();
+        UUID otherContributorId = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        Contributor currentContributor = Contributor.builder().contributorId(currentContributorId).build();
+        Contributor owner = Contributor.builder().contributorId(otherContributorId).build();
+        MapDraft draft = MapDraft.builder().mapDraftId(draftId).contributor(owner).build();
+
+        when(contributorRepository.findBySupabaseUserId(ownerSupabaseUserId)).thenReturn(Optional.of(currentContributor));
+        when(mapDraftRepository.findById(draftId)).thenReturn(Optional.of(draft));
+
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> mapService.getDraft(ownerSupabaseUserId, draftId)
+        );
+
+        assertEquals("MapDraft not found with draftId: " + draftId, exception.getMessage());
+    }
+
+    @Test
+    void publishApprovedMap_RejectsMissingTopicId() {
+        UUID adminSupabaseUserId = UUID.randomUUID();
+        when(administratorRepository.findBySupabaseUserId(adminSupabaseUserId))
+                .thenReturn(Optional.of(Administrator.builder().administratorId(UUID.randomUUID()).build()));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> mapService.publishApprovedMap(UUID.randomUUID(), adminSupabaseUserId, null)
+        );
+
+        assertEquals("topicId is required.", exception.getMessage());
+    }
+
+    @Test
+    void publishApprovedMap_RejectsWhenTopicLookupInLearningServiceFails() {
+        UUID adminSupabaseUserId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        when(administratorRepository.findBySupabaseUserId(adminSupabaseUserId))
+                .thenReturn(Optional.of(Administrator.builder().administratorId(UUID.randomUUID()).build()));
+        when(restTemplate.getForObject(contains("/api/internal/topics/"), any(Class.class))).thenThrow(new RuntimeException("404"));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> mapService.publishApprovedMap(UUID.randomUUID(), adminSupabaseUserId, topicId)
+        );
+
+        assertEquals("Topic not found in learning-service.", exception.getMessage());
+    }
+
     private void stubLearner(UUID supabaseUserId, UUID learnerId) {
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(new LearnerDto(learnerId, 10, 1, 0));
     }
@@ -598,5 +705,38 @@ public class MapServiceUnitTest {
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private MapRatingSummaryProjection ratingSummary(UUID mapId, double averageRating, long ratingCount) {
+        return new MapRatingSummaryProjection() {
+            @Override
+            public UUID getMapId() {
+                return mapId;
+            }
+
+            @Override
+            public Double getAverageRating() {
+                return averageRating;
+            }
+
+            @Override
+            public Long getRatingCount() {
+                return ratingCount;
+            }
+        };
+    }
+
+    private MapLikeCountProjection likeCount(UUID mapId, long likeCount) {
+        return new MapLikeCountProjection() {
+            @Override
+            public UUID getMapId() {
+                return mapId;
+            }
+
+            @Override
+            public Long getLikeCount() {
+                return likeCount;
+            }
+        };
     }
 }

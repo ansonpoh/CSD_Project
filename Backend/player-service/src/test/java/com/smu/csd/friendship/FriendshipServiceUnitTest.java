@@ -257,6 +257,67 @@ public class FriendshipServiceUnitTest {
         verify(friendshipRepository).save(any(Friendship.class));
     }
 
+    @Test
+    void declineRequest_UpdatesStatusAndTimestampsForAValidPendingRequest() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        Learner addressee = learner(UUID.randomUUID(), "addressee");
+        Learner requester = learner(UUID.randomUUID(), "requester");
+        Friendship friendship = friendship(UUID.randomUUID(), requester.getLearnerId(), addressee.getLearnerId(), FriendshipStatus.PENDING);
+
+        stubCurrentLearner(supabaseUserId, addressee);
+        when(friendshipRepository.findById(friendship.getFriendshipId())).thenReturn(Optional.of(friendship));
+        when(friendshipRepository.save(any(Friendship.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubRequestSummaries(requester, addressee);
+
+        FriendRequestDto result = service.declineRequest(supabaseUserId, friendship.getFriendshipId());
+
+        assertEquals("DECLINED", result.status());
+        assertEquals(FriendshipStatus.DECLINED, friendship.getStatus());
+        assertTrue(friendship.getRespondedAt() != null);
+    }
+
+    @Test
+    void cancelOutgoingRequest_UpdatesStatusAndTimestampsForAValidPendingRequest() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        Learner requester = learner(UUID.randomUUID(), "requester");
+        Learner addressee = learner(UUID.randomUUID(), "addressee");
+        Friendship friendship = friendship(UUID.randomUUID(), requester.getLearnerId(), addressee.getLearnerId(), FriendshipStatus.PENDING);
+
+        stubCurrentLearner(supabaseUserId, requester);
+        when(friendshipRepository.findById(friendship.getFriendshipId())).thenReturn(Optional.of(friendship));
+        when(friendshipRepository.save(any(Friendship.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.cancelOutgoingRequest(supabaseUserId, friendship.getFriendshipId());
+
+        assertEquals(FriendshipStatus.CANCELED, friendship.getStatus());
+        assertTrue(friendship.getRespondedAt() != null);
+        verify(friendshipRepository).save(friendship);
+    }
+
+    @Test
+    void listFriends_FiltersOutInactiveLearnersAndSortsRemainingFriendsAlphabetically() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        Learner current = learner(UUID.randomUUID(), "current");
+        Learner zed = learner(UUID.randomUUID(), "zed");
+        Learner amy = learner(UUID.randomUUID(), "Amy");
+        Learner inactive = learner(UUID.randomUUID(), "ghost");
+        inactive.setIs_active(false);
+
+        stubCurrentLearner(supabaseUserId, current);
+        when(friendshipRepository.findAcceptedForLearner(current.getLearnerId())).thenReturn(List.of(
+                friendship(UUID.randomUUID(), current.getLearnerId(), zed.getLearnerId(), FriendshipStatus.ACCEPTED),
+                friendship(UUID.randomUUID(), current.getLearnerId(), amy.getLearnerId(), FriendshipStatus.ACCEPTED),
+                friendship(UUID.randomUUID(), current.getLearnerId(), inactive.getLearnerId(), FriendshipStatus.ACCEPTED)
+        ));
+        when(learnerRepository.findAllById(anyCollection())).thenReturn(List.of(zed, amy, inactive));
+
+        List<FriendUserSummaryDto> result = service.listFriends(supabaseUserId);
+
+        assertEquals(2, result.size());
+        assertEquals("Amy", result.get(0).username());
+        assertEquals("zed", result.get(1).username());
+    }
+
     private void stubCurrentLearner(UUID supabaseUserId) {
         stubCurrentLearner(supabaseUserId, learner(UUID.randomUUID(), "current"));
     }

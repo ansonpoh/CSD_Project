@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageRequest;
 
 import com.smu.csd.friendship.Friendship;
@@ -247,6 +248,80 @@ public class ChatServiceUnitTest {
         assertFalse(result.isMuted());
         assertFalse(result.isBlocked());
         verify(chatUserSettingsRepository).save(any(ChatUserSettings.class));
+    }
+
+    @Test
+    void listConversations_SortsByLastMessageTimestampAndFallsBackToUnknownWhenFriendRecordIsMissing() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        Learner current = learner(UUID.randomUUID(), "current");
+        Learner known = learner(UUID.randomUUID(), "known");
+        UUID missingLearnerId = UUID.randomUUID();
+        ChatConversation older = conversation(UUID.randomUUID(), current.getLearnerId(), known.getLearnerId());
+        older.setLastMessageAt(LocalDateTime.now().minusHours(2));
+        ChatConversation newer = conversation(UUID.randomUUID(), current.getLearnerId(), missingLearnerId);
+        newer.setLastMessageAt(LocalDateTime.now().minusMinutes(30));
+
+        when(learnerRepository.findBySupabaseUserId(supabaseUserId)).thenReturn(current);
+        when(chatConversationRepository.findAllForLearner(current.getLearnerId())).thenReturn(List.of(older, newer));
+        when(learnerRepository.findAllById(anyCollection())).thenReturn(List.of(known));
+        when(chatUserSettingsRepository.findByOwnerLearnerIdAndTargetLearnerIdIn(eq(current.getLearnerId()), anyCollection())).thenReturn(List.of());
+        when(chatMessageRepository.findLatestByConversationIds(anyCollection())).thenReturn(List.of());
+
+        List<ChatConversationSummaryDto> result = service.listConversations(supabaseUserId);
+
+        assertEquals(2, result.size());
+        assertEquals("Unknown", result.get(0).friend().username());
+        assertEquals("known", result.get(1).friend().username());
+    }
+
+    @Test
+    void clearConversationMessages_SoftDeletesMessagesAndClearsLastMessageAt() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        Learner current = learner(UUID.randomUUID(), "current");
+        Learner friend = learner(UUID.randomUUID(), "friend");
+        ChatConversation conversation = conversation(UUID.randomUUID(), current.getLearnerId(), friend.getLearnerId());
+        conversation.setLastMessageAt(LocalDateTime.now());
+
+        when(learnerRepository.findBySupabaseUserId(supabaseUserId)).thenReturn(current);
+        when(chatConversationRepository.findById(conversation.getChatConversationId())).thenReturn(Optional.of(conversation));
+        when(chatConversationRepository.save(any(ChatConversation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.clearConversationMessages(supabaseUserId, conversation.getChatConversationId());
+
+        verify(chatMessageRepository).softDeleteConversationMessages(eq(conversation.getChatConversationId()), any(LocalDateTime.class));
+        assertEquals(null, conversation.getLastMessageAt());
+    }
+
+    @Test
+    void updateSettings_RejectsSelfTargetingAndUpdatesAnExistingSettingsRowCleanly() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        Learner current = learner(UUID.randomUUID(), "current");
+        Learner target = learner(UUID.randomUUID(), "target");
+        ChatUserSettings existing = ChatUserSettings.builder()
+                .chatUserSettingId(UUID.randomUUID())
+                .ownerLearnerId(current.getLearnerId())
+                .targetLearnerId(target.getLearnerId())
+                .isMuted(false)
+                .isBlocked(false)
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .build();
+
+        when(learnerRepository.findBySupabaseUserId(supabaseUserId)).thenReturn(current);
+        when(learnerRepository.findById(current.getLearnerId())).thenReturn(Optional.of(current));
+        assertThrows(IllegalArgumentException.class, () -> service.updateSettings(supabaseUserId, current.getLearnerId(), true, true));
+
+        when(learnerRepository.findById(target.getLearnerId())).thenReturn(Optional.of(target));
+        when(chatUserSettingsRepository.findByOwnerLearnerIdAndTargetLearnerId(current.getLearnerId(), target.getLearnerId()))
+                .thenReturn(Optional.of(existing));
+        when(chatUserSettingsRepository.save(any(ChatUserSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChatSettingsDto result = service.updateSettings(supabaseUserId, target.getLearnerId(), true, false);
+
+        ArgumentCaptor<ChatUserSettings> captor = ArgumentCaptor.forClass(ChatUserSettings.class);
+        verify(chatUserSettingsRepository).save(captor.capture());
+        assertTrue(result.isMuted());
+        assertFalse(result.isBlocked());
+        assertEquals(existing.getChatUserSettingId(), captor.getValue().getChatUserSettingId());
     }
 
     private Learner learner(UUID id, String username) {

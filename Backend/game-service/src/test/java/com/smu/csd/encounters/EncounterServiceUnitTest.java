@@ -25,6 +25,8 @@ import com.smu.csd.dtos.LearnerDto;
 import com.smu.csd.encounters.dtos.EncounterCombatResultRequestDto;
 import com.smu.csd.encounters.dtos.EncounterCombatResultResponseDto;
 import com.smu.csd.encounters.dtos.EncounterClaimRewardResponseDto;
+import com.smu.csd.encounters.dtos.EncounterStateDto;
+import com.smu.csd.encounters.dtos.EncounterTelemetryDashboardDto;
 import com.smu.csd.maps.MapRepository;
 import com.smu.csd.monsters.Monster;
 import com.smu.csd.monsters.MonsterService;
@@ -349,5 +351,139 @@ public class EncounterServiceUnitTest {
         assertEquals(50, result.learnerGold());
         verify(restTemplate, never()).postForObject(anyString(), any(), eq(LearnerDto.class));
         verify(monsterProgressRepository, never()).save(any(MonsterProgress.class));
+    }
+
+    @Test
+    void getEncounterState_BuildsNpcSummaryAndMonsterStateFromCompletedContentAndStoredMonsterProgress() {
+        UUID supabaseUserId = UUID.randomUUID();
+        UUID learnerId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID completedContentId = UUID.randomUUID();
+        UUID incompleteContentId = UUID.randomUUID();
+        UUID completedNpcId = UUID.randomUUID();
+        UUID incompleteNpcId = UUID.randomUUID();
+        UUID normalMonsterId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID bossMonsterId = UUID.fromString("00000000-0000-0000-0000-0000000000ff");
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(new LearnerDto(learnerId, 0, 1, 0));
+        when(npcService.getNPCsByMapId(mapId)).thenReturn(List.of(
+                new NPCMapLessonResponse(completedNpcId, "Guide", "asset", completedContentId, "Title", "Body", UUID.randomUUID(), "Topic", null, null, null, null),
+                new NPCMapLessonResponse(incompleteNpcId, "Guide2", "asset", incompleteContentId, "Title", "Body", UUID.randomUUID(), "Topic", null, null, null, null)
+        ));
+        when(monsterService.getMonstersByMapId(mapId)).thenReturn(List.of(
+                Monster.builder().monsterId(normalMonsterId).name("Normal").build(),
+                Monster.builder().monsterId(bossMonsterId).name("Boss").build()
+        ));
+        when(restTemplate.postForObject(anyString(), any(), eq(UUID[].class))).thenReturn(new UUID[] { completedContentId });
+        when(monsterProgressRepository.findAllByLearnerIdAndMapMapId(learnerId, mapId)).thenReturn(List.of(
+                MonsterProgress.builder()
+                        .learnerId(learnerId)
+                        .map(com.smu.csd.maps.Map.builder().mapId(mapId).build())
+                        .monster(Monster.builder().monsterId(normalMonsterId).name("Normal").build())
+                        .attempts(2)
+                        .wins(1)
+                        .losses(1)
+                        .lossStreak(0)
+                        .monsterDefeated(true)
+                        .rewardClaimed(false)
+                        .build()
+        ));
+
+        EncounterStateDto result = encounterService.getEncounterState(mapId, supabaseUserId);
+
+        assertEquals(2, result.npc().total());
+        assertEquals(1, result.npc().completed());
+        assertTrue(result.npc().completedNpcIds().contains(completedNpcId));
+        assertFalse(result.npc().allCompleted());
+        assertEquals(2, result.monsters().size());
+        assertTrue(result.monsters().stream().anyMatch(monster -> monster.monsterId().equals(normalMonsterId) && monster.monsterDefeated() && monster.attempts() == 2));
+        assertTrue(result.monsters().stream().anyMatch(monster -> monster.monsterId().equals(bossMonsterId) && monster.boss()));
+    }
+
+    @Test
+    void markNpcInteracted_ReturnsTheCompletedMessageWhenTheNpcLessonIsAlreadyCompleted() {
+        UUID supabaseUserId = UUID.randomUUID();
+        UUID learnerId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID npcId = UUID.randomUUID();
+        UUID contentId = UUID.randomUUID();
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(new LearnerDto(learnerId, 0, 1, 0));
+        when(restTemplate.getForObject(anyString(), eq(Boolean.class))).thenReturn(true);
+        when(npcService.getNPCsByMapId(mapId)).thenReturn(List.of(
+                new NPCMapLessonResponse(npcId, "Guide", "asset", contentId, "Title", "Body", UUID.randomUUID(), "Topic", null, null, null, null)
+        ));
+        when(monsterService.getMonstersByMapId(mapId)).thenReturn(List.of());
+        when(restTemplate.postForObject(anyString(), any(), eq(UUID[].class))).thenReturn(new UUID[] { contentId });
+        when(monsterProgressRepository.findAllByLearnerIdAndMapMapId(learnerId, mapId)).thenReturn(List.of());
+
+        String message = encounterService.markNpcInteracted(mapId, npcId, supabaseUserId).message();
+
+        assertEquals("NPC lesson is completed.", message);
+    }
+
+    @Test
+    void claimReward_AwardsNormalMonsterXpDifferentlyFromBossMonsters() {
+        UUID supabaseUserId = UUID.randomUUID();
+        UUID learnerId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID normalMonsterId = UUID.randomUUID();
+        UUID bossMonsterId = UUID.randomUUID();
+        LearnerDto learner = new LearnerDto(learnerId, 10, 1, 5);
+        LearnerDto updatedLearner = new LearnerDto(learnerId, 100, 2, 105);
+        Monster normal = Monster.builder().monsterId(normalMonsterId).name("Normal").build();
+        Monster boss = Monster.builder().monsterId(bossMonsterId).name("Boss").build();
+        MonsterProgress progress = MonsterProgress.builder()
+                .learnerId(learnerId)
+                .map(com.smu.csd.maps.Map.builder().mapId(mapId).build())
+                .monster(normal)
+                .monsterDefeated(true)
+                .rewardClaimed(false)
+                .build();
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
+        when(monsterService.getMonstersByMapId(mapId)).thenReturn(List.of(normal, boss));
+        when(monsterProgressRepository.findByLearnerIdAndMapMapIdAndMonsterMonsterId(learnerId, mapId, normalMonsterId)).thenReturn(Optional.of(progress));
+        when(restTemplate.postForObject(anyString(), any(), eq(LearnerDto.class))).thenReturn(updatedLearner);
+        when(monsterProgressRepository.save(any(MonsterProgress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EncounterClaimRewardResponseDto result = encounterService.claimReward(mapId, normalMonsterId, supabaseUserId);
+
+        assertEquals(90, result.xpAwarded());
+        assertEquals(100, result.goldAwarded());
+    }
+
+    @Test
+    void getTelemetryDashboard_FiltersByMapIdAndComputesWinLossPercentagesCorrectly() {
+        UUID mapId = UUID.randomUUID();
+        UUID otherMapId = UUID.randomUUID();
+        when(monsterProgressRepository.findAll()).thenReturn(List.of(
+                MonsterProgress.builder().map(com.smu.csd.maps.Map.builder().mapId(mapId).build()).attempts(2).wins(1).losses(1).rewardClaimed(true).build(),
+                MonsterProgress.builder().map(com.smu.csd.maps.Map.builder().mapId(mapId).build()).attempts(1).wins(1).losses(0).rewardClaimed(false).build(),
+                MonsterProgress.builder().map(com.smu.csd.maps.Map.builder().mapId(otherMapId).build()).attempts(3).wins(0).losses(3).rewardClaimed(true).build()
+        ));
+
+        EncounterTelemetryDashboardDto result = encounterService.getTelemetryDashboard(mapId);
+
+        assertEquals(2, result.combatStarted());
+        assertEquals(2, result.combatWon());
+        assertEquals(1, result.combatLost());
+        assertEquals(1, result.rewardClaimed());
+        assertEquals(100.0, result.winRate());
+        assertEquals(50.0, result.lossRate());
+    }
+
+    @Test
+    void hasAllNpcsCompletedOnMap_ReturnsFalseWhenThePlayerServiceCheckThrows() {
+        UUID learnerId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID contentId = UUID.randomUUID();
+
+        when(npcService.getNPCsByMapId(mapId)).thenReturn(List.of(
+                new NPCMapLessonResponse(UUID.randomUUID(), "Guide", "asset", contentId, "Title", "Body", UUID.randomUUID(), "Topic", null, null, null, null)
+        ));
+        when(restTemplate.postForEntity(anyString(), any(), eq(Boolean.class))).thenThrow(new RuntimeException("down"));
+
+        assertFalse(encounterService.hasAllNpcsCompletedOnMap(learnerId, mapId));
     }
 }

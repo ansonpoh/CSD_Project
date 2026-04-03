@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -154,5 +155,52 @@ class MapControllerIntegrationTest {
                 .andExpect(jsonPath("$.name").value("Published"));
 
         verify(mapService).submitDraft(userId, draftId, request);
+    }
+
+    @Test
+    void getMapById_ReturnsTheOptionalMapPayloadFromTheService() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        Map map = Map.builder().mapId(mapId).name("Direct Map").build();
+        when(mapService.getMapById(mapId)).thenReturn(Optional.of(map));
+
+        mockMvc.perform(get("/api/maps/{mapId}", mapId)
+                        .with(jwt().jwt(jwt -> jwt.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_LEARNER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Direct Map"));
+    }
+
+    @Test
+    void getMapsByWorldId_DelegatesWorldFilteringCorrectly() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID worldId = UUID.randomUUID();
+        when(mapService.getMapsByWorldId(worldId)).thenReturn(List.of(
+                Map.builder().mapId(UUID.randomUUID()).name("World Map").build()
+        ));
+
+        mockMvc.perform(get("/api/maps/world/{worldId}", worldId)
+                        .with(jwt().jwt(jwt -> jwt.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_LEARNER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("World Map"));
+
+        verify(mapService).getMapsByWorldId(worldId);
+    }
+
+    @Test
+    void getEditorRuntimeData_ReturnsTheEditorRuntimePayloadFromTheService() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        when(mapService.getEditorRuntimeData(mapId)).thenReturn(java.util.Map.of("previewUnavailable", false, "layers", List.of("ground")));
+
+        mockMvc.perform(get("/api/maps/editor-data/{mapId}", mapId)
+                        .with(jwt().jwt(jwt -> jwt.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_LEARNER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.previewUnavailable").value(false))
+                .andExpect(jsonPath("$.layers[0]").value("ground"));
+
+        verify(mapService).getEditorRuntimeData(mapId);
     }
 }

@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -372,6 +373,209 @@ public class MapServiceUnitTest {
         assertEquals(topicId, published.getTopic().getTopicId());
         assertEquals(adminId, published.getPublishedByAdmin().getAdministratorId());
         assertNotNull(published.getPublishedAt());
+    }
+
+    @Test
+    void getEditorRuntimeData_ReturnsPersistedMapDataWhenPresent() throws Exception {
+        UUID mapId = UUID.randomUUID();
+        com.fasterxml.jackson.databind.node.ObjectNode mapData = objectMapper.createObjectNode();
+        mapData.put("foo", "bar");
+        Map map = Map.builder().mapId(mapId).mapData(mapData).build();
+
+        when(repository.findById(mapId)).thenReturn(Optional.of(map));
+
+        Object result = mapService.getEditorRuntimeData(mapId);
+
+        assertTrue(result instanceof java.util.Map);
+        java.util.Map<?, ?> output = (java.util.Map<?, ?>) result;
+        assertEquals("bar", output.get("foo"));
+        verify(mapSubmissionRepository, never()).findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(any(UUID.class));
+    }
+
+    @Test
+    void getEditorRuntimeData_FallsBackToLatestSubmissionSnapshotWhenMapDataMissing() throws Exception {
+        UUID mapId = UUID.randomUUID();
+        com.fasterxml.jackson.databind.node.ObjectNode snapshotData = objectMapper.createObjectNode();
+        snapshotData.put("snapshot", true);
+        Map map = Map.builder().mapId(mapId).mapData(null).build();
+        MapSubmission submission = MapSubmission.builder().mapData(snapshotData).build();
+
+        when(repository.findById(mapId)).thenReturn(Optional.of(map));
+        when(mapSubmissionRepository.findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(mapId))
+                .thenReturn(Optional.of(submission));
+
+        Object result = mapService.getEditorRuntimeData(mapId);
+
+        assertTrue(result instanceof java.util.Map);
+        java.util.Map<?, ?> output = (java.util.Map<?, ?>) result;
+        assertEquals(Boolean.TRUE, output.get("snapshot"));
+        verify(mapDraftRepository, never()).findById(any());
+    }
+
+    @Test
+    void getEditorRuntimeData_FallsBackToLinkedDraftPayloadWhenAssetReferencesDraft() throws Exception {
+        UUID mapId = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        com.fasterxml.jackson.databind.node.ObjectNode draftData = objectMapper.createObjectNode();
+        draftData.put("draft", "payload");
+        Map map = Map.builder().mapId(mapId).mapData(null).asset("editor-draft:" + draftId).build();
+        MapDraft draft = MapDraft.builder().mapDraftId(draftId).mapData(draftData).build();
+
+        when(repository.findById(mapId)).thenReturn(Optional.of(map));
+        when(mapSubmissionRepository.findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(mapId))
+                .thenReturn(Optional.empty());
+        when(mapDraftRepository.findById(draftId)).thenReturn(Optional.of(draft));
+
+        Object result = mapService.getEditorRuntimeData(mapId);
+
+        assertTrue(result instanceof java.util.Map);
+        java.util.Map<?, ?> output = (java.util.Map<?, ?>) result;
+        assertEquals("payload", output.get("draft"));
+    }
+
+    @Test
+    void getEditorRuntimeData_ReturnsPreviewUnavailablePayloadWhenNoSourcesExist() throws Exception {
+        UUID mapId = UUID.randomUUID();
+        Map map = Map.builder().mapId(mapId).mapData(null).asset(null).build();
+
+        when(repository.findById(mapId)).thenReturn(Optional.of(map));
+        when(mapSubmissionRepository.findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(mapId))
+                .thenReturn(Optional.empty());
+
+        Object result = mapService.getEditorRuntimeData(mapId);
+
+        assertTrue(result instanceof java.util.Map);
+        java.util.Map<?, ?> output = (java.util.Map<?, ?>) result;
+        assertEquals(Boolean.TRUE, output.get("previewUnavailable"));
+        assertEquals(mapId, output.get("mapId"));
+    }
+
+    @Test
+    void submitDraft_ConvertsEditorPayloadToTiledJsonBeforeSaving() {
+        UUID ownerSupabaseUserId = UUID.randomUUID();
+        UUID contributorId = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        Contributor contributor = Contributor.builder().contributorId(contributorId).build();
+        com.fasterxml.jackson.databind.node.ObjectNode layers = objectMapper.createObjectNode();
+        layers.set("ground", objectMapper.valueToTree(List.of(List.of(0, 1))));
+        layers.set("decor", objectMapper.valueToTree(List.of(List.of(2, 3))));
+        layers.set("collision", objectMapper.valueToTree(List.of(List.of(4, 5))));
+        com.fasterxml.jackson.databind.node.ObjectNode editorPayload = objectMapper.createObjectNode();
+        editorPayload.set("layers", layers);
+        editorPayload.put("width", 2);
+        editorPayload.put("height", 1);
+        editorPayload.put("tileSize", 16);
+        MapDraft draft = MapDraft.builder()
+                .mapDraftId(draftId)
+                .contributor(contributor)
+                .name("Editor Draft")
+                .description("Draft Description")
+                .mapData(editorPayload)
+                .build();
+
+        when(contributorRepository.findBySupabaseUserId(ownerSupabaseUserId)).thenReturn(Optional.of(contributor));
+        when(mapDraftRepository.findById(draftId)).thenReturn(Optional.of(draft));
+        when(entityManager.getReference(eq(Contributor.class), eq(contributorId))).thenReturn(contributor);
+        when(repository.save(any(Map.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(mapSubmissionRepository.findTopByMapDraft_MapDraftIdAndContributor_ContributorIdOrderBySubmittedAtDescCreatedAtDesc(draftId, contributorId))
+                .thenReturn(Optional.empty());
+
+        Map saved = mapService.submitDraft(ownerSupabaseUserId, draftId, new MapEditorDraftStore.PublishDraftRequest(null, null));
+
+        assertEquals("editor-draft:" + draftId, saved.getAsset());
+        assertTrue(saved.getMapData().has("layers"));
+        assertEquals(3, saved.getMapData().get("layers").size());
+        assertTrue(saved.getMapData().has("tilesets"));
+        assertEquals("map", saved.getMapData().get("type").asText());
+        verify(mapSubmissionRepository).save(any(MapSubmission.class));
+    }
+
+    @Test
+    void submitDraft_PreservesAlreadyTiledPayloadWithoutReconversion() {
+        UUID ownerSupabaseUserId = UUID.randomUUID();
+        UUID contributorId = UUID.randomUUID();
+        UUID draftId = UUID.randomUUID();
+        Contributor contributor = Contributor.builder().contributorId(contributorId).build();
+        com.fasterxml.jackson.databind.node.ObjectNode tiledPayload = objectMapper.createObjectNode();
+        tiledPayload.put("type", "map");
+        tiledPayload.putArray("layers").add(objectMapper.createObjectNode().put("name", "ground"));
+        tiledPayload.putArray("tilesets").add(objectMapper.createObjectNode().put("name", "tiles"));
+        MapDraft draft = MapDraft.builder()
+                .mapDraftId(draftId)
+                .contributor(contributor)
+                .name("Tiled Draft")
+                .description("Already tiled")
+                .mapData(tiledPayload)
+                .build();
+
+        when(contributorRepository.findBySupabaseUserId(ownerSupabaseUserId)).thenReturn(Optional.of(contributor));
+        when(mapDraftRepository.findById(draftId)).thenReturn(Optional.of(draft));
+        when(entityManager.getReference(eq(Contributor.class), eq(contributorId))).thenReturn(contributor);
+        when(repository.save(any(Map.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(mapSubmissionRepository.findTopByMapDraft_MapDraftIdAndContributor_ContributorIdOrderBySubmittedAtDescCreatedAtDesc(draftId, contributorId))
+                .thenReturn(Optional.empty());
+
+        Map saved = mapService.submitDraft(ownerSupabaseUserId, draftId, new MapEditorDraftStore.PublishDraftRequest(null, null));
+
+        assertTrue(saved.getMapData().equals(tiledPayload));
+        verify(repository).save(argThat(map -> map != null && map.getMapData() != null && map.getMapData().equals(tiledPayload)));
+    }
+
+    @Test
+    void approveMap_SyncsMapDataFromLatestSubmissionWhenMissing() {
+        UUID adminSupabaseUserId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        com.fasterxml.jackson.databind.node.ObjectNode submittedData = objectMapper.createObjectNode();
+        submittedData.put("synced", true);
+        Administrator admin = Administrator.builder().administratorId(adminId).build();
+        Map map = Map.builder().mapId(mapId).status(Map.Status.PENDING_REVIEW).mapData(null).build();
+        MapSubmission submission = MapSubmission.builder().mapData(submittedData).build();
+
+        when(administratorRepository.findBySupabaseUserId(adminSupabaseUserId)).thenReturn(Optional.of(admin));
+        when(repository.findById(mapId)).thenReturn(Optional.of(map));
+        when(mapSubmissionRepository.findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(mapId))
+                .thenReturn(Optional.of(submission));
+        when(entityManager.getReference(Administrator.class, adminId)).thenReturn(admin);
+        when(repository.save(any(Map.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Map approved = mapService.approveMap(mapId, adminSupabaseUserId);
+
+        assertEquals(Map.Status.APPROVED, approved.getStatus());
+        assertTrue(approved.getMapData().equals(submittedData));
+        assertEquals(adminId, approved.getApprovedByAdmin().getAdministratorId());
+    }
+
+    @Test
+    void publishApprovedMap_SyncsMapDataFromLatestSubmissionWhenMissing() {
+        UUID adminSupabaseUserId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID topicId = UUID.randomUUID();
+        com.fasterxml.jackson.databind.node.ObjectNode submittedData = objectMapper.createObjectNode();
+        submittedData.put("synced", true);
+        Administrator admin = Administrator.builder().administratorId(adminId).build();
+        Topic topic = Topic.builder().topicId(topicId).topicName("Topic").build();
+        Map map = Map.builder().mapId(mapId).status(Map.Status.APPROVED).published(false).mapData(null).build();
+        MapSubmission submission = MapSubmission.builder().mapData(submittedData).build();
+
+        when(administratorRepository.findBySupabaseUserId(adminSupabaseUserId)).thenReturn(Optional.of(admin));
+        when(repository.findById(mapId)).thenReturn(Optional.of(map));
+        when(mapSubmissionRepository.findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(mapId))
+                .thenReturn(Optional.of(submission));
+        doReturn(reflectedTopicLookup(topicId, "Topic", "Description"))
+                .when(restTemplate)
+                .getForObject(contains("/api/internal/topics/"), any(Class.class));
+        when(entityManager.getReference(Administrator.class, adminId)).thenReturn(admin);
+        when(entityManager.getReference(Topic.class, topicId)).thenReturn(topic);
+        when(repository.save(any(Map.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Map published = mapService.publishApprovedMap(mapId, adminSupabaseUserId, topicId);
+
+        assertTrue(published.getPublished());
+        assertTrue(published.getMapData().equals(submittedData));
+        assertEquals(topicId, published.getTopic().getTopicId());
+        assertEquals(adminId, published.getPublishedByAdmin().getAdministratorId());
     }
 
     private void stubLearner(UUID supabaseUserId, UUID learnerId) {

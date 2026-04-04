@@ -1,4 +1,5 @@
 import { HUD } from './constants.js';
+import { transitionToScene } from '../shared/sceneTransition.js';
 
 function createHudButton(scene, cx, cy, label, fillNormal, fillHover, onClick) {
   const width = 120;
@@ -59,11 +60,11 @@ export const uiMethods = {
   handleBackNavigation() {
     const returnSceneKey = this.mapConfig?.returnSceneKey;
     if (returnSceneKey) {
-      this.scene.start(returnSceneKey);
+      transitionToScene(this, returnSceneKey);
       return;
     }
 
-    this.scene.start('WorldMapScene', { selectedMapId: this.mapConfig?.mapId || this.mapConfig?.id });
+    transitionToScene(this, 'WorldMapScene', { selectedMapId: this.mapConfig?.mapId || this.mapConfig?.id });
   },
 
   layoutMissionPanel() {

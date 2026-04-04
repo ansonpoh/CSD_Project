@@ -7,6 +7,7 @@ import { combatSceneEntityMethods } from './entities.js';
 import { P, UI_FONT } from './constants.js';
 import { combatSceneQuizMethods } from './quiz/index.js';
 import { combatSceneUiMethods } from './ui/index.js';
+import { transitionToScene } from '../shared/sceneTransition.js';
 
 export class CombatScene extends Phaser.Scene {
   constructor() {
@@ -293,7 +294,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   exitBattle() {
-    this.scene.start('GameMapScene', { mapConfig: gameState.getCurrentMap() });
+    transitionToScene(this, 'GameMapScene', { mapConfig: gameState.getCurrentMap() });
   }
 }
 

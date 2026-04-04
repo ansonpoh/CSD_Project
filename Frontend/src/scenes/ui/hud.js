@@ -77,119 +77,144 @@ export function buildHud(scene, learner) {
     strokeThickness: 4
   };
 
-  const leaderboardX = scene.usernameText.x + scene.usernameText.width + 80;
+  const topBtnY = 29;
+  const topBtnGapDefault = 10;
+  const topBtnGapTight = 6;
+  const topBtnGapMin = 2;
+  const labelPadding = 26;
 
-  const topBtnGap = 10;
-  const leaderboardBtnW = 112;
-  const profileBtnW = 92;
-  const achievementsBtnW = 132;
-  const friendsBtnW = 96;
+  const measureLabelWidth = (label) => {
+    const probe = scene.add.text(0, 0, label, {
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: '#f0ecff',
+      stroke: '#060814',
+      strokeThickness: 4,
+      ...textStyle
+    }).setVisible(false);
+    const measuredWidth = probe.width;
+    probe.destroy();
+    return measuredWidth;
+  };
 
-  const leaderboardBtnX = leaderboardX + (leaderboardBtnW / 2);
-  const profileBtnX = leaderboardX + leaderboardBtnW + topBtnGap + (profileBtnW / 2);
-  const achievementsBtnX = profileBtnX + (profileBtnW / 2) + topBtnGap + (achievementsBtnW / 2);
-  const friendsBtnX = achievementsBtnX + (achievementsBtnW / 2) + topBtnGap + (friendsBtnW / 2);
+  const topButtons = [
+    {
+      label: 'Leaderboard',
+      minWidth: 112,
+      fillNormal: 0x1a2a52,
+      fillHover: 0x2a4278,
+      onPress: () => scene.showLeaderboard()
+    },
+    {
+      label: 'Profile',
+      minWidth: 92,
+      fillNormal: 0x17324f,
+      fillHover: 0x24507b,
+      onPress: () => scene.showUserProfile()
+    },
+    {
+      label: 'Achievements',
+      minWidth: 132,
+      fillNormal: 0x243615,
+      fillHover: 0x335223,
+      onPress: () => scene.showAchievements()
+    },
+    {
+      label: 'Friends',
+      minWidth: 96,
+      fillNormal: 0x1f2f17,
+      fillHover: 0x2f4923,
+      onPress: () => scene.showFriends()
+    }
+  ].map((button) => ({
+    ...button,
+    width: Math.max(button.minWidth, Math.ceil(measureLabelWidth(button.label) + labelPadding))
+  }));
 
-  createUiButton(scene, {
-    x: leaderboardBtnX,
-    y: 29,
-    width: leaderboardBtnW,
-    height: 30,
-    label: 'Leaderboard',
-    fillNormal: 0x1a2a52,
-    fillHover: 0x2a4278,
-    borderNormal: 0xc8870a,
-    borderHover: 0xf0c050,
-    pressFill: 0x08031a,
-    pressBorder: 0x604008,
-    lineWidth: 1,
-    textStyle,
-    onPress: () => scene.showLeaderboard()
+  const trailingButtons = [
+    {
+      label: 'Logout',
+      minWidth: 60,
+      fillNormal: 0x3a0e0e,
+      fillHover: 0x601818,
+      onPress: () => scene.handleLogout()
+    },
+    {
+      label: 'INV',
+      minWidth: 56,
+      fillNormal: 0x1e1040,
+      fillHover: 0x2d1860,
+      onPress: () => scene.showInventory()
+    }
+  ].map((button) => ({
+    ...button,
+    width: Math.max(button.minWidth, Math.ceil(measureLabelWidth(button.label) + labelPadding))
+  }));
+
+  let rightEdge = width - 16;
+  trailingButtons.forEach((button) => {
+    const buttonCenterX = rightEdge - (button.width / 2);
+    createUiButton(scene, {
+      x: buttonCenterX,
+      y: topBtnY,
+      width: button.width,
+      height: 30,
+      label: button.label,
+      fillNormal: button.fillNormal,
+      fillHover: button.fillHover,
+      borderNormal: 0xc8870a,
+      borderHover: 0xf0c050,
+      pressFill: 0x08031a,
+      pressBorder: 0x604008,
+      lineWidth: 1,
+      textStyle,
+      onPress: button.onPress
+    });
+    rightEdge -= button.width + topBtnGapDefault;
   });
 
-  createUiButton(scene, {
-    x: profileBtnX,
-    y: 29,
-    width: profileBtnW,
-    height: 30,
-    label: 'Profile',
-    fillNormal: 0x17324f,
-    fillHover: 0x24507b,
-    borderNormal: 0xc8870a,
-    borderHover: 0xf0c050,
-    pressFill: 0x08031a,
-    pressBorder: 0x604008,
-    lineWidth: 1,
-    textStyle,
-    onPress: () => scene.showUserProfile()
-  });
+  const usernameRight = scene.usernameText.getBounds().right;
+  const xpBounds = scene.xpText.getBounds();
+  const xpSidePadding = 20;
+  const xpSafeLeftEdge = xpBounds.left - xpSidePadding;
+  const topButtonsLeftEdge = usernameRight + 24;
+  const topButtonsRightEdge = Math.min(rightEdge - 8, xpSafeLeftEdge);
+  const topButtonsAvailableWidth = Math.max(0, topButtonsRightEdge - topButtonsLeftEdge);
+  const topButtonsWidthSum = topButtons.reduce((total, button) => total + button.width, 0);
+  const topButtonsIdealWidth = topButtonsWidthSum + topBtnGapDefault * (topButtons.length - 1);
+  const topButtonsGap = topButtonsIdealWidth <= topButtonsAvailableWidth
+    ? topBtnGapDefault
+    : (
+      topButtonsWidthSum + topBtnGapTight * (topButtons.length - 1) <= topButtonsAvailableWidth
+        ? topBtnGapTight
+        : topBtnGapMin
+    );
+  const topButtonsTotalWidth = topButtonsWidthSum + topButtonsGap * (topButtons.length - 1);
+  const topButtonsStartX = Math.max(
+    16,
+    Math.min(topButtonsLeftEdge, topButtonsRightEdge - topButtonsTotalWidth)
+  );
 
-  createUiButton(scene, {
-    x: achievementsBtnX,
-    y: 29,
-    width: achievementsBtnW,
-    height: 30,
-    label: 'Achievements',
-    fillNormal: 0x243615,
-    fillHover: 0x335223,
-    borderNormal: 0xc8870a,
-    borderHover: 0xf0c050,
-    pressFill: 0x08031a,
-    pressBorder: 0x604008,
-    lineWidth: 1,
-    textStyle,
-    onPress: () => scene.showAchievements()
-  });
-
-  createUiButton(scene, {
-    x: friendsBtnX,
-    y: 29,
-    width: friendsBtnW,
-    height: 30,
-    label: 'Friends',
-    fillNormal: 0x1f2f17,
-    fillHover: 0x2f4923,
-    borderNormal: 0xc8870a,
-    borderHover: 0xf0c050,
-    pressFill: 0x08031a,
-    pressBorder: 0x604008,
-    lineWidth: 1,
-    textStyle,
-    onPress: () => scene.showFriends()
-  });
-
-  createUiButton(scene, {
-    x: width - 52,
-    y: 29,
-    width: 56,
-    height: 30,
-    label: 'INV',
-    fillNormal: 0x1e1040,
-    fillHover: 0x2d1860,
-    borderNormal: 0xc8870a,
-    borderHover: 0xf0c050,
-    pressFill: 0x08031a,
-    pressBorder: 0x604008,
-    lineWidth: 1,
-    textStyle,
-    onPress: () => scene.showInventory()
-  });
-
-  createUiButton(scene, {
-    x: width - 122,
-    y: 29,
-    width: 60,
-    height: 30,
-    label: 'Logout',
-    fillNormal: 0x3a0e0e,
-    fillHover: 0x601818,
-    borderNormal: 0xc8870a,
-    borderHover: 0xf0c050,
-    pressFill: 0x08031a,
-    pressBorder: 0x604008,
-    lineWidth: 1,
-    textStyle,
-    onPress: () => scene.handleLogout()
+  let currentX = topButtonsStartX;
+  topButtons.forEach((button) => {
+    const buttonCenterX = currentX + (button.width / 2);
+    createUiButton(scene, {
+      x: buttonCenterX,
+      y: topBtnY,
+      width: button.width,
+      height: 30,
+      label: button.label,
+      fillNormal: button.fillNormal,
+      fillHover: button.fillHover,
+      borderNormal: 0xc8870a,
+      borderHover: 0xf0c050,
+      pressFill: 0x08031a,
+      pressBorder: 0x604008,
+      lineWidth: 1,
+      textStyle,
+      onPress: button.onPress
+    });
+    currentX += button.width + topButtonsGap;
   });
 
   // Scroll / Quest icon — right side, below HUD

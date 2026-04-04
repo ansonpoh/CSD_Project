@@ -1,29 +1,25 @@
 import { PLAYER_PRESETS } from '../../services/playerProfile.js';
 
-const FIELD_STYLE = 'width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4a90e2; background: #16213e; color: white;';
-const LABEL_STYLE = 'color: white; display: block; margin-bottom: 5px;';
-const FIELD_WRAPPER_STYLE = 'margin-bottom: 15px;';
-
 function buildPresetOptions() {
   return PLAYER_PRESETS.map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join('');
 }
 
 function buildLearnerFields() {
   return `
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Username</label>
-      <input type="text" id="username" style="${FIELD_STYLE}" />
+    <div class="login-auth-field">
+      <label class="login-auth-label">Username</label>
+      <input type="text" id="username" class="login-auth-control" />
     </div>
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Full Name</label>
-      <input type="text" id="fullname" style="${FIELD_STYLE}" />
+    <div class="login-auth-field">
+      <label class="login-auth-label">Full Name</label>
+      <input type="text" id="fullname" class="login-auth-control" />
     </div>
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Character Style</label>
-      <select id="avatarPreset" style="${FIELD_STYLE}">
+    <div class="login-auth-field">
+      <label class="login-auth-label">Character Style</label>
+      <select id="avatarPreset" class="login-auth-control">
         ${buildPresetOptions()}
       </select>
-      <div id="avatarPresetHint" style="margin-top: 8px; color: #9fc7ff; font-size: 12px;">
+      <div id="avatarPresetHint" class="login-auth-hint">
         ${PLAYER_PRESETS[0].summary}
       </div>
     </div>
@@ -32,13 +28,13 @@ function buildLearnerFields() {
 
 function buildContributorFields() {
   return `
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Full Name</label>
-      <input type="text" id="fullname" style="${FIELD_STYLE}" />
+    <div class="login-auth-field">
+      <label class="login-auth-label">Full Name</label>
+      <input type="text" id="fullname" class="login-auth-control" />
     </div>
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Bio <span style="color: #9fc7ff; font-size: 12px;">(optional)</span></label>
-      <input type="text" id="bio" style="${FIELD_STYLE}" />
+    <div class="login-auth-field">
+      <label class="login-auth-label">Bio <span class="login-auth-optional">(optional)</span></label>
+      <input type="text" id="bio" class="login-auth-control" />
     </div>
   `;
 }
@@ -58,9 +54,9 @@ export function buildAuthFormMarkup(authMode, role = 'learner') {
   const title = isLogin ? buildLoginTitle(role) : 'Register';
 
   const registerRoleSelect = `
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Register as</label>
-      <select id="role" style="${FIELD_STYLE}">
+    <div class="login-auth-field">
+      <label class="login-auth-label">Register as</label>
+      <select id="role" class="login-auth-control">
         <option value="learner">Learner</option>
         <option value="contributor">Contributor</option>
       </select>
@@ -68,44 +64,44 @@ export function buildAuthFormMarkup(authMode, role = 'learner') {
   `;
 
   return `
-    <h2 style="color: white; text-align: center; margin-bottom: 20px; position: relative;">
+    <h2 class="login-auth-title">
       ${isLogin && role !== 'learner' ? `
-      <a href="#" id="switch-learner" style="position: absolute; left: 0; top: 35%; transform: translateY(-50%); color: white; text-decoration: none; font-size: 40px;">&#8592;</a>      ` : ''}
+      <a href="#" id="switch-learner" class="login-auth-back-link">&#8592;</a>      ` : ''}
       ${title}
     </h2>
     ${isLogin ? '' : registerRoleSelect}
     ${isLogin ? '' : `<div id="role-fields">${buildRegisterRoleFields('learner')}</div>`}
 
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Email</label>
-      <input type="email" id="email" style="${FIELD_STYLE}" />
+    <div class="login-auth-field">
+      <label class="login-auth-label">Email</label>
+      <input type="email" id="email" class="login-auth-control" />
     </div>
 
-    <div style="${FIELD_WRAPPER_STYLE}">
-      <label style="${LABEL_STYLE}">Password</label>
-      <input type="password" id="password" style="${FIELD_STYLE}" />
+    <div class="login-auth-field">
+      <label class="login-auth-label">Password</label>
+      <input type="password" id="password" class="login-auth-control" />
     </div>
 
-    <button id="submitBtn" style="width: 100%; padding: 12px; background: #4a90e2; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px;">
+    <button id="submitBtn" class="login-auth-button login-auth-button--primary">
       ${isLogin ? 'Login' : 'Register'}
     </button>
 
-    <button id="googleAuthBtn" style="width: 100%; padding: 12px; background: #ffffff; color: #1a1a1a; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px;">
+    <button id="googleAuthBtn" class="login-auth-button login-auth-button--google">
       Continue with Google
     </button>
 
-    <button id="toggleModeBtn" style="width: 100%; padding: 10px; background: transparent; color: #9fc7ff; border: 1px solid #4a90e2; border-radius: 5px; cursor: pointer;">
+    <button id="toggleModeBtn" class="login-auth-button login-auth-button--ghost">
       ${isLogin ? 'No account? Register' : 'Have an account? Login'}
     </button>
 
-    <div id="message" style="color: #ff6b6b; text-align: center; margin-top: 10px; min-height: 20px;"></div>
+    <div id="message" class="login-auth-message"></div>
 
     ${isLogin ? `
-    <p style="color: white; font-size: 12px; text-align: center; margin-top: 14px; margin-bottom: 0;">
+    <p class="login-auth-role-switch">
       Login as
-      <a href="#" id="switch-contributor" style="color: white; text-decoration: underline; cursor: pointer;">contributor</a>
+      <a href="#" id="switch-contributor" class="login-auth-inline-link">contributor</a>
       or
-      <a href="#" id="switch-admin" style="color: white; text-decoration: underline; cursor: pointer;">admin</a>
+      <a href="#" id="switch-admin" class="login-auth-inline-link">admin</a>
       instead
     </p>
     ` : ''}

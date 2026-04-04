@@ -18,6 +18,13 @@ const C = {
   textGood: '#8fd45e'
 };
 
+const STATE_THEME = {
+  loading: { label: 'LOADING', color: '#9eb7d7', fill: 0x1b2d4a, border: 0x4a6a9a },
+  empty: { label: 'EMPTY', color: '#cbb899', fill: 0x2e2414, border: 0x7a6440 },
+  success: { label: 'SUCCESS', color: '#8fd45e', fill: 0x18331a, border: 0x4b7a2f },
+  error: { label: 'ERROR', color: '#ff9f9f', fill: 0x3a0e0e, border: 0x8b2020 }
+};
+
 function truncate(value, max = 24) {
   const text = String(value ?? '');
   return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}...` : text;
@@ -59,9 +66,12 @@ export function showFriends(scene) {
     query: '',
     focused: false,
     loadingSearch: false,
+    searchStatus: 'empty',
     searchError: '',
     searchResults: [],
     loadingData: false,
+    dataStatus: 'loading',
+    dataError: '',
     incoming: [],
     friends: [],
     conversationsByFriendId: {},
@@ -74,6 +84,7 @@ export function showFriends(scene) {
       loading: false,
       loadingOlder: false,
       loadingHistory: false,
+      error: '',
       sending: false,
       clearing: false,
       focusedInput: false,
@@ -159,6 +170,37 @@ export function showFriends(scene) {
     statusText.setText(text || '');
   };
 
+  const drawStateTag = (x, y, status, message) => {
+    const theme = STATE_THEME[status] || STATE_THEME.loading;
+    const pill = scene.add.graphics().setDepth(DEPTH + 4);
+    pill.fillStyle(theme.fill, 0.96);
+    pill.fillRoundedRect(x, y, 96, 20, 4);
+    pill.lineStyle(1, theme.border, 0.9);
+    pill.strokeRoundedRect(x, y, 96, 20, 4);
+    dynamicNodes.push(pill);
+
+    dynamicNodes.push(
+      scene.add.text(x + 48, y + 10, theme.label, {
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: theme.color,
+        stroke: '#060814',
+        strokeThickness: 3
+      }).setOrigin(0.5).setDepth(DEPTH + 5)
+    );
+
+    if (message) {
+      dynamicNodes.push(
+        scene.add.text(x + 104, y + 10, message, {
+          fontSize: '11px',
+          color: theme.color,
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setOrigin(0, 0.5).setDepth(DEPTH + 4)
+      );
+    }
+  };
+
   const syncConversationMap = (conversations) => {
     const map = {};
     (Array.isArray(conversations) ? conversations : []).forEach((conversation) => {
@@ -181,11 +223,13 @@ export function showFriends(scene) {
       state.chat.messages = mergeMessages(state.chat.messages, Array.isArray(page?.messages) ? page.messages : []);
       if (page?.nextCursor) state.chat.nextCursor = page.nextCursor;
       else state.chat.nextCursor = null;
+      state.chat.error = '';
       if (wasNearBottom) state.chat.scrollToBottom = true;
       const conversations = await apiService.getChatConversations();
       syncConversationMap(conversations);
     } catch (error) {
-      if (!silent) setStatus(error?.response?.data?.message || 'Unable to refresh chat.', C.textWarn);
+      state.chat.error = error?.response?.data?.message || 'Unable to refresh chat.';
+      if (!silent) setStatus(state.chat.error, C.textWarn);
     } finally {
       state.chat.loading = false;
       if (!silent) draw();
@@ -233,6 +277,7 @@ export function showFriends(scene) {
 
     state.chat.active = true;
     state.chat.loading = true;
+    state.chat.error = '';
     state.chat.clearing = false;
     state.chat.focusedInput = false;
     state.chat.friend = friend;
@@ -258,7 +303,8 @@ export function showFriends(scene) {
       setStatus(`Chat opened with ${state.chat.friend?.username || 'friend'}.`, C.textGood);
       void loadAllChatHistory();
     } catch (error) {
-      setStatus(error?.response?.data?.message || 'Unable to open chat.', C.textWarn);
+      state.chat.error = error?.response?.data?.message || 'Unable to open chat.';
+      setStatus(state.chat.error, C.textWarn);
       closeChat();
     } finally {
       state.chat.loading = false;
@@ -275,8 +321,10 @@ export function showFriends(scene) {
       const page = await apiService.getConversationMessages(state.chat.conversationId, state.chat.nextCursor, 30);
       state.chat.messages = mergeMessages(state.chat.messages, Array.isArray(page?.messages) ? page.messages : []);
       state.chat.nextCursor = page?.nextCursor || null;
+      state.chat.error = '';
     } catch (error) {
-      if (!silent) setStatus(error?.response?.data?.message || 'Unable to load older chat.', C.textWarn);
+      state.chat.error = error?.response?.data?.message || 'Unable to load older chat.';
+      if (!silent) setStatus(state.chat.error, C.textWarn);
     } finally {
       state.chat.loadingOlder = false;
       if (!silent) draw();
@@ -332,6 +380,7 @@ export function showFriends(scene) {
     };
 
     state.chat.sending = true;
+    state.chat.error = '';
     state.chat.draft = '';
     state.chat.messages = mergeMessages(state.chat.messages, [optimisticMessage]);
     state.chat.scrollToBottom = true;
@@ -350,7 +399,8 @@ export function showFriends(scene) {
     } catch (error) {
       state.chat.messages = state.chat.messages.filter((msg) => msg?.chatMessageId !== tempMessageId);
       state.chat.draft = body;
-      setStatus(error?.response?.data?.message || 'Unable to send message.', C.textWarn);
+      state.chat.error = error?.response?.data?.message || 'Unable to send message.';
+      setStatus(state.chat.error, C.textWarn);
     } finally {
       state.chat.sending = false;
       draw();
@@ -366,6 +416,7 @@ export function showFriends(scene) {
     if (!shouldProceed) return;
 
     state.chat.clearing = true;
+    state.chat.error = '';
     draw();
     try {
       await apiService.clearConversationMessages(state.chat.conversationId);
@@ -379,7 +430,8 @@ export function showFriends(scene) {
       syncConversationMap(conversations);
       setStatus('Chat history cleared.', C.textGood);
     } catch (error) {
-      setStatus(error?.response?.data?.message || 'Unable to clear chat history.', C.textWarn);
+      state.chat.error = error?.response?.data?.message || 'Unable to clear chat history.';
+      setStatus(state.chat.error, C.textWarn);
     } finally {
       state.chat.clearing = false;
       draw();
@@ -393,10 +445,12 @@ export function showFriends(scene) {
       const settings = await apiService.updateChatSettings(targetLearnerId, payload);
       state.chat.muted = Boolean(settings?.isMuted);
       state.chat.blocked = Boolean(settings?.isBlocked);
+      state.chat.error = '';
       setStatus('Chat settings updated.', C.textGood);
       draw();
     } catch (error) {
-      setStatus(error?.response?.data?.message || 'Unable to update chat settings.', C.textWarn);
+      state.chat.error = error?.response?.data?.message || 'Unable to update chat settings.';
+      setStatus(state.chat.error, C.textWarn);
     }
   };
 
@@ -404,22 +458,26 @@ export function showFriends(scene) {
     const query = String(state.query || '').trim();
     if (query.length < 2) {
       state.searchResults = [];
-      state.searchError = query.length === 0 ? '' : 'Type at least 2 characters.';
+      state.searchError = '';
+      state.searchStatus = 'empty';
       state.loadingSearch = false;
       draw();
       return;
     }
 
     state.loadingSearch = true;
+    state.searchStatus = 'loading';
     state.searchError = '';
     draw();
 
     try {
       const data = await apiService.searchFriends(query, 8);
       state.searchResults = Array.isArray(data) ? data : [];
+      state.searchStatus = state.searchResults.length ? 'success' : 'empty';
     } catch (error) {
       state.searchResults = [];
       state.searchError = error?.response?.data?.message || 'Friend search failed.';
+      state.searchStatus = 'error';
     } finally {
       state.loadingSearch = false;
       draw();
@@ -435,6 +493,8 @@ export function showFriends(scene) {
 
   const loadData = async () => {
     state.loadingData = true;
+    state.dataStatus = 'loading';
+    state.dataError = '';
     draw();
     try {
       const [incoming, friends, conversations] = await Promise.all([
@@ -445,8 +505,11 @@ export function showFriends(scene) {
       state.incoming = Array.isArray(incoming) ? incoming : [];
       state.friends = Array.isArray(friends) ? friends : [];
       syncConversationMap(conversations);
+      state.dataStatus = (state.incoming.length || state.friends.length) ? 'success' : 'empty';
     } catch (error) {
-      setStatus(error?.response?.data?.message || 'Failed to load friend/chat data.', C.textWarn);
+      state.dataStatus = 'error';
+      state.dataError = error?.response?.data?.message || 'Failed to load friend/chat data.';
+      setStatus(state.dataError, C.textWarn);
     } finally {
       state.loadingData = false;
       draw();
@@ -505,7 +568,7 @@ export function showFriends(scene) {
 
   const renderSearchSection = () => {
     const pad = 24;
-    let y = 78;
+    let y = 94;
     const barX = panelX + pad;
     const barY = panelY + y;
     const barW = PANEL_W - pad * 2;
@@ -563,6 +626,7 @@ export function showFriends(scene) {
         state.focused = true;
         state.searchResults = [];
         state.searchError = '';
+        state.searchStatus = 'empty';
         draw();
       });
       dynamicNodes.push(clearHit);
@@ -590,6 +654,14 @@ export function showFriends(scene) {
         strokeThickness: 4
       }).setDepth(DEPTH + 4)
     );
+    const searchMessage = state.searchStatus === 'success'
+      ? `${state.searchResults.length} match${state.searchResults.length === 1 ? '' : 'es'}`
+      : state.searchStatus === 'loading'
+        ? 'Searching usernames'
+        : state.searchStatus === 'error'
+          ? 'Search failed'
+          : 'No active query';
+    drawStateTag(panelX + PANEL_W - pad - 280, panelY + y - 2, state.searchStatus, searchMessage);
     y += 28;
 
     if (state.loadingSearch) {
@@ -681,6 +753,7 @@ export function showFriends(scene) {
   const renderIncoming = (startY) => {
     const pad = 24;
     let y = startY + 10;
+    const incomingStatus = state.incoming.length ? 'success' : 'empty';
     dynamicNodes.push(
       scene.add.text(panelX + pad, panelY + y, `Incoming Requests (${state.incoming.length})`, {
         fontSize: '15px',
@@ -690,6 +763,7 @@ export function showFriends(scene) {
         strokeThickness: 4
       }).setDepth(DEPTH + 4)
     );
+    drawStateTag(panelX + PANEL_W - pad - 250, panelY + y - 2, incomingStatus, state.incoming.length ? 'Pending actions' : 'Nothing pending');
     y += 26;
 
     if (!state.incoming.length) {
@@ -766,6 +840,7 @@ export function showFriends(scene) {
   const renderFriends = (startY) => {
     const pad = 24;
     let y = startY + 12;
+    const friendStatus = state.friends.length ? 'success' : 'empty';
     dynamicNodes.push(
       scene.add.text(panelX + pad, panelY + y, `Your Friends (${state.friends.length})`, {
         fontSize: '15px',
@@ -775,6 +850,7 @@ export function showFriends(scene) {
         strokeThickness: 4
       }).setDepth(DEPTH + 4)
     );
+    drawStateTag(panelX + PANEL_W - pad - 250, panelY + y - 2, friendStatus, state.friends.length ? 'Ready to chat' : 'Add new friends');
     y += 24;
 
     if (!state.friends.length) {
@@ -853,6 +929,20 @@ export function showFriends(scene) {
     const topY = 78;
     const headerY = panelY + topY;
     const friendName = state.chat.friend?.username || 'Friend';
+    const chatStatus = state.chat.error
+      ? 'error'
+      : (state.chat.loading || state.chat.loadingHistory || state.chat.loadingOlder || state.chat.sending || state.chat.clearing)
+        ? 'loading'
+        : state.chat.messages.length
+          ? 'success'
+          : 'empty';
+    const chatMessage = state.chat.error
+      ? 'Action failed'
+      : chatStatus === 'loading'
+        ? 'Syncing messages'
+        : chatStatus === 'success'
+          ? `${state.chat.messages.length} message${state.chat.messages.length === 1 ? '' : 's'}`
+          : 'No messages yet';
 
     dynamicNodes.push(
       createUiButton(scene, {
@@ -880,6 +970,7 @@ export function showFriends(scene) {
         strokeThickness: 4
       }).setOrigin(0, 0.5).setDepth(DEPTH + 4)
     );
+    drawStateTag(panelX + pad + 350, headerY + 2, chatStatus, chatMessage);
 
     dynamicNodes.push(
       createUiButton(scene, {
@@ -1043,6 +1134,17 @@ export function showFriends(scene) {
       messageNodes.forEach((node) => node.setY(node.y - clampedScrollY));
     }
 
+    if (state.chat.error) {
+      dynamicNodes.push(
+        scene.add.text(listX + 14, listY + listH - 18, state.chat.error, {
+          fontSize: '11px',
+          color: C.textWarn,
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setDepth(DEPTH + 4)
+      );
+    }
+
     const inputY = listY + listH + 14;
     const inputH = 68;
     const inputW = listW - 120;
@@ -1104,17 +1206,57 @@ export function showFriends(scene) {
       return;
     }
 
-    if (state.loadingData) {
-      dynamicNodes.push(
-        scene.add.text(panelX + 24, panelY + 84, 'Loading friend/chat data...', {
-          fontSize: '15px',
-          color: C.textDim,
-          stroke: '#060814',
-          strokeThickness: 3
-        }).setDepth(DEPTH + 4)
+    if (state.loadingData || state.dataStatus === 'error') {
+      drawStateTag(
+        panelX + 24,
+        panelY + 84,
+        state.loadingData ? 'loading' : 'error',
+        state.loadingData ? 'Loading friend and chat data' : 'Unable to load panel data'
       );
+
+      dynamicNodes.push(
+        scene.add.text(
+          panelX + 24,
+          panelY + 112,
+          state.loadingData ? 'Please wait...' : (state.dataError || 'Try again in a moment.'),
+          {
+            fontSize: '14px',
+            color: state.loadingData ? C.textDim : C.textWarn,
+            stroke: '#060814',
+            strokeThickness: 3
+          }
+        ).setDepth(DEPTH + 4)
+      );
+
+      if (!state.loadingData) {
+        dynamicNodes.push(
+          createUiButton(scene, {
+            x: panelX + 104,
+            y: panelY + 152,
+            width: 130,
+            height: 30,
+            label: 'Retry',
+            fillNormal: 0x17324f,
+            fillHover: 0x24507b,
+            borderNormal: C.borderGold,
+            borderHover: C.borderGlow,
+            depth: DEPTH + 6,
+            textStyle: { fontSize: '12px' },
+            onPress: () => { void loadData(); }
+          })
+        );
+      }
       return;
     }
+
+    drawStateTag(
+      panelX + 24,
+      panelY + 84,
+      state.dataStatus,
+      state.dataStatus === 'success'
+        ? 'Friend list and chat are ready'
+        : 'No friends or requests yet'
+    );
 
     const yAfterSearch = renderSearchSection();
     const yAfterIncoming = renderIncoming(yAfterSearch);

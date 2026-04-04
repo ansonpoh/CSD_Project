@@ -16,6 +16,13 @@ const PALETTE = {
   accentGlow: 0xffdd60
 };
 
+const STATE_THEME = {
+  loading: { text: 'LOADING', color: '#9eb7d7' },
+  empty: { text: 'EMPTY', color: '#cbb899' },
+  success: { text: 'SUCCESS', color: '#8fd45e' },
+  error: { text: 'ERROR', color: '#ff9f9f' }
+};
+
 function drawPanel(scene, panelX, panelY, panelW, panelH, nodes) {
   const panelBackground = scene.add.graphics().setDepth(DEPTH + 1);
   panelBackground.fillStyle(PALETTE.bgPanel, 0.98);
@@ -170,7 +177,32 @@ export async function showLeaderboard(scene) {
   divider.strokePath();
   nodes.push(divider);
 
-  const loadingText = scene.add.text(panelX + panelWidth / 2, panelY + panelHeight / 2, 'Loading...', {
+  const stateBadge = scene.add.text(panelX + panelWidth - 24, columnsY - 6, '', {
+    fontSize: '11px',
+    fontStyle: 'bold',
+    color: '#9eb7d7',
+    stroke: '#060814',
+    strokeThickness: 3
+  }).setOrigin(1, 0).setDepth(DEPTH + 3);
+  nodes.push(stateBadge);
+
+  const stateMessage = scene.add.text(panelX + 24, columnsY + 26, '', {
+    fontSize: '13px',
+    color: '#9eb7d7',
+    stroke: '#060814',
+    strokeThickness: 3
+  }).setDepth(DEPTH + 3);
+  nodes.push(stateMessage);
+
+  const setState = (status, message) => {
+    const theme = STATE_THEME[status] || STATE_THEME.loading;
+    stateBadge.setText(theme.text);
+    stateBadge.setColor(theme.color);
+    stateMessage.setText(message || '');
+    stateMessage.setColor(theme.color);
+  };
+
+  const loadingText = scene.add.text(panelX + panelWidth / 2, panelY + panelHeight / 2, 'Loading leaderboard...', {
     fontSize: '18px',
     fontStyle: 'bold',
     color: '#5a4a72',
@@ -178,6 +210,7 @@ export async function showLeaderboard(scene) {
     strokeThickness: 3
   }).setOrigin(0.5).setDepth(DEPTH + 3);
   nodes.push(loadingText);
+  setState('loading', 'Fetching top rankings...');
 
   const footerY = panelY + panelHeight - 52;
   const footer = scene.add.graphics().setDepth(DEPTH + 2);
@@ -208,7 +241,8 @@ export async function showLeaderboard(scene) {
 
     const rowHeight = 34;
     const rowsAreaHeight = panelHeight - headerHeight - 40 - 52;
-    const visibleRows = rows.slice(0, Math.floor(rowsAreaHeight / rowHeight));
+    const normalizedRows = Array.isArray(rows) ? rows : [];
+    const visibleRows = normalizedRows.slice(0, Math.floor(rowsAreaHeight / rowHeight));
 
     let rowY = panelY + headerHeight + 38;
     visibleRows.forEach((entry) => {
@@ -216,10 +250,21 @@ export async function showLeaderboard(scene) {
       rowY += rowHeight;
     });
 
-    myRankText.setText(`Your Rank: #${myRankInfo?.rank ?? '?'}   |   ${myRankInfo?.totalXp ?? 0} XP`);
-    myRankText.setColor('#f4c048');
+    if (!visibleRows.length) {
+      setState('empty', 'No leaderboard entries yet. Be the first to earn XP.');
+      myRankText.setText('Your Rank: Unranked');
+      myRankText.setColor('#cbb899');
+    } else {
+      setState('success', `Showing top ${visibleRows.length} adventurers.`);
+      myRankText.setText(`Your Rank: #${myRankInfo?.rank ?? '?'}   |   ${myRankInfo?.totalXp ?? 0} XP`);
+      myRankText.setColor('#f4c048');
+    }
   } catch (error) {
     loadingText.setText('Failed to load leaderboard');
+    loadingText.setColor('#ff9f9f');
+    setState('error', 'Unable to fetch leaderboard right now.');
+    myRankText.setText('Your Rank: unavailable');
+    myRankText.setColor('#ff9f9f');
     console.error('Leaderboard load failed:', error);
   }
 

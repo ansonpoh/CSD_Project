@@ -1,6 +1,7 @@
 import { apiService } from '../../services/api.js';
 import { gameState } from '../../services/gameState.js';
 import { mapDiscoveryService } from '../../services/mapDiscovery.js';
+import { transitionToScene } from '../shared/sceneTransition.js';
 
 export const worldMapUtilityMethods = {
   getMockMaps() {
@@ -93,7 +94,7 @@ export const worldMapUtilityMethods = {
 
     mapDiscoveryService.markMapVisited(normalizedMap);
     gameState.setCurrentMap(normalizedMap);
-    this.scene.start('GameMapScene', { mapConfig: normalizedMap });
+    transitionToScene(this, 'GameMapScene', { mapConfig: normalizedMap });
   },
 
   resolveMapKey(map) {

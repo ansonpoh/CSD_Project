@@ -68,6 +68,19 @@ const STYLES = `
     line-height: 1;
   }
   .chat-close:hover { color: #f4c048; }
+  .chat-state {
+    margin: 10px 16px 0;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.35px;
+  }
+  .chat-state--loading { background: #1a2a4a; border-color: #4a6a9a; color: #a7c9f0; }
+  .chat-state--empty { background: #2e2414; border-color: #7a6440; color: #d3ba93; }
+  .chat-state--success { background: #18331a; border-color: #4b7a2f; color: #8fd45e; }
+  .chat-state--error { background: #3a0e0e; border-color: #8b2020; color: #ff9f9f; }
   .chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -195,6 +208,7 @@ export function showChatbot(scene) {
           <button class="chat-close" id="chat-close-btn">&#x2715;</button>
         </div>
       </div>
+      <div class="chat-state chat-state--empty" id="chat-state">EMPTY: Start a conversation with the Oracle.</div>
       <div class="chat-messages" id="chat-messages">
         <div class="chat-empty">
           Ask me anything about slang, trends, memes, and Gen Alpha culture.<br>
@@ -213,7 +227,15 @@ export function showChatbot(scene) {
   const inputEl = overlay.querySelector('#chat-input');
   const sendBtn = overlay.querySelector('#chat-send-btn');
   const clearBtn = overlay.querySelector('#chat-clear-btn');
+  const stateEl = overlay.querySelector('#chat-state');
   let emptyShown = true;
+
+  function setPanelState(status, message) {
+    const normalized = ['loading', 'empty', 'success', 'error'].includes(status) ? status : 'loading';
+    if (!stateEl) return;
+    stateEl.className = `chat-state chat-state--${normalized}`;
+    stateEl.textContent = `${normalized.toUpperCase()}: ${message}`;
+  }
 
   function close() {
     overlay.remove();
@@ -246,15 +268,20 @@ export function showChatbot(scene) {
 
   clearBtn.addEventListener('click', async () => {
     if (!conversationId) return;
+    setPanelState('loading', 'Clearing conversation history...');
+    let clearFailed = false;
     try {
       await apiService.chatbotClearHistory(conversationId);
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      clearFailed = true;
+    }
     conversationId = null;
     messagesEl.innerHTML = `
       <div class="chat-empty">
-        Conversation cleared. Ask me something new!
+        ${clearFailed ? 'Could not clear server history. Start a new local conversation.' : 'Conversation cleared. Ask me something new!'}
       </div>`;
     emptyShown = true;
+    setPanelState(clearFailed ? 'error' : 'empty', clearFailed ? 'Could not clear history.' : 'Conversation cleared.');
   });
 
   function appendBubble(text, type) {
@@ -289,6 +316,7 @@ export function showChatbot(scene) {
     if (!query || sending) return;
 
     sending = true;
+    setPanelState('loading', 'Waiting for Oracle response...');
     sendBtn.disabled = true;
     inputEl.value = '';
     inputEl.style.height = 'auto';
@@ -301,6 +329,7 @@ export function showChatbot(scene) {
       removeTyping();
       conversationId = result.conversation_id || conversationId;
       appendBubble(result.response || '(no response)', 'bot');
+      setPanelState('success', 'Oracle answered your question.');
     } catch (err) {
       removeTyping();
       const status = err?.response?.status;
@@ -308,6 +337,7 @@ export function showChatbot(scene) {
         ? 'The Oracle is offline. Please try again later.'
         : 'Something went wrong. Please try again.';
       appendBubble(msg, 'error');
+      setPanelState('error', msg);
     } finally {
       sending = false;
       sendBtn.disabled = false;
@@ -315,5 +345,6 @@ export function showChatbot(scene) {
     }
   }
 
+  setPanelState('empty', 'Start a conversation with the Oracle.');
   inputEl.focus();
 }

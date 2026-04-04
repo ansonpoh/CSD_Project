@@ -14,6 +14,7 @@ import {
   registerWithRole,
   resumeGoogleOAuthIntent
 } from './authFlow.js';
+import { transitionToScene } from '../shared/sceneTransition.js';
 
 export class LoginScene extends Phaser.Scene {
   constructor() {
@@ -220,8 +221,11 @@ export class LoginScene extends Phaser.Scene {
 
   startGame() {
     this.cleanup();
-    this.scene.start('WorldMapScene');
-    this.scene.launch('UIScene');
+    transitionToScene(this, 'WorldMapScene', {}, {
+      onAfterStart: () => {
+        this.scene.launch('UIScene');
+      }
+    });
   }
 
   cleanup() {

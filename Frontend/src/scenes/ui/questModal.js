@@ -54,6 +54,19 @@ const STYLES = `
     line-height: 1;
   }
   .quest-close:hover { color: #f4c048; }
+  .quest-state {
+    margin: 12px 24px 0;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.4px;
+  }
+  .quest-state--loading { background: #1a2a4a; border-color: #4a6a9a; color: #a7c9f0; }
+  .quest-state--empty { background: #2e2414; border-color: #7a6440; color: #d3ba93; }
+  .quest-state--success { background: #18331a; border-color: #4b7a2f; color: #8fd45e; }
+  .quest-state--error { background: #3a0e0e; border-color: #8b2020; color: #ff9f9f; }
   .quest-body { padding: 20px 24px 24px; }
   .quest-card {
     background: rgba(255,255,255,0.04);
@@ -177,10 +190,11 @@ export function showQuests(scene) {
       <div class="quest-header">
         <div>
           <h2>Daily Quests</h2>
-          <p>Observe and interact — reflect on the world around you</p>
+          <p>Observe and interact - reflect on the world around you</p>
         </div>
         <button class="quest-close" id="quest-close-btn">&#x2715;</button>
       </div>
+      <div class="quest-state quest-state--loading" id="quest-state">LOADING: Fetching your missions...</div>
       <div class="quest-body" id="quest-body">
         <div class="quest-loading">Loading your missions...</div>
       </div>
@@ -188,8 +202,15 @@ export function showQuests(scene) {
   `;
   document.body.appendChild(overlay);
 
-  // State per mission card
   const cardState = {};
+  const stateEl = overlay.querySelector('#quest-state');
+
+  function setPanelState(status, message) {
+    if (!stateEl) return;
+    const normalized = ['loading', 'empty', 'success', 'error'].includes(status) ? status : 'loading';
+    stateEl.className = `quest-state quest-state--${normalized}`;
+    stateEl.textContent = `${normalized.toUpperCase()}: ${message}`;
+  }
 
   function close() {
     overlay.remove();
@@ -198,13 +219,12 @@ export function showQuests(scene) {
 
   overlay.querySelector('#quest-close-btn').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-  // Disable Phaser input while modal is open
   scene.input.enabled = false;
 
   function renderMissions(missions) {
     const body = overlay.querySelector('#quest-body');
     if (!missions.length) {
+      setPanelState('empty', 'No daily missions available right now.');
       body.innerHTML = `
         <div class="quest-empty">
           <p>You have completed all missions for today.</p>
@@ -213,6 +233,7 @@ export function showQuests(scene) {
       return;
     }
 
+    setPanelState('success', `${missions.length} mission${missions.length === 1 ? '' : 's'} ready.`);
     body.innerHTML = missions.map((m) => {
       const id = m.mission?.missionId || m.missionId;
       const title = m.mission?.title || m.title || 'Mission';
@@ -228,7 +249,7 @@ export function showQuests(scene) {
             <span class="quest-type-badge quest-type-${type}">${type.toUpperCase()}</span>
           </div>
           <div class="quest-card-desc">${desc}</div>
-          <div class="quest-reward">Reward: +${xp} XP &nbsp;·&nbsp; +${gold} Gold</div>
+          <div class="quest-reward">Reward: +${xp} XP &nbsp;-&nbsp; +${gold} Gold</div>
           <button class="quest-reflect-btn" data-action="open-reflect" data-mission-id="${id}">
             Write Reflection
           </button>
@@ -241,13 +262,11 @@ export function showQuests(scene) {
       `;
     }).join('');
 
-    // Prevent Phaser from swallowing keystrokes inside textareas
     body.querySelectorAll('textarea').forEach((ta) => {
       ta.addEventListener('keydown', (e) => e.stopPropagation());
       ta.addEventListener('keyup', (e) => e.stopPropagation());
     });
 
-    // Wire up open-reflect buttons
     body.querySelectorAll('[data-action="open-reflect"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const missionId = btn.dataset.missionId;
@@ -258,7 +277,6 @@ export function showQuests(scene) {
       });
     });
 
-    // Wire up submit buttons
     body.querySelectorAll('[data-action="submit-reflect"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const missionId = btn.dataset.missionId;
@@ -276,6 +294,7 @@ export function showQuests(scene) {
 
         btn.disabled = true;
         btn.textContent = 'Submitting...';
+        setPanelState('loading', 'Submitting reflection...');
 
         try {
           const attempt = await apiService.submitReflection(missionId, reflection);
@@ -286,29 +305,30 @@ export function showQuests(scene) {
             if (status === 'APPROVED') {
               resultEl.className = 'quest-result quest-result--approved';
               resultEl.textContent = `Reflection accepted! +${attempt?.mission?.rewardXp ?? 50} XP and +${attempt?.mission?.rewardGold ?? 20} Gold awarded.`;
-              // Refresh learner so HUD XP updates immediately
+              setPanelState('success', 'Reflection accepted and rewards granted.');
               apiService.getCurrentLearner().then((learner) => {
                 if (learner) gameState.setLearner(learner);
               }).catch(() => {});
             } else if (status === 'FLAGGED_FOR_REVIEW') {
               resultEl.className = 'quest-result quest-result--pending';
               resultEl.textContent = 'Your reflection has been submitted and is under review. Rewards will be granted once approved.';
+              setPanelState('success', 'Reflection submitted for review.');
             } else {
               resultEl.className = 'quest-result quest-result--rejected';
               resultEl.textContent = 'Reflection was not accepted. Make sure it relates to the mission.';
+              setPanelState('error', 'Reflection was rejected. Try a clearer mission-related response.');
             }
           }
 
-          // Hide the form after submission
           const form = body.querySelector(`[data-reflect-form="${missionId}"]`);
           if (form) form.style.display = 'none';
 
           const reflectBtn = body.querySelector(`[data-action="open-reflect"][data-mission-id="${missionId}"]`);
           if (reflectBtn) reflectBtn.style.display = 'none';
-
-        } catch (err) {
+        } catch (_err) {
           btn.disabled = false;
           btn.textContent = 'Submit';
+          setPanelState('error', 'Unable to submit reflection. Please try again.');
           if (resultEl) {
             resultEl.style.display = 'block';
             resultEl.className = 'quest-result quest-result--rejected';
@@ -320,11 +340,12 @@ export function showQuests(scene) {
     });
   }
 
-  // Load missions
+  setPanelState('loading', 'Fetching your missions...');
   apiService.getDailyMissions()
     .then((missions) => renderMissions(Array.isArray(missions) ? missions : []))
     .catch(() => {
       const body = overlay.querySelector('#quest-body');
+      setPanelState('error', 'Could not load missions.');
       body.innerHTML = `<div class="quest-empty">Could not load missions. Try again later.</div>`;
     });
 }

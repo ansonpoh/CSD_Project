@@ -1,5 +1,6 @@
 package com.smu.csd.missions;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(schema = "missions", name = "mission")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Getter
 @Setter
 @Builder

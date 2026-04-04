@@ -1,5 +1,26 @@
 import { createUiButton } from './shared.js';
 
+function getXpThresholdForLevel(level) {
+  const safeLevel = Math.max(1, Number(level) || 1);
+  return 100 * (safeLevel - 1) * (safeLevel - 1);
+}
+
+function getXpProgress(totalXp, level) {
+  const safeXp = Math.max(0, Number(totalXp) || 0);
+  const safeLevel = Math.max(1, Number(level) || 1);
+  const levelStartXp = getXpThresholdForLevel(safeLevel);
+  const nextLevelXp = getXpThresholdForLevel(safeLevel + 1);
+  const levelSpan = Math.max(1, nextLevelXp - levelStartXp);
+  const currentLevelXp = Math.max(0, safeXp - levelStartXp);
+  const clampedLevelXp = Math.min(levelSpan, currentLevelXp);
+
+  return {
+    levelSpan,
+    currentLevelXp: clampedLevelXp,
+    progressRatio: clampedLevelXp / levelSpan
+  };
+}
+
 export function buildHud(scene, learner) {
   const width = scene.cameras.main.width;
 
@@ -61,13 +82,45 @@ export function buildHud(scene, learner) {
   });
   scene.lastKnownLevel = learner.level;
 
-  scene.xpText = scene.add.text(width / 2, 29, `XP: ${learner.total_xp}`, {
-    fontSize: '16px',
+  scene.xpText = scene.add.text(width / 2, 22, '', {
+    fontSize: '13px',
     color: '#f4c048',
     fontStyle: 'bold',
     stroke: '#060d1e',
     strokeThickness: 4
   }).setOrigin(0.5, 0.5);
+
+  const xpBarWidth = 220;
+  const xpBarHeight = 6;
+  const xpBarX = (width / 2) - (xpBarWidth / 2);
+  const xpBarY = 42;
+
+  scene.add.graphics()
+    .fillStyle(0x030811, 0.95)
+    .fillRoundedRect(xpBarX, xpBarY - (xpBarHeight / 2), xpBarWidth, xpBarHeight, 3)
+    .lineStyle(1, 0x6d4e08, 0.9)
+    .strokeRoundedRect(xpBarX - 1, xpBarY - (xpBarHeight / 2) - 1, xpBarWidth + 2, xpBarHeight + 2, 4);
+
+  scene.xpBarFill = scene.add.graphics();
+  scene.updateXpHud = (currentLearner) => {
+    const xpProgress = getXpProgress(currentLearner.total_xp, currentLearner.level);
+    const fillWidth = Math.floor(xpBarWidth * xpProgress.progressRatio);
+
+    scene.xpText.setText(`XP ${xpProgress.currentLevelXp}/${xpProgress.levelSpan}`);
+    scene.xpBarFill.clear();
+    if (fillWidth > 0) {
+      scene.xpBarFill
+        .fillStyle(0xf4c048, 1)
+        .fillRoundedRect(
+          xpBarX,
+          xpBarY - (xpBarHeight / 2),
+          fillWidth,
+          xpBarHeight,
+          Math.min(3, fillWidth / 2)
+        );
+    }
+  };
+  scene.updateXpHud(learner);
 
   const textStyle = {
     fontSize: '13px',
@@ -176,7 +229,10 @@ export function buildHud(scene, learner) {
   const usernameRight = scene.usernameText.getBounds().right;
   const xpBounds = scene.xpText.getBounds();
   const xpSidePadding = 20;
-  const xpSafeLeftEdge = xpBounds.left - xpSidePadding;
+  const xpSafeLeftEdge = Math.min(
+    xpBounds.left - xpSidePadding,
+    xpBarX - xpSidePadding
+  );
   const topButtonsLeftEdge = usernameRight + 24;
   const topButtonsRightEdge = Math.min(rightEdge - 8, xpSafeLeftEdge);
   const topButtonsAvailableWidth = Math.max(0, topButtonsRightEdge - topButtonsLeftEdge);

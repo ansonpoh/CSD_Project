@@ -19,6 +19,8 @@ export class UIScene extends Phaser.Scene {
     super({ key: 'UIScene' });
     this.levelText = null;
     this.xpText = null;
+    this.xpBarFill = null;
+    this.updateXpHud = null;
     this.usernameText = null;
     this.lastKnownLevel = null;
     this.profileTween = null;
@@ -62,7 +64,11 @@ export class UIScene extends Phaser.Scene {
     }
 
     this.levelText.setText(`Level: ${learner.level}`);
-    this.xpText.setText(`XP: ${learner.total_xp}`);
+    if (this.updateXpHud) {
+      this.updateXpHud(learner);
+    } else {
+      this.xpText.setText(`XP: ${learner.total_xp}`);
+    }
 
     if (this.lastKnownLevel !== null && learner.level > this.lastKnownLevel) {
       this.showLevelUp(learner.level);

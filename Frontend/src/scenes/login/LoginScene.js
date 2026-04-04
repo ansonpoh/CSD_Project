@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { createTimeBasedBackground, preloadLoginClouds } from './background.js';
-import { createAuthFormContainer, wireAuthForm, wireRoleFieldEvents } from './dom.js';
-import { buildAuthFormMarkup, buildRegisterRoleFields } from './formMarkup.js';
+import { createAuthFormContainer, wireAuthForm } from './dom.js';
+import { buildAuthFormMarkup } from './formMarkup.js';
 import {
   readLoginForm,
   readRegisterForm,
@@ -80,36 +80,25 @@ export class LoginScene extends Phaser.Scene {
     //user input is a nono to prevent XSS :(
     this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode, this.role);
     wireAuthForm(this);
-
-    this.loginForm.querySelector('#switch-contributor')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.role = 'contributor';
-      this.renderAuthForm();
-    });
-
-    this.loginForm.querySelector('#switch-admin')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.role = 'admin';
-      this.renderAuthForm();
-    });
-
-    this.loginForm.querySelector('#switch-learner')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.role = 'learner';
-      this.renderAuthForm();
-    });
-  }
-
-  updateRegisterFields(role) {
-    const roleFieldsDiv = this.loginForm?.querySelector('#role-fields');
-    if (!roleFieldsDiv) return;
-
-    roleFieldsDiv.innerHTML = buildRegisterRoleFields(role);
-    wireRoleFieldEvents(roleFieldsDiv);
   }
 
   toggleMode() {
-    this.authMode = this.authMode === 'login' ? 'register' : 'login';
+    this.setAuthMode(this.authMode === 'login' ? 'register' : 'login');
+  }
+
+  setAuthMode(mode) {
+    if (!mode || mode === this.authMode) return;
+    this.authMode = mode;
+    if (this.authMode === 'register' && this.role === 'admin') {
+      this.role = 'learner';
+    }
+    this.renderAuthForm();
+  }
+
+  setRole(role) {
+    if (!role || role === this.role) return;
+    if (this.authMode === 'register' && role === 'admin') return;
+    this.role = role;
     this.renderAuthForm();
   }
 

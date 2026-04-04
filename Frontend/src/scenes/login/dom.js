@@ -40,18 +40,61 @@ function ensureAuthFormStyles() {
       margin: 0 0 20px;
       color: var(--login-auth-text);
       text-align: center;
-      position: relative;
     }
 
-    .login-auth-back-link {
-      position: absolute;
-      left: 0;
-      top: 35%;
-      transform: translateY(-50%);
+    .login-auth-top-controls {
+      margin-bottom: 18px;
+    }
+
+    .login-auth-control-group {
+      margin-bottom: 10px;
+    }
+
+    .login-auth-control-group--mode {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(159, 199, 255, 0.35);
+    }
+
+    .login-auth-group-label {
+      margin: 0 0 8px;
+      color: var(--login-auth-muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .login-auth-chip-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+      gap: 8px;
+    }
+
+    .login-auth-chip {
+      border: 1px solid rgba(159, 199, 255, 0.4);
+      background: rgba(22, 33, 62, 0.9);
       color: var(--login-auth-text);
-      text-decoration: none;
-      font-size: 40px;
-      line-height: 1;
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .login-auth-chip:hover:not(:disabled) {
+      border-color: var(--login-auth-border);
+      transform: translateY(-1px);
+    }
+
+    .login-auth-chip.is-active {
+      background: rgba(74, 144, 226, 0.24);
+      border-color: var(--login-auth-border);
+      font-weight: 700;
+    }
+
+    .login-auth-chip:disabled {
+      cursor: not-allowed;
+      opacity: 0.4;
     }
 
     .login-auth-field {
@@ -120,20 +163,6 @@ function ensureAuthFormStyles() {
       min-height: 20px;
     }
 
-    .login-auth-role-switch {
-      color: var(--login-auth-text);
-      font-size: 12px;
-      text-align: center;
-      margin-top: 14px;
-      margin-bottom: 0;
-    }
-
-    .login-auth-inline-link {
-      color: var(--login-auth-text);
-      text-decoration: underline;
-      cursor: pointer;
-    }
-
     @media (max-width: 480px) {
       .login-auth-form {
         padding: 20px;
@@ -142,10 +171,6 @@ function ensureAuthFormStyles() {
 
       .login-auth-title {
         margin-bottom: 16px;
-      }
-
-      .login-auth-back-link {
-        font-size: 34px;
       }
     }
   `;
@@ -193,7 +218,18 @@ export function wireAuthForm(scene) {
 
   query(loginForm, '#submitBtn')?.addEventListener('click', () => scene.handleSubmit());
   query(loginForm, '#googleAuthBtn')?.addEventListener('click', () => scene.handleGoogleAuth());
-  query(loginForm, '#toggleModeBtn')?.addEventListener('click', () => scene.toggleMode());
+  loginForm.querySelectorAll('[data-role-chip]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const role = chip.getAttribute('data-role-chip');
+      if (role) scene.setRole(role);
+    });
+  });
+  loginForm.querySelectorAll('[data-auth-mode]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const mode = chip.getAttribute('data-auth-mode');
+      if (mode) scene.setAuthMode(mode);
+    });
+  });
 
   preventInputPropagation(loginForm);
 
@@ -201,11 +237,6 @@ export function wireAuthForm(scene) {
   passwordInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') scene.handleSubmit();
   });
-
-  const roleSelect = query(loginForm, '#role');
-  if (roleSelect && scene.authMode === 'register') {
-    roleSelect.addEventListener('change', () => scene.updateRegisterFields(roleSelect.value));
-  }
 
   bindAvatarPresetHint(loginForm);
 }

@@ -49,28 +49,73 @@ function buildLoginTitle(role) {
   return 'Login';
 }
 
+function buildRoleChips(activeRole, authMode) {
+  const roles = [
+    { value: 'learner', label: 'Learner' },
+    { value: 'contributor', label: 'Contributor' },
+    { value: 'admin', label: 'Admin' }
+  ];
+
+  return roles.map(({ value, label }) => {
+    const isDisabled = authMode === 'register' && value === 'admin';
+    const isActive = value === activeRole;
+
+    return `
+      <button
+        type="button"
+        class="login-auth-chip ${isActive ? 'is-active' : ''}"
+        data-role-chip="${value}"
+        ${isDisabled ? 'disabled' : ''}
+      >
+        ${label}
+      </button>
+    `;
+  }).join('');
+}
+
+function buildModeChips(authMode) {
+  return `
+    <button
+      type="button"
+      class="login-auth-chip ${authMode === 'login' ? 'is-active' : ''}"
+      data-auth-mode="login"
+    >
+      Login
+    </button>
+    <button
+      type="button"
+      class="login-auth-chip ${authMode === 'register' ? 'is-active' : ''}"
+      data-auth-mode="register"
+    >
+      Register
+    </button>
+  `;
+}
+
 export function buildAuthFormMarkup(authMode, role = 'learner') {
   const isLogin = authMode === 'login';
-  const title = isLogin ? buildLoginTitle(role) : 'Register';
-
-  const registerRoleSelect = `
-    <div class="login-auth-field">
-      <label class="login-auth-label">Register as</label>
-      <select id="role" class="login-auth-control">
-        <option value="learner">Learner</option>
-        <option value="contributor">Contributor</option>
-      </select>
-    </div>
-  `;
+  const effectiveRole = isLogin ? role : (role === 'admin' ? 'learner' : role);
+  const title = isLogin ? buildLoginTitle(effectiveRole) : 'Register';
 
   return `
-    <h2 class="login-auth-title">
-      ${isLogin && role !== 'learner' ? `
-      <a href="#" id="switch-learner" class="login-auth-back-link">&#8592;</a>      ` : ''}
-      ${title}
-    </h2>
-    ${isLogin ? '' : registerRoleSelect}
-    ${isLogin ? '' : `<div id="role-fields">${buildRegisterRoleFields('learner')}</div>`}
+    <div class="login-auth-top-controls">
+      <div class="login-auth-control-group">
+        <p class="login-auth-group-label">Role</p>
+        <div class="login-auth-chip-row">
+          ${buildRoleChips(effectiveRole, authMode)}
+        </div>
+      </div>
+      <div class="login-auth-control-group login-auth-control-group--mode">
+        <p class="login-auth-group-label">Auth Mode</p>
+        <div class="login-auth-chip-row">
+          ${buildModeChips(authMode)}
+        </div>
+      </div>
+    </div>
+
+    <h2 class="login-auth-title">${title}</h2>
+    ${isLogin ? '' : `<input type="hidden" id="role" value="${effectiveRole}" />`}
+    ${isLogin ? '' : `<div id="role-fields">${buildRegisterRoleFields(effectiveRole)}</div>`}
 
     <div class="login-auth-field">
       <label class="login-auth-label">Email</label>
@@ -90,20 +135,6 @@ export function buildAuthFormMarkup(authMode, role = 'learner') {
       Continue with Google
     </button>
 
-    <button id="toggleModeBtn" class="login-auth-button login-auth-button--ghost">
-      ${isLogin ? 'No account? Register' : 'Have an account? Login'}
-    </button>
-
     <div id="message" class="login-auth-message"></div>
-
-    ${isLogin ? `
-    <p class="login-auth-role-switch">
-      Login as
-      <a href="#" id="switch-contributor" class="login-auth-inline-link">contributor</a>
-      or
-      <a href="#" id="switch-admin" class="login-auth-inline-link">admin</a>
-      instead
-    </p>
-    ` : ''}
   `;
 }

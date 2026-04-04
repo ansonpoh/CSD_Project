@@ -24,7 +24,9 @@ function ensureAuthFormStyles() {
       background: var(--login-auth-bg);
       border-radius: 10px;
       border: 2px solid var(--login-auth-border);
-      width: 400px;
+      width: min(400px, calc(100vw - 32px));
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
       box-sizing: border-box;
     }
 
@@ -130,6 +132,21 @@ function ensureAuthFormStyles() {
       color: var(--login-auth-text);
       text-decoration: underline;
       cursor: pointer;
+    }
+
+    @media (max-width: 480px) {
+      .login-auth-form {
+        padding: 20px;
+        border-radius: 8px;
+      }
+
+      .login-auth-title {
+        margin-bottom: 16px;
+      }
+
+      .login-auth-back-link {
+        font-size: 34px;
+      }
     }
   `;
   document.head.appendChild(style);

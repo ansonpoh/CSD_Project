@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import { FONT_STACKS } from '../config/typography.js';
 
-const UI_FONT = 'Trebuchet MS, Verdana, sans-serif';
+const UI_FONT = FONT_STACKS.ui;
 
 const P = {
   bgDeep: 0x090f24,

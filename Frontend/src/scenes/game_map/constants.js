@@ -1,4 +1,7 @@
+import { FONT_STACKS } from '../../config/typography.js';
+
 export const HUD = {
+  fontUi: FONT_STACKS.ui,
   panelBg: 0x0d1530,
   cardBg: 0x101b3f,
   btnPurple: 0x2a0f42,

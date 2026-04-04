@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
 import { dailyQuestService } from '../../services/dailyQuests.js';
+import { HUD } from './constants.js';
 
 export const questPanelMethods = {
   resetMapCursor() {
@@ -40,7 +41,7 @@ export const questPanelMethods = {
 
     const title = this.add.text(0, -36, 'Reward Claimed!', {
       fontSize: '32px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: '#ffecc3',
       stroke: '#04110b',
@@ -53,7 +54,7 @@ export const questPanelMethods = {
       `+${Math.max(0, Number(xp || 0))} XP   |   +${Math.max(0, Number(gold || 0))} Gold`,
       {
         fontSize: '22px',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontFamily: HUD.fontUi,
         fontStyle: 'bold',
         color: '#c8ffd6',
         stroke: '#04110b',
@@ -63,7 +64,7 @@ export const questPanelMethods = {
 
     const hint = this.add.text(0, 44, 'Quest chain progress updated', {
       fontSize: '14px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       color: '#9cd8b0',
       stroke: '#04110b',
       strokeThickness: 4

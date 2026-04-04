@@ -14,7 +14,7 @@ function showMapLoadingOverlay(scene) {
   const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x050814, 0.96).setScrollFactor(0);
   const title = scene.add.text(width / 2, height / 2 - 22, 'Loading Map', {
     fontSize: '38px',
-    fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+    fontFamily: HUD.fontUi,
     fontStyle: 'bold',
     color: '#f4f6ff',
     stroke: '#0a1025',
@@ -22,7 +22,7 @@ function showMapLoadingOverlay(scene) {
   }).setOrigin(0.5).setScrollFactor(0);
   const status = scene.add.text(width / 2, height / 2 + 26, 'Preparing world...', {
     fontSize: '20px',
-    fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+    fontFamily: HUD.fontUi,
     color: '#c8d0ff',
     stroke: '#0a1025',
     strokeThickness: 4
@@ -174,7 +174,7 @@ export async function createGameMapScene() {
     ).setStrokeStyle(2, HUD.border, 0.85).setScrollFactor(0).setDepth(100).setVisible(false);
     this.interactPrompt = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 40, '', {
       fontSize: '18px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: HUD.textMain,
       stroke: '#060814',

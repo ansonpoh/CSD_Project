@@ -4,8 +4,19 @@
   box-sizing: border-box;
 }
 
+:root {
+  --font-family-ui: "Trebuchet MS", "Verdana", "Segoe UI", "Tahoma", sans-serif;
+  --font-family-display: "Trebuchet MS", "Verdana", "Segoe UI", "Tahoma", sans-serif;
+  --font-family-mono: "Courier New", "Courier", monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
 body {
-  font-family: 'Courier New', Courier, monospace; /* Pixel-friendly font */
+  font-family: var(--font-family-ui);
+  font-weight: var(--font-weight-regular);
   background: #1a2e4c;
   overflow: hidden;
 }

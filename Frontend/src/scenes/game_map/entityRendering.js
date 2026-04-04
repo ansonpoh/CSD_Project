@@ -228,7 +228,7 @@ export const entityRenderingMethods = {
 
       const nameText = this.add.text(x, y, npcName, {
         fontSize: '14px',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontFamily: HUD.fontUi,
         fontStyle: 'bold',
         color: '#ffffff',
         backgroundColor: '#000000',
@@ -239,7 +239,7 @@ export const entityRenderingMethods = {
 
       const statusBadge = this.add.text(x, y - 56, '', {
         fontSize: '12px',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontFamily: HUD.fontUi,
         fontStyle: 'bold',
         color: HUD.textSub,
         backgroundColor: '#0a1128',
@@ -305,7 +305,7 @@ export const entityRenderingMethods = {
       const labelName = encounterMonster.isBossEncounter ? `${monsterName} [BOSS]` : monsterName;
       const nameText = this.add.text(x, y, labelName, {
         fontSize: '14px',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontFamily: HUD.fontUi,
         fontStyle: 'bold',
         color: '#ffe8cc',
         backgroundColor: '#2a1010',

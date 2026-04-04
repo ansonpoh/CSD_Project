@@ -1,3 +1,5 @@
+import { FONT_STACKS } from '../../config/typography.js';
+
 const STYLE_ID = 'modern-dashboard-portal-styles';
 
 const STATUS_CLASS_MAP = {
@@ -25,7 +27,7 @@ export function ensureDashboardPortalStyles() {
       inset: 0;
       z-index: 1200;
       overflow: hidden;
-      font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+      font-family: ${FONT_STACKS.ui};
       color: #eef4ff;
     }
 

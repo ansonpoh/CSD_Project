@@ -1,4 +1,6 @@
-export const UI_FONT = 'Trebuchet MS, Verdana, sans-serif';
+import { FONT_STACKS } from '../../config/typography.js';
+
+export const UI_FONT = FONT_STACKS.ui;
 
 export const MAX_LIFELINES = 3;
 

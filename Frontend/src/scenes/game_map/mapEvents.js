@@ -108,7 +108,7 @@ export const mapEventMethods = {
 
     panel.add(this.add.text(250, 22, event.title, {
       fontSize: '24px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: HUD.textGold,
       stroke: '#060814',
@@ -117,7 +117,7 @@ export const mapEventMethods = {
 
     panel.add(this.add.text(28, 68, event.intro, {
       fontSize: '15px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       color: HUD.textMain,
       lineSpacing: 6,
       wordWrap: { width: 444 }
@@ -130,12 +130,12 @@ export const mapEventMethods = {
 
     panel.add(this.add.text(250, 292, 'Choose once. The world map will remember it.', {
       fontSize: '12px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       color: HUD.textSub
     }).setOrigin(0.5, 0.5));
     panel.add(this.add.text(470, 18, 'X', {
       fontSize: '18px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: HUD.textWarn,
       stroke: '#060814',
@@ -162,7 +162,7 @@ export const mapEventMethods = {
     container.add(bg);
     container.add(this.add.text(14, 9, option.label, {
       fontSize: '15px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: HUD.textMain,
       stroke: '#060814',
@@ -170,7 +170,7 @@ export const mapEventMethods = {
     }));
     container.add(this.add.text(14, 28, option.summary, {
       fontSize: '12px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       color: HUD.textSub
     }));
 

@@ -19,7 +19,7 @@ function createHudButton(scene, cx, cy, label, fillNormal, fillHover, onClick) {
   draw(fillNormal, HUD.border);
   const text = scene.add.text(width / 2, height / 2, label, {
     fontSize: '18px',
-    fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+    fontFamily: HUD.fontUi,
     fontStyle: 'bold',
     color: HUD.textMain,
     stroke: '#060814',
@@ -104,7 +104,7 @@ export const uiMethods = {
     missionCard.strokeRoundedRect(missionX, 70, missionWidth, 54, 8);
     this.missionText = this.add.text(missionX + missionWidth / 2, 97, 'Syncing objectives...', {
       fontSize: '17px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: HUD.textMain,
       stroke: '#060814',
@@ -134,7 +134,7 @@ export const uiMethods = {
     );
     this.mapBannerText = this.add.text(46, 164, '', {
       fontSize: '18px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: HUD.textMain,
       stroke: '#060814',
@@ -143,7 +143,7 @@ export const uiMethods = {
     }).setScrollFactor(0).setDepth(120);
     this.mapSignalText = this.add.text(46, 198, '', {
       fontSize: '13px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       color: HUD.textSub,
       lineSpacing: 5,
       wordWrap: { width: 252 }
@@ -164,7 +164,7 @@ export const uiMethods = {
 
     this.questTitleText = this.add.text(questX + 14, questY + 12, 'Quest Chain', {
       fontSize: '18px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: '#ffeac8',
       stroke: '#060814',
@@ -173,7 +173,7 @@ export const uiMethods = {
 
     this.questStepsText = this.add.text(questX + 14, questY + 42, 'Loading...', {
       fontSize: '14px',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontFamily: HUD.fontUi,
       color: HUD.textMain,
       lineSpacing: 6,
       wordWrap: { width: questW - 28 }

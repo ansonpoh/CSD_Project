@@ -456,12 +456,10 @@ public class EncounterServiceUnitTest {
     @Test
     void getTelemetryDashboard_FiltersByMapIdAndComputesWinLossPercentagesCorrectly() {
         UUID mapId = UUID.randomUUID();
-        UUID otherMapId = UUID.randomUUID();
-        when(monsterProgressRepository.findAll()).thenReturn(List.of(
-                MonsterProgress.builder().map(com.smu.csd.maps.Map.builder().mapId(mapId).build()).attempts(2).wins(1).losses(1).rewardClaimed(true).build(),
-                MonsterProgress.builder().map(com.smu.csd.maps.Map.builder().mapId(mapId).build()).attempts(1).wins(1).losses(0).rewardClaimed(false).build(),
-                MonsterProgress.builder().map(com.smu.csd.maps.Map.builder().mapId(otherMapId).build()).attempts(3).wins(0).losses(3).rewardClaimed(true).build()
-        ));
+        when(monsterProgressRepository.countByMapMapIdAndAttemptsGreaterThan(mapId, 0)).thenReturn(2L);
+        when(monsterProgressRepository.countByMapMapIdAndWinsGreaterThan(mapId, 0)).thenReturn(2L);
+        when(monsterProgressRepository.countByMapMapIdAndLossesGreaterThan(mapId, 0)).thenReturn(1L);
+        when(monsterProgressRepository.countByMapMapIdAndRewardClaimedTrue(mapId)).thenReturn(1L);
 
         EncounterTelemetryDashboardDto result = encounterService.getTelemetryDashboard(mapId);
 

@@ -1,20 +1,3 @@
-export const WORLD_MAP_PALETTE = {
-  btnNormal: 0x2a0f42,
-  btnHover: 0x3d1860,
-  btnPress: 0x100520,
-  btnDisabled: 0x130b20,
-  borderGold: 0xc8870a,
-  borderGlow: 0xf0b030,
-  borderDim: 0x604008,
-  accentGlow: 0xffdd60,
-  textMain: '#f0ecff',
-  textSub: '#c0a8e0',
-  textDisabled: '#5a4a72',
-  textDesc: '#9e88c0',
-  xpFill: 0x4193d5,
-  xpTrack: 0x0e0820,
-  xpBorder: 0xc8870a,
-  good: '#7df5b2',
-  warn: '#ffd57a',
-  gold: '#ffe2a8'
-};
+import { SCENE_PALETTES } from '../../config/designTokens.js';
+
+export const WORLD_MAP_PALETTE = SCENE_PALETTES.worldMap;

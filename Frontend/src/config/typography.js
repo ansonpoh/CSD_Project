@@ -1,13 +1,11 @@
-export const FONT_STACKS = {
-  ui: '"Trebuchet MS", "Verdana", "Segoe UI", "Tahoma", sans-serif',
-  display: '"Trebuchet MS", "Verdana", "Segoe UI", "Tahoma", sans-serif',
-  mono: '"Courier New", "Courier", monospace'
-};
+import { TYPOGRAPHY } from './designTokens.js';
+
+export const FONT_STACKS = TYPOGRAPHY.fontStacks;
 
 export const TYPOGRAPHY_TOKENS = {
-  weightRegular: 400,
-  weightMedium: 500,
-  weightSemibold: 600,
-  weightBold: 700
+  weightRegular: TYPOGRAPHY.weights.regular,
+  weightMedium: TYPOGRAPHY.weights.medium,
+  weightSemibold: TYPOGRAPHY.weights.semibold,
+  weightBold: TYPOGRAPHY.weights.bold
 };
 

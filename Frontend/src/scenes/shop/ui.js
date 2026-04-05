@@ -1,4 +1,5 @@
 import { SHOP_LAYOUT, SHOP_PALETTE } from './constants.js';
+import { createUiButton } from '../ui/shared.js';
 
 export const shopUiMethods = {
   buildShopScene() {
@@ -48,7 +49,11 @@ export const shopUiMethods = {
   },
 
   createCloseButton() {
-    return this.createShopButton(1850, 100, 100, 50, 'CLOSE', {
+    const width = this.cameras.main.width;
+    const buttonWidth = 100;
+    const rightPadding = Math.max(16, Math.round(width * 0.02));
+
+    return this.createShopButton(width - rightPadding - (buttonWidth / 2), 100, buttonWidth, 50, 'CLOSE', {
       fill: SHOP_PALETTE.btnDanger,
       hoverFill: SHOP_PALETTE.btnDangerHover,
       border: 0x8b2020,
@@ -67,51 +72,32 @@ export const shopUiMethods = {
       onClick,
       disabled = false
     } = options;
-    const container = this.add.container(cx, cy);
-    const background = this.add.graphics();
-    const text = this.add.text(0, 0, label, {
-      fontSize: '14px',
-      fontStyle: 'bold',
-      color: disabled ? SHOP_PALETTE.textDim : SHOP_PALETTE.textMain,
-      stroke: '#060814',
-      strokeThickness: 4
-    }).setOrigin(0.5);
-
-    const draw = (activeFill, activeBorder) => {
-      background.clear();
-      background.fillStyle(activeFill, disabled ? 0.35 : 1);
-      background.fillRoundedRect(-width / 2, -height / 2, width, height, 4);
-      background.lineStyle(2, activeBorder, disabled ? 0.3 : 0.9);
-      background.strokeRoundedRect(-width / 2, -height / 2, width, height, 4);
-
-      if (!disabled) {
-        background.fillStyle(0xffffff, 0.06);
-        background.fillRoundedRect(
-          -width / 2 + 2,
-          -height / 2 + 2,
-          width - 4,
-          height * 0.42,
-          { tl: 3, tr: 3, bl: 0, br: 0 }
-        );
-      }
-    };
-
-    draw(disabled ? SHOP_PALETTE.btnNormal : fill, disabled ? SHOP_PALETTE.borderDim : border);
-    container.add([background, text]);
-
-    if (!disabled && onClick) {
-      const hit = this.add.rectangle(0, 0, width, height, 0, 0).setInteractive({ useHandCursor: true });
-      hit.on('pointerover', () => draw(hoverFill, SHOP_PALETTE.borderGlow));
-      hit.on('pointerout', () => draw(fill, border));
-      hit.on('pointerdown', () => draw(SHOP_PALETTE.btnPress, SHOP_PALETTE.borderDim));
-      hit.on('pointerup', () => {
-        draw(hoverFill, SHOP_PALETTE.borderGlow);
-        onClick();
-      });
-      container.add(hit);
-    }
-
-    return container;
+    return createUiButton(this, {
+      x: cx,
+      y: cy,
+      width,
+      height,
+      anchor: 'center',
+      label,
+      fillNormal: fill,
+      fillHover: hoverFill,
+      borderNormal: border,
+      borderHover: SHOP_PALETTE.borderGlow,
+      pressFill: SHOP_PALETTE.btnPress,
+      pressBorder: SHOP_PALETTE.borderDim,
+      disabled,
+      disabledFill: SHOP_PALETTE.btnNormal,
+      disabledBorder: SHOP_PALETTE.borderDim,
+      disabledTextColor: SHOP_PALETTE.textDim,
+      textStyle: {
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: SHOP_PALETTE.textMain,
+        stroke: '#060814',
+        strokeThickness: 4
+      },
+      onPress: onClick
+    });
   },
 
   updateGoldDisplay() {

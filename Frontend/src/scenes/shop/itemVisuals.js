@@ -1,11 +1,58 @@
 import { SHOP_PALETTE, SHOP_TYPE_COLORS } from './constants.js';
 
 export const shopItemVisualMethods = {
-  createItemIcon(container, x, y, type) {
+  createItemIcon(container, x, y, itemOrType) {
     const graphic = this.add.graphics();
+    const type = typeof itemOrType === 'string'
+      ? itemOrType
+      : String(itemOrType?.item_type || '').toLowerCase();
+    const itemName = typeof itemOrType === 'string'
+      ? ''
+      : String(itemOrType?.name || '').toLowerCase();
+
+    if (itemName.includes('insight tome')) {
+      graphic.fillStyle(0x5b6ee1, 1);
+      graphic.fillRoundedRect(x - 11, y - 12, 22, 24, 3);
+      graphic.fillStyle(0x3749b5, 1);
+      graphic.fillRect(x - 11, y - 12, 4, 24);
+      graphic.fillStyle(0xc7d2fe, 1);
+      graphic.fillRoundedRect(x - 6, y - 6, 12, 10, 2);
+      graphic.fillStyle(0xe5e7eb, 1);
+      graphic.fillRect(x - 1, y - 8, 2, 16);
+      container.add(graphic);
+      return;
+    }
+
+    if (itemName.includes('hint token') || itemName.includes('quiz hint') || itemName.includes('hint')) {
+      graphic.fillStyle(0x57539e, 1);
+      graphic.fillRoundedRect(x - 11, y - 11, 22, 22, 4);
+      graphic.lineStyle(2, 0xa9b1ff, 0.95);
+      graphic.strokeRoundedRect(x - 11, y - 11, 22, 22, 4);
+      graphic.fillStyle(0x2f2b62, 1);
+      graphic.fillCircle(x, y + 4, 2);
+      const hintGlyph = this.add.text(x, y - 2, '?', {
+        fontSize: '15px',
+        fontStyle: 'bold',
+        color: '#dbeafe',
+        stroke: '#2f2b62',
+        strokeThickness: 3
+      }).setOrigin(0.5);
+      container.add(graphic);
+      container.add(hintGlyph);
+      return;
+    }
 
     switch (type) {
       case 'potion':
+        if (itemName.includes('health') || itemName.includes('heal')) {
+          graphic.fillStyle(0xcd3b3b, 1);
+          graphic.fillRoundedRect(x - 10, y - 10, 20, 25, 3);
+          graphic.fillStyle(0xf87171, 1);
+          graphic.fillRect(x - 8, y - 5, 16, 15);
+          graphic.fillStyle(0x9f1239, 1);
+          graphic.fillRect(x - 6, y - 12, 12, 3);
+          break;
+        }
         graphic.fillStyle(0x4193d5, 1);
         graphic.fillRoundedRect(x - 10, y - 10, 20, 25, 3);
         graphic.fillStyle(0x60a5fa, 1);

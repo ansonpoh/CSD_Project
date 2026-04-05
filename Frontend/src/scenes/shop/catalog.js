@@ -65,7 +65,7 @@ export const shopCatalogMethods = {
     );
     container.add(cardBg);
 
-    this.createItemIcon(container, -SHOP_LAYOUT.cardWidth / 2 + 28, 0, item.item_type);
+    this.createItemIcon(container, -SHOP_LAYOUT.cardWidth / 2 + 28, 0, item);
 
     container.add(this.add.text(-SHOP_LAYOUT.cardWidth / 2 + 58, -SHOP_LAYOUT.cardHeight / 2 + 12, item.name, {
       fontSize: '17px',

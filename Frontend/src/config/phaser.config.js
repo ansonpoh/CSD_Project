@@ -26,7 +26,6 @@ const config = {
   pixelArt: true, // Ensures crisp pixelated rendering
   scale: {
     mode: Phaser.Scale.FIT,
-    // mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
   physics: {

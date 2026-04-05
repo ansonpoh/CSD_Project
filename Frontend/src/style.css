@@ -5,6 +5,7 @@
 }
 
 :root {
+  --font-scale: 1.1;
   --font-family-ui: "Trebuchet MS", "Verdana", "Segoe UI", "Tahoma", sans-serif;
   --font-family-display: "Trebuchet MS", "Verdana", "Segoe UI", "Tahoma", sans-serif;
   --font-family-mono: "Courier New", "Courier", monospace;
@@ -17,6 +18,7 @@
 body {
   font-family: var(--font-family-ui);
   font-weight: var(--font-weight-regular);
+  font-size: calc(16px * var(--font-scale));
   background: #1a2e4c;
   overflow: hidden;
 }

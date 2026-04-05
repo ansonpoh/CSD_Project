@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { soldier } from '../../characters/soldier/Soldier.js';
 import { WORLD_MAP_PALETTE as P } from './constants.js';
+import { createUiButton } from '../ui/shared.js';
 
 export const worldMapPanelFactoryMethods = {
   createWindowPanel(x, y, cols, rows, title) {
@@ -254,55 +255,36 @@ export const worldMapPanelFactoryMethods = {
   },
 
   createButton(x, y, width, height, label, onClick, disabled = false, clickGuard = null) {
-    const btn = this.add.container(x, y);
-    const bg = this.add.graphics();
-
-    const draw = (fill, border, glowLine) => {
-      bg.clear();
-      bg.fillStyle(fill, 1);
-      bg.fillRoundedRect(0, 0, width, height, 4);
-      bg.lineStyle(2, border, disabled ? 0.35 : 1);
-      bg.strokeRoundedRect(0, 0, width, height, 4);
-
-      if (!disabled) {
-        bg.fillStyle(0xffffff, 0.05);
-        bg.fillRoundedRect(2, 2, width - 4, height * 0.42, { tl: 3, tr: 3, bl: 0, br: 0 });
-        bg.lineStyle(1, glowLine, 0.55);
-        bg.beginPath();
-        bg.moveTo(8, 2);
-        bg.lineTo(width - 8, 2);
-        bg.strokePath();
-      }
-    };
-
-    draw(disabled ? P.btnDisabled : P.btnNormal, disabled ? P.borderDim : P.borderGold, P.accentGlow);
-    btn.add(bg);
-
-    btn.add(this.add.text(width / 2, height / 2, this.truncate(label, 34), {
-      fontSize: '15px',
-      fontStyle: 'bold',
-      color: disabled ? P.textDisabled : P.textMain,
-      stroke: '#060814',
-      strokeThickness: 5,
-      align: 'center'
-    }).setOrigin(0.5));
-
-    if (!disabled && onClick) {
-      const hit = this.add
-        .rectangle(width / 2, height / 2, width, height, 0, 0)
-        .setInteractive(this.getGuardedInputConfig(width, height, clickGuard));
-      btn.add(hit);
-      hit.on('pointerover', () => draw(P.btnHover, P.borderGlow, P.accentGlow));
-      hit.on('pointerout', () => draw(P.btnNormal, P.borderGold, P.accentGlow));
-      hit.on('pointerdown', () => draw(P.btnPress, P.borderDim, P.borderGold));
-      hit.on('pointerup', (pointer) => {
-        if (clickGuard && !clickGuard(pointer)) return;
-        draw(P.btnHover, P.borderGlow, P.accentGlow);
-        onClick();
-      });
-    }
-
-    return btn;
+    return createUiButton(this, {
+      x,
+      y,
+      width,
+      height,
+      anchor: 'topLeft',
+      label: this.truncate(label, 34),
+      fillNormal: P.btnNormal,
+      fillHover: P.btnHover,
+      borderNormal: P.borderGold,
+      borderHover: P.borderGlow,
+      pressFill: P.btnPress,
+      pressBorder: P.borderDim,
+      disabled,
+      disabledFill: P.btnDisabled,
+      disabledBorder: P.borderDim,
+      disabledTextColor: P.textDisabled,
+      topGlossAlpha: 0.05,
+      topGlowLineColor: P.accentGlow,
+      textStyle: {
+        fontSize: '15px',
+        fontStyle: 'bold',
+        color: P.textMain,
+        stroke: '#060814',
+        strokeThickness: 5,
+        align: 'center'
+      },
+      hitConfig: this.getGuardedInputConfig(width, height, clickGuard),
+      onPress: () => onClick?.()
+    });
   },
 
   ensureWorldIdleAnimation() {

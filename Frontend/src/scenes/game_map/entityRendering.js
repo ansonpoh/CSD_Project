@@ -66,6 +66,13 @@ export const entityRenderingMethods = {
       pushRect(this.claimRewardButton.container.x, this.claimRewardButton.container.y, 120, 40);
     }
 
+    // Bottom interaction bar ("Press E to ...")
+    const interactBarWidth = 760;
+    const interactBarHeight = 44;
+    const interactBarY = cam.height - 40;
+    const interactBarX = Math.floor((cam.width - interactBarWidth) / 2);
+    pushRect(interactBarX, interactBarY - (interactBarHeight / 2), interactBarWidth, interactBarHeight, 18);
+
     return rects;
   },
 

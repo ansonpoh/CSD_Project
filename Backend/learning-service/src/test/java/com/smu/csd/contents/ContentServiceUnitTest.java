@@ -65,7 +65,7 @@ public class ContentServiceUnitTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> failingService.submitContent(UUID.randomUUID(), topicId, UUID.randomUUID(), UUID.randomUUID(), "Title", "Desc", List.of("Line 1"), "video")
+                () -> failingService.submitContent(UUID.randomUUID(), topicId, UUID.randomUUID(), UUID.randomUUID(), "Title", "Desc", List.of("Line 1"), "video", null)
         );
 
         assertTrue(exception.getMessage().contains("Invalid narrations format"));
@@ -92,7 +92,7 @@ public class ContentServiceUnitTest {
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "video")
+                () -> service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "video", null)
         );
 
         assertEquals("Duplicate submission detected", exception.getMessage());
@@ -116,7 +116,7 @@ public class ContentServiceUnitTest {
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "video")
+                () -> service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "video", null)
         );
 
         assertTrue(exception.getMessage().contains("Likely semantic duplicate"));
@@ -144,7 +144,7 @@ public class ContentServiceUnitTest {
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "video")
+                () -> service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "video", null)
         );
 
         assertTrue(exception.getMessage().contains("Failed to assign content to NPC/Map in Game Service"));
@@ -173,7 +173,8 @@ public class ContentServiceUnitTest {
                 .build();
         when(contentRepository.findById(content.getContentId())).thenReturn(Optional.of(content));
 
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> service.rejectContent(content.getContentId()));
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.rejectContent(content.getContentId(), "reason", "admin comments"));
 
         assertEquals("Only PENDING_REVIEW content can be rejected", exception.getMessage());
     }

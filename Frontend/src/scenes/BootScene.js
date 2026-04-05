@@ -27,6 +27,7 @@ export class BootScene extends Phaser.Scene {
   preload() {
     const width  = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const htmlProgressBar = document.getElementById('loader-progress-bar');
 
     // ── Background ──────────────────────────────────────────────────────────
     this.add.rectangle(width / 2, height / 2, width, height, P.bgDeep);
@@ -89,16 +90,28 @@ export class BootScene extends Phaser.Scene {
       // inner shine
       fill.fillStyle(0xffffff, 0.18);
       fill.fillRoundedRect(barX + 2, barY + 2, Math.max(0, (barW - 4) * value), Math.floor((barH - 4) * 0.45), { tl: 3, tr: 3, bl: 0, br: 0 });
+      if (htmlProgressBar) {
+            htmlProgressBar.style.width = `${value * 100}%`;
+        }
     });
 
     this.load.on('complete', () => {
       fill.destroy();
       track.destroy();
       percentText.destroy();
+      const loaderOverlay = document.getElementById('game-loader');
+        if (loaderOverlay) {
+            loaderOverlay.classList.add('hidden'); // Triggers the CSS fade
+            
+            // Remove it from the DOM entirely after the fade finishes (600ms)
+            setTimeout(() => {
+                loaderOverlay.remove();
+            }, 600);
+        }
     });
 
     // ── Asset loads (unchanged) ─────────────────────────────────────────────
-    this.load.image('logo', 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%234a90e2"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="48">GAME</text></svg>');
+    this.load.image('logo', 'assets/logo.png');
 
     this.load.spritesheet(soldier.sheetKey, soldier.file, {
       frameWidth: soldier.frameWidth,

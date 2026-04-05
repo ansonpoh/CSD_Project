@@ -60,3 +60,60 @@ button:focus {
   outline: 2px solid #4a90e2;
   outline-offset: 2px;
 }
+
+#game-loader {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #12080b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  transition: opacity 0.6s ease-out;
+  color: #a5c8ea;
+  font-family: sans-serif;
+}
+
+.loader-logo {
+  width: 240px;
+  height: auto;
+  margin-bottom: 24px;
+  animation: pulse 2s infinite ease-in-out;
+  filter: drop-shadow(0px 0px 12px rgba(255, 255, 255, 0.6));
+}
+
+.loader-text {
+  font-size: 14px;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+  font-weight: bold;
+}
+
+.loader-progress-container {
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#loader-progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #6cc0ff;
+  transition: width 0.1s linear;
+}
+
+#game-loader.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}

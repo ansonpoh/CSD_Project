@@ -41,12 +41,8 @@ export class LoginScene extends Phaser.Scene {
 
     createTimeBasedBackground(this, width, height);
 
-    this.add.text(width / 2, 100, 'ADVENTURE GAME', {
-      fontSize: '48px',
-      color: '#4a90e2',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-
+    const logo = this.add.image(width / 2, 130, 'logo').setOrigin(0.5);
+    
     this.startAuthEntryFlow();
   }
 

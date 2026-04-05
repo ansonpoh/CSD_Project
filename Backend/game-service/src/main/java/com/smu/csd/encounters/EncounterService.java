@@ -142,7 +142,8 @@ public class EncounterService {
         }
 
         MonsterProgress progress = getOrCreateMonsterProgress(learner, mapId, monsterId);
-        boolean didWin = hasPassedAuthoritativeMapQuiz(learner.learnerId(), mapId);
+        boolean requestedWin = Boolean.TRUE.equals(request.won());
+        boolean didWin = requestedWin && hasPassedAuthoritativeMapQuiz(learner.learnerId(), mapId);
 
         progress.setAttempts(safeInt(progress.getAttempts()) + 1);
         progress.setWins(safeInt(progress.getWins()) + (didWin ? 1 : 0));

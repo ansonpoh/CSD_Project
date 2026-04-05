@@ -66,7 +66,7 @@ public class EncounterServiceUnitTest {
         when(monsterService.getMonstersByMapId(mapId)).thenReturn(List.of(monster));
         when(npcService.getNPCsByMapId(mapId)).thenReturn(List.of());
 
-        EncounterCombatResultRequestDto request = new EncounterCombatResultRequestDto(mapId, monsterId);
+        EncounterCombatResultRequestDto request = new EncounterCombatResultRequestDto(mapId, monsterId, true);
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
@@ -142,8 +142,8 @@ public class EncounterServiceUnitTest {
     void recordCombatResult_RejectsNullMapIdOrMonsterId() {
         UUID supabaseUserId = UUID.randomUUID();
 
-        assertThrows(IllegalArgumentException.class, () -> encounterService.recordCombatResult(new EncounterCombatResultRequestDto(null, UUID.randomUUID()), supabaseUserId));
-        assertThrows(IllegalArgumentException.class, () -> encounterService.recordCombatResult(new EncounterCombatResultRequestDto(UUID.randomUUID(), null), supabaseUserId));
+        assertThrows(IllegalArgumentException.class, () -> encounterService.recordCombatResult(new EncounterCombatResultRequestDto(null, UUID.randomUUID(), true), supabaseUserId));
+        assertThrows(IllegalArgumentException.class, () -> encounterService.recordCombatResult(new EncounterCombatResultRequestDto(UUID.randomUUID(), null, true), supabaseUserId));
     }
 
     @Test
@@ -162,7 +162,7 @@ public class EncounterServiceUnitTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> encounterService.recordCombatResult(new EncounterCombatResultRequestDto(mapId, monsterId), supabaseUserId)
+                () -> encounterService.recordCombatResult(new EncounterCombatResultRequestDto(mapId, monsterId, true), supabaseUserId)
         );
 
         assertEquals("Monster does not belong to map.", exception.getMessage());
@@ -203,7 +203,7 @@ public class EncounterServiceUnitTest {
         when(monsterProgressRepository.findByLearnerIdAndMapMapIdAndMonsterMonsterId(learnerId, mapId, monsterId)).thenReturn(Optional.of(progress));
         when(monsterProgressRepository.save(any(MonsterProgress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        EncounterCombatResultResponseDto result = encounterService.recordCombatResult(new EncounterCombatResultRequestDto(mapId, monsterId), supabaseUserId);
+        EncounterCombatResultResponseDto result = encounterService.recordCombatResult(new EncounterCombatResultRequestDto(mapId, monsterId, true), supabaseUserId);
 
         assertTrue(result.won());
         assertEquals(1, result.attempts());
@@ -246,7 +246,7 @@ public class EncounterServiceUnitTest {
         when(monsterProgressRepository.findByLearnerIdAndMapMapIdAndMonsterMonsterId(learnerId, mapId, monsterId)).thenReturn(Optional.of(progress));
         when(monsterProgressRepository.save(any(MonsterProgress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        EncounterCombatResultResponseDto result = encounterService.recordCombatResult(new EncounterCombatResultRequestDto(mapId, monsterId), supabaseUserId);
+        EncounterCombatResultResponseDto result = encounterService.recordCombatResult(new EncounterCombatResultRequestDto(mapId, monsterId, false), supabaseUserId);
 
         assertFalse(result.won());
         assertEquals(3, result.attempts());

@@ -199,7 +199,7 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  async submitCombatResult() {
+  async submitCombatResult({ won = false } = {}) {
     if (this.submittedCombatResult) return;
 
     const mapId = this.mapId;
@@ -210,7 +210,8 @@ export class CombatScene extends Phaser.Scene {
     try {
       await apiService.submitEncounterCombatResult({
         mapId,
-        monsterId
+        monsterId,
+        won: Boolean(won)
       });
     } catch (error) {
       this.submittedCombatResult = false;
@@ -225,7 +226,7 @@ export class CombatScene extends Phaser.Scene {
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     this.addLog('You fled the encounter.');
-    void this.submitCombatResult();
+    void this.submitCombatResult({ won: false });
     this.time.delayedCall(900, () => {
       this.exitBattle();
     });
@@ -238,7 +239,7 @@ export class CombatScene extends Phaser.Scene {
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     if (!this.isRematch) {
-      await this.submitCombatResult();
+      await this.submitCombatResult({ won: true });
     }
 
     if (this.monsterSprite && this.canPlayAnim(`${this.monsterName}_dead`)) {
@@ -271,7 +272,7 @@ export class CombatScene extends Phaser.Scene {
     this.runBtn?.setEnabled(false);
     this.addLog(reason);
     this.addLog('Retry assist will strengthen your next attempt.');
-    void this.submitCombatResult();
+    void this.submitCombatResult({ won: false });
 
     if (this.playerSprite && this.canPlayAnim('dead')) this.playerSprite.play('dead', true);
 
@@ -294,6 +295,15 @@ export class CombatScene extends Phaser.Scene {
   }
 
   exitBattle() {
+    const gameMapScene = this.scene.manager?.getScene?.('GameMapScene');
+    const canResumeGameMap = Boolean(gameMapScene?.scene?.isPaused?.());
+
+    this.scene.stop();
+    if (canResumeGameMap) {
+      this.scene.resume('GameMapScene');
+      return;
+    }
+
     transitionToScene(this, 'GameMapScene', { mapConfig: gameState.getCurrentMap() });
   }
 }

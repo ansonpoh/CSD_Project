@@ -4,5 +4,6 @@ import java.util.UUID;
 
 public record EncounterCombatResultRequestDto(
     UUID mapId,
-    UUID monsterId
+    UUID monsterId,
+    Boolean won
 ) {}

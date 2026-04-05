@@ -3,7 +3,6 @@ import { apiService } from '../../services/api.js';
 import { mapDiscoveryService } from '../../services/mapDiscovery.js';
 import { getChallengeSnapshot } from '../../services/sideChallenges.js';
 import { HUD } from './constants.js';
-import { transitionToScene } from '../shared/sceneTransition.js';
 
 export const encounterStateMethods = {
   interactWithNPC(npc) {
@@ -140,7 +139,8 @@ export const encounterStateMethods = {
     const monsterState = this.getEncounterMonsterState(monster);
     const isRematch = Boolean(monsterState?.monsterDefeated);
 
-    transitionToScene(this, 'CombatScene', { monster, mapId, npcId, eventAssist, monsterIndex, isRematch });
+    this.scene.launch('CombatScene', { monster, mapId, npcId, eventAssist, monsterIndex, isRematch });
+    this.scene.pause();
   },
 
   createNpcMonsterMapping() {

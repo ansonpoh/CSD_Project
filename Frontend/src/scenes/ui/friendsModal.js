@@ -4,8 +4,11 @@ import { createUiButton, stopPointerPropagation } from './shared.js';
 const DEPTH = 1100;
 const PANEL_W = 860;
 const PANEL_H = 590;
-const ROW_H = 46;
+const ROW_H = 48;
 const CHAT_POLL_MS = 4000;
+const PANEL_PAD = 24;
+const SECTION_STATUS_BADGE_W = 104;
+const SECTION_STATUS_X_OFFSET = 292;
 
 const C = {
   bgPanel: 0x071022,
@@ -19,10 +22,10 @@ const C = {
 };
 
 const STATE_THEME = {
-  loading: { label: 'LOADING', color: '#9eb7d7', fill: 0x1b2d4a, border: 0x4a6a9a },
-  empty: { label: 'EMPTY', color: '#cbb899', fill: 0x2e2414, border: 0x7a6440 },
-  success: { label: 'SUCCESS', color: '#8fd45e', fill: 0x18331a, border: 0x4b7a2f },
-  error: { label: 'ERROR', color: '#ff9f9f', fill: 0x3a0e0e, border: 0x8b2020 }
+  loading: { label: 'Loading', color: '#9eb7d7', fill: 0x1b2d4a, border: 0x4a6a9a },
+  empty: { label: 'Empty', color: '#cbb899', fill: 0x2e2414, border: 0x7a6440 },
+  success: { label: 'Success', color: '#8fd45e', fill: 0x18331a, border: 0x4b7a2f },
+  error: { label: 'Error', color: '#ff9f9f', fill: 0x3a0e0e, border: 0x8b2020 }
 };
 
 function truncate(value, max = 24) {
@@ -170,17 +173,18 @@ export function showFriends(scene) {
     statusText.setText(text || '');
   };
 
-  const drawStateTag = (x, y, status, message) => {
+  const drawStateTag = (x, y, status, message, options = {}) => {
+    const badgeW = Number.isFinite(options?.badgeWidth) ? options.badgeWidth : 96;
     const theme = STATE_THEME[status] || STATE_THEME.loading;
     const pill = scene.add.graphics().setDepth(DEPTH + 4);
     pill.fillStyle(theme.fill, 0.96);
-    pill.fillRoundedRect(x, y, 96, 20, 4);
+    pill.fillRoundedRect(x, y, badgeW, 20, 4);
     pill.lineStyle(1, theme.border, 0.9);
-    pill.strokeRoundedRect(x, y, 96, 20, 4);
+    pill.strokeRoundedRect(x, y, badgeW, 20, 4);
     dynamicNodes.push(pill);
 
     dynamicNodes.push(
-      scene.add.text(x + 48, y + 10, theme.label, {
+      scene.add.text(x + (badgeW / 2), y + 10, theme.label, {
         fontSize: '10px',
         fontStyle: 'bold',
         color: theme.color,
@@ -191,7 +195,7 @@ export function showFriends(scene) {
 
     if (message) {
       dynamicNodes.push(
-        scene.add.text(x + 104, y + 10, message, {
+        scene.add.text(x + badgeW + 8, y + 10, message, {
           fontSize: '11px',
           color: theme.color,
           stroke: '#060814',
@@ -567,12 +571,12 @@ export function showFriends(scene) {
   };
 
   const renderSearchSection = () => {
-    const pad = 24;
-    let y = 94;
+    const pad = PANEL_PAD;
+    let y = 112;
     const barX = panelX + pad;
     const barY = panelY + y;
-    const barW = PANEL_W - pad * 2;
-    const barH = 40;
+    const barW = PANEL_W - pad * 2 - 108;
+    const barH = 42;
     const hasQuery = Boolean(String(state.query || '').trim());
     const frameFill = state.focused ? 0x2a3568 : 0x161934;
     const frameBorder = state.focused ? C.borderGlow : C.borderGold;
@@ -587,7 +591,7 @@ export function showFriends(scene) {
 
     dynamicNodes.push(
       scene.add.text(barX + 12, barY + barH / 2, display, {
-        fontSize: '14px',
+        fontSize: '15px',
         color: hasQuery ? C.textMain : C.textDim,
         stroke: '#060814',
         strokeThickness: 3
@@ -632,22 +636,38 @@ export function showFriends(scene) {
       dynamicNodes.push(clearHit);
     }
 
-    y += 52;
-    if (state.focused) {
-      dynamicNodes.push(
-        scene.add.text(panelX + pad, panelY + y - 8, 'Search active: type a username (min 2 characters).', {
-          fontSize: '11px',
-          color: C.textGood,
-          stroke: '#060814',
-          strokeThickness: 3
-        }).setDepth(DEPTH + 4)
-      );
-      y += 12;
-    }
+    dynamicNodes.push(
+      createUiButton(scene, {
+        x: barX + barW + 54,
+        y: barY + barH / 2,
+        width: 96,
+        height: 34,
+        label: state.loadingSearch ? 'Searching' : 'Search',
+        fillNormal: 0x17324f,
+        fillHover: 0x24507b,
+        borderNormal: C.borderGold,
+        borderHover: C.borderGlow,
+        lineWidth: 1,
+        depth: DEPTH + 6,
+        textStyle: { fontSize: '12px' },
+        onPress: state.loadingSearch
+          ? null
+          : () => {
+            if (String(state.query || '').trim().length < 2) {
+              state.focused = true;
+              draw();
+              return;
+            }
+            void refreshSearch();
+          }
+      })
+    );
+
+    y += 56;
 
     dynamicNodes.push(
       scene.add.text(panelX + pad, panelY + y, 'Search Results', {
-        fontSize: '16px',
+        fontSize: '17px',
         color: '#f4c048',
         fontStyle: 'bold',
         stroke: '#060814',
@@ -658,11 +678,17 @@ export function showFriends(scene) {
       ? `${state.searchResults.length} match${state.searchResults.length === 1 ? '' : 'es'}`
       : state.searchStatus === 'loading'
         ? 'Searching usernames'
-        : state.searchStatus === 'error'
+      : state.searchStatus === 'error'
           ? 'Search failed'
-          : 'No active query';
-    drawStateTag(panelX + PANEL_W - pad - 280, panelY + y - 2, state.searchStatus, searchMessage);
-    y += 28;
+          : '';
+    drawStateTag(
+      panelX + PANEL_W - pad - SECTION_STATUS_X_OFFSET,
+      panelY + y - 2,
+      state.searchStatus,
+      searchMessage,
+      { badgeWidth: SECTION_STATUS_BADGE_W }
+    );
+    y += 30;
 
     if (state.loadingSearch) {
       dynamicNodes.push(
@@ -693,7 +719,10 @@ export function showFriends(scene) {
     if (!state.searchResults.length) {
       const hint = String(state.query || '').trim().length >= 2
         ? 'No users found for that username.'
-        : 'Click search and type at least 2 characters.';
+        : '';
+      if (!hint) {
+        return y;
+      }
       dynamicNodes.push(
         scene.add.text(panelX + pad, panelY + y, hint, {
           fontSize: '13px',
@@ -706,7 +735,8 @@ export function showFriends(scene) {
       return y;
     }
 
-    state.searchResults.slice(0, 4).forEach((row) => {
+    const visibleSearchRows = state.searchResults.slice(0, 3);
+    visibleSearchRows.forEach((row) => {
       const box = scene.add.graphics().setDepth(DEPTH + 3);
       box.fillStyle(C.bgCard, 0.92);
       box.fillRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, ROW_H, 5);
@@ -715,7 +745,7 @@ export function showFriends(scene) {
       dynamicNodes.push(box);
 
       dynamicNodes.push(
-        scene.add.text(panelX + pad + 12, panelY + y + 10, `${truncate(row?.username || 'Unknown', 22)}  |  Lv ${row?.level ?? '-'}`, {
+        scene.add.text(panelX + pad + 12, panelY + y + 14, `${truncate(row?.username || 'Unknown', 22)}  |  Lv ${row?.level ?? '-'}`, {
           fontSize: '13px',
           color: C.textMain,
           stroke: '#060814',
@@ -727,9 +757,9 @@ export function showFriends(scene) {
       dynamicNodes.push(
         createUiButton(scene, {
           x: panelX + PANEL_W - pad - 58,
-          y: panelY + y + ROW_H / 2,
+          y: panelY + y + (ROW_H / 2),
           width: 100,
-          height: 30,
+          height: 32,
           label: action.label,
           fillNormal: action.disabled ? 0x2a2f3d : 0x17324f,
           fillHover: action.disabled ? 0x2a2f3d : 0x24507b,
@@ -747,28 +777,47 @@ export function showFriends(scene) {
       y += ROW_H + 8;
     });
 
+    const overflowCount = Math.max(0, state.searchResults.length - visibleSearchRows.length);
+    if (overflowCount > 0) {
+      dynamicNodes.push(
+        scene.add.text(panelX + pad, panelY + y, `+${overflowCount} more result${overflowCount === 1 ? '' : 's'}`, {
+          fontSize: '12px',
+          color: C.textDim,
+          stroke: '#060814',
+          strokeThickness: 3
+        }).setDepth(DEPTH + 4)
+      );
+      y += 18;
+    }
+
     return y;
   };
 
   const renderIncoming = (startY) => {
-    const pad = 24;
-    let y = startY + 10;
+    const pad = PANEL_PAD;
+    let y = startY + 14;
     const incomingStatus = state.incoming.length ? 'success' : 'empty';
     dynamicNodes.push(
       scene.add.text(panelX + pad, panelY + y, `Incoming Requests (${state.incoming.length})`, {
-        fontSize: '15px',
+        fontSize: '17px',
         color: '#8fd45e',
         fontStyle: 'bold',
         stroke: '#060814',
         strokeThickness: 4
       }).setDepth(DEPTH + 4)
     );
-    drawStateTag(panelX + PANEL_W - pad - 250, panelY + y - 2, incomingStatus, state.incoming.length ? 'Pending actions' : 'Nothing pending');
-    y += 26;
+    drawStateTag(
+      panelX + PANEL_W - pad - SECTION_STATUS_X_OFFSET,
+      panelY + y - 2,
+      incomingStatus,
+      state.incoming.length ? 'Pending actions' : 'No pending requests',
+      { badgeWidth: SECTION_STATUS_BADGE_W }
+    );
+    y += 30;
 
     if (!state.incoming.length) {
       dynamicNodes.push(
-        scene.add.text(panelX + pad, panelY + y, 'No pending requests.', {
+        scene.add.text(panelX + pad, panelY + y, 'No incoming requests right now.', {
           fontSize: '12px',
           color: C.textDim,
           stroke: '#060814',
@@ -781,13 +830,13 @@ export function showFriends(scene) {
     state.incoming.slice(0, 2).forEach((req) => {
       const box = scene.add.graphics().setDepth(DEPTH + 3);
       box.fillStyle(C.bgCard, 0.92);
-      box.fillRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, 40, 5);
+      box.fillRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, ROW_H, 5);
       box.lineStyle(1, C.borderGold, 0.45);
-      box.strokeRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, 40, 5);
+      box.strokeRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, ROW_H, 5);
       dynamicNodes.push(box);
 
       dynamicNodes.push(
-        scene.add.text(panelX + pad + 12, panelY + y + 11, `${truncate(req?.requester?.username || 'Unknown', 22)} sent a request`, {
+        scene.add.text(panelX + pad + 12, panelY + y + 14, `${truncate(req?.requester?.username || 'Unknown', 22)} sent a request`, {
           fontSize: '12px',
           color: C.textMain,
           stroke: '#060814',
@@ -798,9 +847,9 @@ export function showFriends(scene) {
       dynamicNodes.push(
         createUiButton(scene, {
           x: panelX + PANEL_W - pad - 146,
-          y: panelY + y + 20,
-          width: 88,
-          height: 26,
+          y: panelY + y + (ROW_H / 2),
+          width: 94,
+          height: 30,
           label: 'Accept',
           fillNormal: 0x1d4420,
           fillHover: 0x2a5f2f,
@@ -816,13 +865,13 @@ export function showFriends(scene) {
       dynamicNodes.push(
         createUiButton(scene, {
           x: panelX + PANEL_W - pad - 52,
-          y: panelY + y + 20,
+          y: panelY + y + (ROW_H / 2),
           width: 88,
-          height: 26,
+          height: 30,
           label: 'Decline',
-          fillNormal: 0x3a0e0e,
-          fillHover: 0x601818,
-          borderNormal: 0x8b2020,
+          fillNormal: 0x2a2f3d,
+          fillHover: 0x3a4256,
+          borderNormal: 0x646f86,
           borderHover: C.borderGlow,
           lineWidth: 1,
           depth: DEPTH + 6,
@@ -831,31 +880,37 @@ export function showFriends(scene) {
         })
       );
 
-      y += 46;
+      y += ROW_H + 8;
     });
 
     return y;
   };
 
   const renderFriends = (startY) => {
-    const pad = 24;
-    let y = startY + 12;
+    const pad = PANEL_PAD;
+    let y = startY + 16;
     const friendStatus = state.friends.length ? 'success' : 'empty';
     dynamicNodes.push(
       scene.add.text(panelX + pad, panelY + y, `Your Friends (${state.friends.length})`, {
-        fontSize: '15px',
+        fontSize: '17px',
         color: '#f4c048',
         fontStyle: 'bold',
         stroke: '#060814',
         strokeThickness: 4
       }).setDepth(DEPTH + 4)
     );
-    drawStateTag(panelX + PANEL_W - pad - 250, panelY + y - 2, friendStatus, state.friends.length ? 'Ready to chat' : 'Add new friends');
-    y += 24;
+    drawStateTag(
+      panelX + PANEL_W - pad - SECTION_STATUS_X_OFFSET,
+      panelY + y - 2,
+      friendStatus,
+      state.friends.length ? 'Chat available' : 'Add new friends',
+      { badgeWidth: SECTION_STATUS_BADGE_W }
+    );
+    y += 30;
 
     if (!state.friends.length) {
       dynamicNodes.push(
-        scene.add.text(panelX + pad, panelY + y, 'No friends yet. Search by username to add one.', {
+        scene.add.text(panelX + pad, panelY + y, 'No friends yet. Search by username to add your first friend.', {
           fontSize: '12px',
           color: C.textDim,
           stroke: '#060814',
@@ -869,14 +924,14 @@ export function showFriends(scene) {
       const conversation = state.conversationsByFriendId[friend?.learnerId] || null;
       const box = scene.add.graphics().setDepth(DEPTH + 3);
       box.fillStyle(C.bgCard, 0.92);
-      box.fillRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, 40, 5);
+      box.fillRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, ROW_H, 5);
       box.lineStyle(1, C.borderGold, 0.45);
-      box.strokeRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, 40, 5);
+      box.strokeRoundedRect(panelX + pad, panelY + y, PANEL_W - pad * 2, ROW_H, 5);
       dynamicNodes.push(box);
 
       const label = `${truncate(friend?.username || 'Unknown', 16)}  |  Lv ${friend?.level ?? '-'}`;
       dynamicNodes.push(
-        scene.add.text(panelX + pad + 12, panelY + y + 11, label, {
+        scene.add.text(panelX + pad + 12, panelY + y + 14, label, {
           fontSize: '12px',
           color: C.textMain,
           stroke: '#060814',
@@ -887,9 +942,9 @@ export function showFriends(scene) {
       dynamicNodes.push(
         createUiButton(scene, {
           x: panelX + PANEL_W - pad - 152,
-          y: panelY + y + 20,
+          y: panelY + y + (ROW_H / 2),
           width: 96,
-          height: 26,
+          height: 30,
           label: 'Chat',
           fillNormal: 0x17324f,
           fillHover: 0x24507b,
@@ -905,22 +960,29 @@ export function showFriends(scene) {
       dynamicNodes.push(
         createUiButton(scene, {
           x: panelX + PANEL_W - pad - 52,
-          y: panelY + y + 20,
+          y: panelY + y + (ROW_H / 2),
           width: 88,
-          height: 26,
+          height: 30,
           label: 'Remove',
-          fillNormal: 0x3a0e0e,
-          fillHover: 0x601818,
-          borderNormal: 0x8b2020,
+          fillNormal: 0x261111,
+          fillHover: 0x3a1616,
+          borderNormal: 0x7c3333,
           borderHover: C.borderGlow,
           lineWidth: 1,
           depth: DEPTH + 6,
           textStyle: { fontSize: '12px' },
-          onPress: () => runAction('Friend removed.', () => apiService.removeFriend(friend.learnerId))
+          onPress: () => {
+            const name = friend?.username || 'this friend';
+            const shouldProceed = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+              ? window.confirm(`Remove ${name} from your friends list?`)
+              : true;
+            if (!shouldProceed) return;
+            void runAction('Friend removed.', () => apiService.removeFriend(friend.learnerId));
+          }
         })
       );
 
-      y += 46;
+      y += ROW_H + 8;
     });
   };
 
@@ -1208,16 +1270,17 @@ export function showFriends(scene) {
 
     if (state.loadingData || state.dataStatus === 'error') {
       drawStateTag(
-        panelX + 24,
-        panelY + 84,
+        panelX + PANEL_PAD,
+        panelY + 78,
         state.loadingData ? 'loading' : 'error',
-        state.loadingData ? 'Loading friend and chat data' : 'Unable to load panel data'
+        state.loadingData ? 'Loading friend and chat data' : 'Unable to load panel data',
+        { badgeWidth: SECTION_STATUS_BADGE_W }
       );
 
       dynamicNodes.push(
         scene.add.text(
-          panelX + 24,
-          panelY + 112,
+          panelX + PANEL_PAD,
+          panelY + 108,
           state.loadingData ? 'Please wait...' : (state.dataError || 'Try again in a moment.'),
           {
             fontSize: '14px',
@@ -1232,7 +1295,7 @@ export function showFriends(scene) {
         dynamicNodes.push(
           createUiButton(scene, {
             x: panelX + 104,
-            y: panelY + 152,
+            y: panelY + 148,
             width: 130,
             height: 30,
             label: 'Retry',
@@ -1250,12 +1313,13 @@ export function showFriends(scene) {
     }
 
     drawStateTag(
-      panelX + 24,
-      panelY + 84,
+      panelX + PANEL_PAD,
+      panelY + 78,
       state.dataStatus,
       state.dataStatus === 'success'
-        ? 'Friend list and chat are ready'
-        : 'No friends or requests yet'
+        ? 'Friend list and chat available'
+        : 'No friends or requests yet',
+      { badgeWidth: SECTION_STATUS_BADGE_W }
     );
 
     const yAfterSearch = renderSearchSection();

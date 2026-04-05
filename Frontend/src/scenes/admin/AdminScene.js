@@ -976,7 +976,6 @@ export class AdminScene extends Phaser.Scene {
     `;
   }
 
-  // ─── CHANGED: moderateContent now validates and passes feedback on reject ───
   async moderateContent(contentId, action) {
     if (!contentId) return;
 
@@ -1003,7 +1002,6 @@ export class AdminScene extends Phaser.Scene {
 
       this.setStatus('Rejecting content...', false);
       try {
-        // Pass feedback as second argument — update apiService.rejectContent() to accept it
         await apiService.rejectContent(contentId, feedback, '');
         this.state.reviewQueue = this.state.reviewQueue.filter((row) => row?.contentId !== contentId);
         this.renderOverview();
@@ -1016,7 +1014,6 @@ export class AdminScene extends Phaser.Scene {
       return;
     }
 
-    // Approve path — unchanged
     this.setStatus('Approving content...', false);
     try {
       await apiService.approveContent(contentId);

@@ -3,6 +3,43 @@ import { recordChallengeAttempt } from '../../services/sideChallenges.js';
 import { SIDE_CHALLENGE_COLORS as C } from './constants.js';
 
 export const sideChallengeBoardMethods = {
+  clampCardPosition(x, y, width, height) {
+    const camera = this.cameras.main;
+    const halfWidth = Number(width) / 2;
+    const halfHeight = Number(height) / 2;
+    const minX = halfWidth;
+    const maxX = camera.width - halfWidth;
+    const minY = halfHeight;
+    const maxY = camera.height - halfHeight;
+    return {
+      x: Math.max(minX, Math.min(maxX, x)),
+      y: Math.max(minY, Math.min(maxY, y))
+    };
+  },
+
+  snapCardToNearestSlot(card) {
+    const snapThreshold = 120 * 120;
+    let bestSlot = null;
+    let bestDistance = Infinity;
+
+    this.slotZones.forEach((slot) => {
+      const dx = card.x - slot.zone.x;
+      const dy = card.y - slot.zone.y;
+      const distance = dx * dx + dy * dy;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestSlot = slot;
+      }
+    });
+
+    if (bestSlot && bestDistance <= snapThreshold) {
+      this.assignCardToSlot(card, bestSlot);
+      return;
+    }
+
+    this.returnCardHome(card);
+  },
+
   createSlotRow(centerX, y, panelWidth) {
     const tokenCount = this.challenge.orderedTokens.length;
     const slotWidth = Math.min(150, Math.floor((panelWidth - 90) / tokenCount));
@@ -33,18 +70,28 @@ export const sideChallengeBoardMethods = {
     const cardGap = 18;
     const cardWidth = 150;
     const cardHeight = 58;
-    const totalWidth = cardWidth * tokens.length + cardGap * (tokens.length - 1);
-    const startX = centerX - totalWidth / 2 + cardWidth / 2;
+    const cameraWidth = this.cameras.main.width;
+    const usableWidth = Math.max(cardWidth, cameraWidth - 140);
+    const maxPerRow = Math.max(1, Math.floor((usableWidth + cardGap) / (cardWidth + cardGap)));
+    const rowCount = Math.ceil(tokens.length / maxPerRow);
 
     tokens.forEach((token, index) => {
-      const x = startX + index * (cardWidth + cardGap);
-      const y = startY + (index % 2) * 84;
+      const rowIndex = Math.floor(index / maxPerRow);
+      const indexInRow = index % maxPerRow;
+      const remaining = tokens.length - rowIndex * maxPerRow;
+      const cardsInThisRow = Math.min(maxPerRow, remaining);
+      const rowWidth = cardsInThisRow * cardWidth + Math.max(0, cardsInThisRow - 1) * cardGap;
+      const startX = centerX - rowWidth / 2 + cardWidth / 2;
+      const x = startX + indexInRow * (cardWidth + cardGap);
+      const centeredRowOffset = (rowIndex - (rowCount - 1) / 2) * 84;
+      const y = startY + centeredRowOffset;
       this.cards.push(this.createTokenCard(token, x, y, cardWidth, cardHeight));
     });
   },
 
   createTokenCard(token, x, y, width, height) {
-    const container = this.add.container(x, y);
+    const clampedHome = this.clampCardPosition(x, y, width, height);
+    const container = this.add.container(clampedHome.x, clampedHome.y);
     const bg = this.add.graphics();
     const draw = (fill, border) => {
       bg.clear();
@@ -69,21 +116,33 @@ export const sideChallengeBoardMethods = {
 
     container.add([bg, text, hit]);
     container.setData('token', token);
-    container.setData('homeX', x);
-    container.setData('homeY', y);
+    container.setData('homeX', clampedHome.x);
+    container.setData('homeY', clampedHome.y);
+    container.setData('cardWidth', width);
+    container.setData('cardHeight', height);
     container.setDepth(20);
 
     hit.on('pointerover', () => draw(C.cardHover, C.glow));
     hit.on('pointerout', () => draw(C.card, C.gold));
 
     this.input.setDraggable(hit);
-    hit.on('dragstart', () => {
+    hit.on('dragstart', (pointer) => {
       container.setDepth(40);
       this.clearTokenFromSlots(token);
+      hit.setData('dragOffsetX', container.x - pointer.worldX);
+      hit.setData('dragOffsetY', container.y - pointer.worldY);
     });
-    hit.on('drag', (_pointer, dragX, dragY) => {
-      container.x = dragX;
-      container.y = dragY;
+    hit.on('drag', (pointer) => {
+      const targetX = pointer.worldX + Number(hit.getData('dragOffsetX') || 0);
+      const targetY = pointer.worldY + Number(hit.getData('dragOffsetY') || 0);
+      const next = this.clampCardPosition(
+        targetX,
+        targetY,
+        Number(container.getData('cardWidth') || width),
+        Number(container.getData('cardHeight') || height)
+      );
+      container.x = next.x;
+      container.y = next.y;
     });
     hit.on('drop', (_pointer, zone) => {
       const slot = this.slotZones.find((entry) => entry.zone === zone);
@@ -94,7 +153,7 @@ export const sideChallengeBoardMethods = {
       this.assignCardToSlot(container, slot);
     });
     hit.on('dragend', (_pointer, dropped) => {
-      if (!dropped) this.returnCardHome(container);
+      if (!dropped) this.snapCardToNearestSlot(container);
       container.setDepth(20);
     });
 
@@ -119,8 +178,22 @@ export const sideChallengeBoardMethods = {
   },
 
   returnCardHome(card) {
-    card.x = card.getData('homeX');
-    card.y = card.getData('homeY');
+    const nextHome = this.clampCardPosition(
+      Number(card.getData('homeX') || 0),
+      Number(card.getData('homeY') || 0),
+      Number(card.getData('cardWidth') || 150),
+      Number(card.getData('cardHeight') || 58)
+    );
+    card.setData('homeX', nextHome.x);
+    card.setData('homeY', nextHome.y);
+    this.tweens.killTweensOf(card);
+    this.tweens.add({
+      targets: card,
+      x: nextHome.x,
+      y: nextHome.y,
+      duration: 120,
+      ease: 'Quad.Out'
+    });
   },
 
   resetCards() {
@@ -132,54 +205,66 @@ export const sideChallengeBoardMethods = {
   },
 
   async submitChallenge() {
+    if (this.isSubmitting) return;
+
     const currentTokens = this.slotZones.map((slot) => slot.token);
     if (currentTokens.some((token) => !token)) {
       this.setStatusMessage('Fill every slot before submitting.', C.bad);
       return;
     }
 
-    const won = currentTokens.every((token, index) => token === this.challenge.orderedTokens[index]);
-    const result = await recordChallengeAttempt(this.mapConfig, won, {
-      serverChallenge: this.challenge
-    });
+    this.isSubmitting = true;
+    if (this.submitButtonControl) this.submitButtonControl.setEnabled(false);
+    this.setStatusMessage('Submitting answer...', C.sub);
 
-    if (!won) {
-      this.setStatusMessage('Not quite. Reset or drag the cards again and try another order.', C.bad);
-      return;
-    }
+    try {
+      const won = currentTokens.every((token, index) => token === this.challenge.orderedTokens[index]);
+      const result = await recordChallengeAttempt(this.mapConfig, won, {
+        serverChallenge: this.challenge
+      });
 
-    if (gameState.getLearner() && Number(result.xpAwarded || 0) > 0) {
-      gameState.updateXP(Number(result.xpAwarded));
-    }
-
-    if (Number(result.assistAwarded || 0) > 0) {
-      const currentMap = gameState.getCurrentMap();
-      if (currentMap) {
-        gameState.setCurrentMap({
-          ...currentMap,
-          playerState: {
-            ...(currentMap.playerState || {}),
-            assistCharges: Number(currentMap.playerState?.assistCharges || 0) + Number(result.assistAwarded)
-          }
-        });
+      if (!won) {
+        this.setStatusMessage('Not quite. Reset or drag the cards again and try another order.', C.bad);
+        return;
       }
+
+      if (gameState.getLearner() && Number(result.xpAwarded || 0) > 0) {
+        gameState.updateXP(Number(result.xpAwarded));
+      }
+
+      if (Number(result.assistAwarded || 0) > 0) {
+        const currentMap = gameState.getCurrentMap();
+        if (currentMap) {
+          gameState.setCurrentMap({
+            ...currentMap,
+            playerState: {
+              ...(currentMap.playerState || {}),
+              assistCharges: Number(currentMap.playerState?.assistCharges || 0) + Number(result.assistAwarded)
+            }
+          });
+        }
+      }
+
+      this.snapshot = {
+        ...this.snapshot,
+        completed: result.completed,
+        dailyRewardClaimedToday: Boolean(result.dailyRewardClaimedToday),
+        dailyCompletionsToday: Number(result.dailyCompletionsToday || 0)
+      };
+
+      const rewardMessage = Number(result.xpAwarded || 0) > 1
+        ? `Reward claimed: +${Number(result.xpAwarded)} XP${Number(result.assistAwarded || 0) > 0 ? ` and +${Number(result.assistAwarded)} assist` : ''}.`
+        : Number(result.xpAwarded || 0) === 1
+          ? 'Daily main reward already claimed. +1 XP granted.'
+          : 'No XP awarded for this attempt.';
+
+      const message = `Perfect. ${rewardMessage}${result.attempts > 1 ? ` (${result.attempts} attempts total)` : ''}`;
+      this.setStatusMessage(message, C.good);
+    } catch (_e) {
+      this.setStatusMessage('Unable to submit right now. Please try again.', C.bad);
+    } finally {
+      this.isSubmitting = false;
+      if (this.submitButtonControl) this.submitButtonControl.setEnabled(true);
     }
-
-    this.snapshot = {
-      ...this.snapshot,
-      completed: result.completed,
-      dailyRewardClaimedToday: Boolean(result.dailyRewardClaimedToday),
-      dailyCompletionsToday: Number(result.dailyCompletionsToday || 0)
-    };
-
-    const rewardMessage = Number(result.xpAwarded || 0) > 1
-      ? `Reward claimed: +${Number(result.xpAwarded)} XP${Number(result.assistAwarded || 0) > 0 ? ` and +${Number(result.assistAwarded)} assist` : ''}.`
-      : Number(result.xpAwarded || 0) === 1
-        ? 'Daily main reward already claimed. +1 XP granted.'
-        : 'No XP awarded for this attempt.';
-
-    const message = `Perfect. ${rewardMessage}${result.attempts > 1 ? ` (${result.attempts} attempts total)` : ''}`;
-
-    this.setStatusMessage(message, C.good);
   }
 };

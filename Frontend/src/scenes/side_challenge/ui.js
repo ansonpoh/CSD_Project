@@ -49,7 +49,7 @@ export const sideChallengeUiMethods = {
 
   createFooterActions(centerX, y) {
     this.makeButton(centerX - 170, y, 150, 42, 'RESET', () => this.resetCards());
-    this.makeButton(centerX, y, 170, 42, 'SUBMIT', () => this.submitChallenge());
+    this.submitButtonControl = this.makeButton(centerX, y, 170, 42, 'SUBMIT', () => this.submitChallenge());
     this.makeButton(centerX + 190, y, 150, 42, 'BACK', () => this.closeScene());
   },
 
@@ -60,6 +60,7 @@ export const sideChallengeUiMethods = {
 
   makeButton(x, y, width, height, label, onClick) {
     const bg = this.add.graphics();
+    let enabled = true;
     const draw = (fill, border) => {
       bg.clear();
       bg.fillStyle(fill, 1);
@@ -78,13 +79,28 @@ export const sideChallengeUiMethods = {
     }).setOrigin(0.5);
 
     const hit = this.add.rectangle(x, y, width, height, 0, 0).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => draw(0x2d1b55, C.glow));
-    hit.on('pointerout', () => draw(0x20123a, C.gold));
-    hit.on('pointerdown', () => draw(0x130b24, 0x604008));
+    hit.on('pointerover', () => {
+      if (enabled) draw(0x2d1b55, C.glow);
+    });
+    hit.on('pointerout', () => {
+      if (enabled) draw(0x20123a, C.gold);
+    });
+    hit.on('pointerdown', () => {
+      if (enabled) draw(0x130b24, 0x604008);
+    });
     hit.on('pointerup', () => {
+      if (!enabled) return;
       draw(0x2d1b55, C.glow);
       onClick();
     });
+
+    return {
+      setEnabled(nextEnabled) {
+        enabled = Boolean(nextEnabled);
+        hit.input.cursor = enabled ? 'pointer' : 'default';
+        draw(enabled ? 0x20123a : 0x17112b, enabled ? C.gold : 0x6f6a80);
+      }
+    };
   },
 
   closeScene() {

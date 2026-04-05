@@ -8,6 +8,8 @@ export function initializeSideChallengeState(scene) {
   scene.slotZones = [];
   scene.cards = [];
   scene.statusText = null;
+  scene.isSubmitting = false;
+  scene.submitButtonControl = null;
 }
 
 export function resetSideChallengeState(scene, data) {
@@ -35,4 +37,6 @@ export function resetSideChallengeState(scene, data) {
   scene.slotZones = [];
   scene.cards = [];
   scene.statusText = null;
+  scene.isSubmitting = false;
+  scene.submitButtonControl = null;
 }

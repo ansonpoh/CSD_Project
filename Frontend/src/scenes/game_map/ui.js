@@ -151,7 +151,7 @@ export const uiMethods = {
     }).setScrollFactor(0).setDepth(120);
 
     this.mapEventButton = createHudButton(this, 172, 292, 'EVENT', 0x714915, 0x93621d, () => this.openMapEventPanel());
-    this.sideChallengeButton = createHudButton(this, 172, 340, 'DUEL', 0x28491f, 0x3c6d2c, () => this.openSideChallenge());
+    this.sideChallengeButton = createHudButton(this, 172, 340, 'MINIGAME', 0x28491f, 0x3c6d2c, () => this.openSideChallenge());
 
     const questX = width - 290;
     const questY = 160;

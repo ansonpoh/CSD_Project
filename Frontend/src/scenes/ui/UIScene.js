@@ -183,6 +183,15 @@ export class UIScene extends Phaser.Scene {
       });
     }
 
+    if (effect.nextRewardGoldBonusPct > 0) {
+      const currentEffects = gameState.getActiveEffects();
+      const existingPct = Number(currentEffects.nextRewardGoldBonusPct || 0);
+      gameState.setActiveEffects({
+        ...currentEffects,
+        nextRewardGoldBonusPct: existingPct + Number(effect.nextRewardGoldBonusPct || 0)
+      });
+    }
+
     if (effect.quizHeartBonus > 0) {
       const currentEffects = gameState.getActiveEffects();
       const existingBonus = Number(currentEffects.quizHeartBonus || 0);

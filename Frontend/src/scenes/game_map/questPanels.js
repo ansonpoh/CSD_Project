@@ -294,6 +294,8 @@ export const questPanelMethods = {
     if (retryInfo) lines.push(retryInfo);
     const assistCharges = this.mapConfig?.playerState?.assistCharges || 0;
     if (assistCharges > 0) lines.push(`Oracle assist ready: ${assistCharges}`);
+    const luckyCharmPct = Math.max(0, Number(gameState.getActiveEffects().nextRewardGoldBonusPct || 0));
+    if (luckyCharmPct > 0) lines.push(`Lucky charm ready: +${luckyCharmPct}% next reward gold`);
 
     this.questTitleText.setText(
       `Quest ${activeQuest.index + 1}/${activeQuest.total}${activeQuest.pair?.bossEncounter ? ' [BOSS]' : ''}`
@@ -362,13 +364,45 @@ export const questPanelMethods = {
       this.refreshMapSignalPanel();
       const xp = Number(result?.xpAwarded || 0);
       const gold = Number(result?.goldAwarded || 0);
+      let luckyCharmBonusGold = 0;
+      const luckyCharmPct = Math.max(0, Number(gameState.getActiveEffects().nextRewardGoldBonusPct || 0));
+
+      if (Boolean(result?.rewardClaimed) && gold > 0 && luckyCharmPct > 0) {
+        luckyCharmBonusGold = Math.max(1, Math.floor((gold * luckyCharmPct) / 100));
+        gameState.consumeActiveEffect('nextRewardGoldBonusPct');
+        try {
+          const bonusLearner = await apiService.awardMyXp(0, luckyCharmBonusGold);
+          if (bonusLearner) {
+            gameState.setLearner(bonusLearner);
+          } else {
+            const learner = gameState.getLearner();
+            if (learner) {
+              gameState.setLearner({
+                ...learner,
+                gold: Number(learner.gold || 0) + luckyCharmBonusGold
+              });
+            }
+          }
+        } catch (bonusError) {
+          console.warn('Failed to persist Lucky Charm gold bonus:', bonusError);
+          const learner = gameState.getLearner();
+          if (learner) {
+            gameState.setLearner({
+              ...learner,
+              gold: Number(learner.gold || 0) + luckyCharmBonusGold
+            });
+          }
+        }
+      }
+
+      const totalGold = gold + luckyCharmBonusGold;
       dailyQuestService.recordEvent('reward_claimed');
       if (result?.rewardClaimed) {
-        this.showRewardClaimCelebration({ xp, gold });
+        this.showRewardClaimCelebration({ xp, gold: totalGold });
       }
       this.showMapToast(
-        xp > 0 || gold > 0
-          ? `Reward claimed: +${xp} XP, +${gold} Gold`
+        xp > 0 || totalGold > 0
+          ? `Reward claimed: +${xp} XP, +${totalGold} Gold${luckyCharmBonusGold > 0 ? ` (Lucky Charm +${luckyCharmBonusGold})` : ''}`
           : 'Reward already claimed'
       );
 

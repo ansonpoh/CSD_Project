@@ -6,6 +6,7 @@ export function resolveItemEffect(item) {
   const isPotion = blob.includes('potion') || blob.includes('elixir');
   const isHealthPotion = blob.includes('health') || blob.includes('heal') || blob.includes('healing');
   const isManaPotion = blob.includes('mana');
+  const isLuckyCharm = blob.includes('lucky charm') || (blob.includes('lucky') && blob.includes('charm'));
   const isQuizHintItem =
     itemType === 'quiz_hint' ||
     blob.includes('quiz hint') ||
@@ -21,12 +22,19 @@ export function resolveItemEffect(item) {
     };
   }
 
-  // Mana potions are usable but should not affect hearts.
+  // Mana potions are deprecated.
   if (isPotion && isManaPotion) {
     return {
+      usable: false,
+      message: 'Mana Potion has been retired.'
+    };
+  }
+
+  if (isLuckyCharm) {
+    return {
       usable: true,
-      nextCombatHpBonus: 20,
-      message: 'Mana potion used: next combat starts with +20 HP.'
+      nextRewardGoldBonusPct: 25,
+      message: 'Lucky Charm activated: next quest reward gives +25% bonus gold.'
     };
   }
 

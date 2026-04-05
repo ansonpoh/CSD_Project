@@ -5,7 +5,11 @@ export const shopCatalogMethods = {
   async loadItems() {
     try {
       const items = await apiService.getAllItems();
-      this.items = items.filter((item) => item.is_active);
+      this.items = items.filter((item) => {
+        if (!item?.is_active) return false;
+        const name = String(item?.name || '').toLowerCase();
+        return !name.includes('mana potion');
+      });
       this.displayItems();
     } catch (error) {
       console.error('Failed to load items:', error);

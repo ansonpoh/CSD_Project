@@ -9,8 +9,18 @@ import org.hibernate.annotations.UuidGenerator;
 
 import com.smu.csd.contents.topics.Topic;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
@@ -63,4 +73,16 @@ public class Content {
 
     @Column(name = "content_fingerprint")
     private String contentFingerprint;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
+    @Column(name = "admin_comments")
+    private String adminComments;
+
+    @Column(name = "feedback_date")
+    private LocalDateTime feedbackDate;
+
+    @Column(name = "resubmitted_from_id")
+    private UUID resubmittedFromId;
 }

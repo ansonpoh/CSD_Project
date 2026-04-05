@@ -607,10 +607,22 @@ export class AdminScene extends Phaser.Scene {
                 </button>
               </span>
             </div>
-            <div class="dash-button-group">
-              <button type="button" class="dash-button dash-button--success" data-action="approve-content" data-content-id="${escapeHtml(row?.contentId || '')}">Approve</button>
-              <button type="button" class="dash-button dash-button--danger" data-action="reject-content" data-content-id="${escapeHtml(row?.contentId || '')}">Reject</button>
-            </div>
+          </div>
+          <div class="dash-field" style="margin-bottom:8px;">
+            <label style="font-size:12px;color:#b58d84;display:block;margin-bottom:4px;">
+              Rejection feedback <span style="color:#ffb8c6;">*</span> <span style="color:#a1a1aa;font-weight:400;">(required before rejecting)</span>
+            </label>
+            <textarea
+              class="dash-textarea"
+              data-content-reject-reason="${escapeHtml(row?.contentId || '')}"
+              placeholder="e.g. Content duplicates an existing topic, insufficient explanation of the concept, inappropriate or inaccurate information..."
+              rows="3"
+              style="min-height:72px;transition:border-color 0.2s;"
+            ></textarea>
+          </div>
+          <div class="dash-button-group">
+            <button type="button" class="dash-button dash-button--success" data-action="approve-content" data-content-id="${escapeHtml(row?.contentId || '')}">Approve</button>
+            <button type="button" class="dash-button dash-button--danger" data-action="reject-content" data-content-id="${escapeHtml(row?.contentId || '')}">Reject</button>
           </div>
         </article>
       `;
@@ -899,16 +911,16 @@ export class AdminScene extends Phaser.Scene {
         <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(formatDate(item.submittedAt))}</td>
         <td style="padding: 12px 8px;">${escapeHtml(item.topic?.topicName || 'None')}</td>
         <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(previewText(item.body || '', 60))}</td>
+        <td style="padding: 12px 8px; color: #ffb8c6; font-style: italic;">${escapeHtml(item.rejectionFeedback || '—')}</td>
       </tr>
     `).join('');
 
     modal = document.createElement('div');
     modal.id = 'history-modal-overlay';
-    // Use an overlay style that integrates closely with the dark theme
     modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; padding: 24px;';
     
     modal.innerHTML = `
-      <div class="dash-card" style="width: 100%; max-width: 800px; max-height: 80vh; overflow-y: auto; background-color: #12080b; border: 1px solid rgba(255,255,255,0.1);">
+      <div class="dash-card" style="width: 100%; max-width: 900px; max-height: 80vh; overflow-y: auto; background-color: #12080b; border: 1px solid rgba(255,255,255,0.1);">
         <div class="dash-inline" style="margin-bottom: 16px;">
           <h3 style="margin: 0;">Submission History</h3>
           <button type="button" class="dash-button dash-button--ghost" data-action="close-history-modal">Close</button>
@@ -920,10 +932,11 @@ export class AdminScene extends Phaser.Scene {
               <th style="padding: 12px 8px;">Submitted At</th>
               <th style="padding: 12px 8px;">Topic</th>
               <th style="padding: 12px 8px;">Body Preview</th>
+              <th style="padding: 12px 8px;">Rejection Feedback</th>
             </tr>
           </thead>
           <tbody>
-            ${rows || '<tr><td colspan="4" style="text-align: center; padding: 24px; color: #a1a1aa;">No submissions found for this contributor.</td></tr>'}
+            ${rows || '<tr><td colspan="5" style="text-align: center; padding: 24px; color: #a1a1aa;">No submissions found for this contributor.</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -995,23 +1008,52 @@ export class AdminScene extends Phaser.Scene {
 
   async moderateContent(contentId, action) {
     if (!contentId) return;
-    this.setStatus(action === 'approve' ? 'Approving content...' : 'Rejecting content...', false);
 
-    try {
-      if (action === 'approve') {
-        await apiService.approveContent(contentId);
-        showToast(this.toastHost, 'Content approved.');
-      } else {
-        await apiService.rejectContent(contentId);
-        showToast(this.toastHost, 'Content rejected.');
+    if (action === 'reject') {
+      const feedbackEl = this.portalRoot?.querySelector(
+        `[data-content-reject-reason="${CSS.escape(contentId)}"]`
+      );
+      const feedback = feedbackEl?.value?.trim() || '';
+
+      if (!feedback) {
+        this.setStatus('Rejection feedback is required before rejecting content.', true);
+        // Visually highlight the empty textarea so the admin knows what to fill in
+        if (feedbackEl) {
+          feedbackEl.style.borderColor = '#ffb8c6';
+          feedbackEl.focus();
+          feedbackEl.addEventListener(
+            'input',
+            () => { feedbackEl.style.borderColor = ''; },
+            { once: true }
+          );
+        }
+        return;
       }
 
+      this.setStatus('Rejecting content...', false);
+      try {
+        await apiService.rejectContent(contentId, feedback, '');
+        this.state.reviewQueue = this.state.reviewQueue.filter((row) => row?.contentId !== contentId);
+        this.renderOverview();
+        this.renderReviewSection();
+        showToast(this.toastHost, 'Content rejected and feedback sent to contributor.');
+        this.setStatus('Content rejected and feedback sent to contributor.', false);
+      } catch (error) {
+        this.setStatus(getErrorMessage(error, 'Unable to reject content'), true);
+      }
+      return;
+    }
+
+    this.setStatus('Approving content...', false);
+    try {
+      await apiService.approveContent(contentId);
       this.state.reviewQueue = this.state.reviewQueue.filter((row) => row?.contentId !== contentId);
       this.renderOverview();
       this.renderReviewSection();
+      showToast(this.toastHost, 'Content approved.');
       this.setStatus('Review queue updated.', false);
     } catch (error) {
-      this.setStatus(getErrorMessage(error, 'Unable to update content moderation status'), true);
+      this.setStatus(getErrorMessage(error, 'Unable to approve content'), true);
     }
   }
 

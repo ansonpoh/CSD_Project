@@ -59,7 +59,8 @@ public class ContentController {
                 request.title(),
                 request.description(),
                 request.narrations(),
-                request.videoUrl()
+                request.videoUrl(),
+                request.resubmittedFromId()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(content);
     }
@@ -115,8 +116,10 @@ public class ContentController {
     // Moderator rejects content that AI flagged as NEEDS_REVIEW
     @PutMapping("/{contentId}/reject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Content> reject(@PathVariable UUID contentId) throws ResourceNotFoundException {
-        return ResponseEntity.ok(service.rejectContent(contentId));
+    public ResponseEntity<Content> reject(
+            @PathVariable UUID contentId,
+            @Valid @RequestBody RejectContentRequest request) throws ResourceNotFoundException {
+        return ResponseEntity.ok(service.rejectContent(contentId, request.rejectionReason(), request.adminComments()));
     }
 
     @GetMapping("/{contentId}/rating")
@@ -200,7 +203,8 @@ public class ContentController {
             String title,
             String description,
             @NotEmpty List<String> narrations,
-            String videoUrl
+            String videoUrl,
+            UUID resubmittedFromId
     ) {}
 
     public record CreateContentFlagRequest(
@@ -211,5 +215,10 @@ public class ContentController {
     public record ReviewContentFlagRequest(
             ContentFlag.FlagStatus status,
             String resolutionNotes
+    ) {}
+
+    public record RejectContentRequest(
+            String rejectionReason, 
+            String adminComments
     ) {}
 }

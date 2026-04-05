@@ -60,26 +60,49 @@ function drawPanel(scene, panelX, panelY, panelW, panelH, nodes) {
   return headerHeight;
 }
 
+function fitTextToWidth(scene, value, style, maxWidth) {
+  const raw = String(value ?? '-');
+  const probe = scene.add.text(-9999, -9999, raw, style).setVisible(false);
+  if (probe.width <= maxWidth) {
+    probe.destroy();
+    return raw;
+  }
+
+  let trimmed = raw;
+  while (trimmed.length > 0) {
+    trimmed = trimmed.slice(0, -1);
+    probe.setText(`${trimmed}...`);
+    if (probe.width <= maxWidth) {
+      probe.destroy();
+      return `${trimmed}...`;
+    }
+  }
+
+  probe.destroy();
+  return '...';
+}
+
 function addLeaderboardRow(scene, entry, myRankInfo, rowY, panelX, panelW, columns, nodes) {
   const isCurrentUser = myRankInfo?.learnerId === entry.learnerId;
   const fillColor = isCurrentUser ? PALETTE.bgCardMe : PALETTE.bgCard;
   const borderColor = isCurrentUser ? PALETTE.borderMe : PALETTE.borderGold;
   const borderAlpha = isCurrentUser ? 0.9 : 0.55;
+  const rowHeight = 32;
 
   const rowBackground = scene.add.graphics().setDepth(DEPTH + 2);
   rowBackground.fillStyle(fillColor, 1);
-  rowBackground.fillRoundedRect(panelX + 16, rowY, panelW - 32, 30, 4);
+  rowBackground.fillRoundedRect(panelX + 16, rowY, panelW - 32, rowHeight, 4);
   rowBackground.lineStyle(1, borderColor, borderAlpha);
-  rowBackground.strokeRoundedRect(panelX + 16, rowY, panelW - 32, 30, 4);
+  rowBackground.strokeRoundedRect(panelX + 16, rowY, panelW - 32, rowHeight, 4);
 
   if (isCurrentUser) {
     rowBackground.fillStyle(PALETTE.borderMe, 1);
-    rowBackground.fillRoundedRect(panelX + 16, rowY + 4, 4, 22, 2);
+    rowBackground.fillRoundedRect(panelX + 16, rowY + 4, 4, rowHeight - 8, 2);
   }
 
   nodes.push(rowBackground);
 
-  const textY = rowY + 15;
+  const textY = rowY + rowHeight / 2;
   const color = isCurrentUser ? '#f4c048' : '#f0ecff';
   const textStyle = {
     color,
@@ -88,27 +111,33 @@ function addLeaderboardRow(scene, entry, myRankInfo, rowY, panelX, panelW, colum
   };
 
   nodes.push(
-    scene.add.text(columns.rank, textY, `#${entry.rank}`, {
+    scene.add.text(columns.rankRight, textY, `#${entry.rank}`, {
       fontSize: '14px',
       fontStyle: isCurrentUser ? 'bold' : 'normal',
       ...textStyle
-    }).setOrigin(0, 0.5).setDepth(DEPTH + 3)
+    }).setOrigin(1, 0.5).setDepth(DEPTH + 3)
   );
 
-  const username = (entry.username ?? '').length > 20
-    ? `${entry.username.slice(0, 19)}...`
-    : (entry.username ?? '-');
-
-  nodes.push(
-    scene.add.text(columns.username, textY, username, {
-      fontSize: '15px',
-      fontStyle: isCurrentUser ? 'bold' : 'normal',
-      ...textStyle
-    }).setOrigin(0, 0.5).setDepth(DEPTH + 3)
+  const usernameStyle = {
+    fontSize: '15px',
+    fontStyle: isCurrentUser ? 'bold' : 'normal',
+    ...textStyle
+  };
+  const username = fitTextToWidth(
+    scene,
+    entry.username ?? '-',
+    usernameStyle,
+    columns.usernameMaxWidth
   );
 
   nodes.push(
-    scene.add.text(columns.xp, textY, `${entry.totalXp} XP`, {
+    scene.add.text(columns.usernameLeft, textY, username, usernameStyle)
+      .setOrigin(0, 0.5)
+      .setDepth(DEPTH + 3)
+  );
+
+  nodes.push(
+    scene.add.text(columns.xpRight, textY, `${entry.totalXp} XP`, {
       fontSize: '14px',
       fontStyle: isCurrentUser ? 'bold' : 'normal',
       ...textStyle
@@ -119,8 +148,8 @@ function addLeaderboardRow(scene, entry, myRankInfo, rowY, panelX, panelW, colum
 export async function showLeaderboard(scene) {
   const width = scene.cameras.main.width;
   const height = scene.cameras.main.height;
-  const panelWidth = 680;
-  const panelHeight = 580;
+  const panelWidth = Math.min(680, Math.max(340, width - 20));
+  const panelHeight = Math.min(580, Math.max(360, height - 20));
   const panelX = width / 2 - panelWidth / 2;
   const panelY = height / 2 - panelHeight / 2;
 
@@ -147,27 +176,49 @@ export async function showLeaderboard(scene) {
   closeButton.on('pointerup', cleanup);
   nodes.push(closeButton);
 
-  const columnsY = panelY + headerHeight + 16;
+  const columnsY = panelY + headerHeight + 14;
+  const innerLeft = panelX + 24;
+  const innerRight = panelX + panelWidth - 24;
+  const rankWidth = 54;
+  const gap = 16;
+  const xpWidth = 120;
   const columns = {
-    rank: panelX + 32,
-    username: panelX + 90,
-    xp: panelX + panelWidth - 36
+    rankRight: innerLeft + rankWidth,
+    usernameLeft: innerLeft + rankWidth + gap,
+    xpRight: innerRight
   };
+  columns.usernameMaxWidth = Math.max(40, columns.xpRight - xpWidth - columns.usernameLeft);
 
-  ['RANK', 'USERNAME', 'XP'].forEach((label, index) => {
-    const x = [columns.rank, columns.username, columns.xp][index];
-    const originX = index === 2 ? 1 : 0;
-    nodes.push(
-      scene.add.text(x, columnsY, label, {
-        fontSize: '12px',
-        fontStyle: 'bold',
-        color: '#c0a8e0',
-        stroke: '#060814',
-        strokeThickness: 3,
-        letterSpacing: 2
-      }).setOrigin(originX, 0).setDepth(DEPTH + 3)
-    );
-  });
+  nodes.push(
+    scene.add.text(columns.rankRight, columnsY, 'RANK', {
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#c0a8e0',
+      stroke: '#060814',
+      strokeThickness: 3,
+      letterSpacing: 2
+    }).setOrigin(1, 0).setDepth(DEPTH + 3)
+  );
+  nodes.push(
+    scene.add.text(columns.usernameLeft, columnsY, 'USERNAME', {
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#c0a8e0',
+      stroke: '#060814',
+      strokeThickness: 3,
+      letterSpacing: 2
+    }).setOrigin(0, 0).setDepth(DEPTH + 3)
+  );
+  nodes.push(
+    scene.add.text(columns.xpRight, columnsY, 'XP', {
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#c0a8e0',
+      stroke: '#060814',
+      strokeThickness: 3,
+      letterSpacing: 2
+    }).setOrigin(1, 0).setDepth(DEPTH + 3)
+  );
 
   const divider = scene.add.graphics().setDepth(DEPTH + 2);
   divider.lineStyle(1, PALETTE.borderGold, 0.3);
@@ -177,21 +228,21 @@ export async function showLeaderboard(scene) {
   divider.strokePath();
   nodes.push(divider);
 
-  const stateBadge = scene.add.text(panelX + panelWidth - 24, columnsY - 6, '', {
+  const stateBadge = scene.add.text(panelX + 24, columnsY + 24, '', {
     fontSize: '11px',
     fontStyle: 'bold',
     color: '#9eb7d7',
     stroke: '#060814',
     strokeThickness: 3
-  }).setOrigin(1, 0).setDepth(DEPTH + 3);
+  }).setOrigin(0, 0).setDepth(DEPTH + 3);
   nodes.push(stateBadge);
 
-  const stateMessage = scene.add.text(panelX + 24, columnsY + 26, '', {
+  const stateMessage = scene.add.text(panelX + 108, columnsY + 24, '', {
     fontSize: '13px',
     color: '#9eb7d7',
     stroke: '#060814',
     strokeThickness: 3
-  }).setDepth(DEPTH + 3);
+  }).setDepth(DEPTH + 3).setWordWrapWidth(panelWidth - 132, true);
   nodes.push(stateMessage);
 
   const setState = (status, message) => {
@@ -200,6 +251,10 @@ export async function showLeaderboard(scene) {
     stateBadge.setColor(theme.color);
     stateMessage.setText(message || '');
     stateMessage.setColor(theme.color);
+  };
+  const clearState = () => {
+    stateBadge.setText('');
+    stateMessage.setText('');
   };
 
   const loadingText = scene.add.text(panelX + panelWidth / 2, panelY + panelHeight / 2, 'Loading leaderboard...', {
@@ -239,12 +294,14 @@ export async function showLeaderboard(scene) {
 
     loadingText.destroy();
 
-    const rowHeight = 34;
-    const rowsAreaHeight = panelHeight - headerHeight - 40 - 52;
+    const rowHeight = 36;
     const normalizedRows = Array.isArray(rows) ? rows : [];
+    const hasRows = normalizedRows.length > 0;
+    const rowsAreaTop = columnsY + (hasRows ? 28 : 54);
+    const rowsAreaHeight = footerY - rowsAreaTop - 10;
     const visibleRows = normalizedRows.slice(0, Math.floor(rowsAreaHeight / rowHeight));
 
-    let rowY = panelY + headerHeight + 38;
+    let rowY = rowsAreaTop;
     visibleRows.forEach((entry) => {
       addLeaderboardRow(scene, entry, myRankInfo, rowY, panelX, panelWidth, columns, nodes);
       rowY += rowHeight;
@@ -255,7 +312,7 @@ export async function showLeaderboard(scene) {
       myRankText.setText('Your Rank: Unranked');
       myRankText.setColor('#cbb899');
     } else {
-      setState('success', `Showing top ${visibleRows.length} adventurers.`);
+      clearState();
       myRankText.setText(`Your Rank: #${myRankInfo?.rank ?? '?'}   |   ${myRankInfo?.totalXp ?? 0} XP`);
       myRankText.setColor('#f4c048');
     }

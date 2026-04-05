@@ -131,7 +131,7 @@ export const sideChallengeBoardMethods = {
     this.setStatusMessage('Challenge reset. Drag the words back into order.', C.sub);
   },
 
-  submitChallenge() {
+  async submitChallenge() {
     const currentTokens = this.slotZones.map((slot) => slot.token);
     if (currentTokens.some((token) => !token)) {
       this.setStatusMessage('Fill every slot before submitting.', C.bad);
@@ -139,25 +139,27 @@ export const sideChallengeBoardMethods = {
     }
 
     const won = currentTokens.every((token, index) => token === this.challenge.orderedTokens[index]);
-    const result = recordChallengeAttempt(this.mapConfig, won);
+    const result = await recordChallengeAttempt(this.mapConfig, won, {
+      serverChallenge: this.challenge
+    });
 
     if (!won) {
       this.setStatusMessage('Not quite. Reset or drag the cards again and try another order.', C.bad);
       return;
     }
 
-    if (gameState.getLearner() && !this.snapshot.completed) {
-      gameState.updateXP(this.challenge.rewardXp);
+    if (gameState.getLearner() && Number(result.xpAwarded || 0) > 0) {
+      gameState.updateXP(Number(result.xpAwarded));
     }
 
-    if (!this.snapshot.completed && this.challenge.rewardAssist > 0) {
+    if (Number(result.assistAwarded || 0) > 0) {
       const currentMap = gameState.getCurrentMap();
       if (currentMap) {
         gameState.setCurrentMap({
           ...currentMap,
           playerState: {
             ...(currentMap.playerState || {}),
-            assistCharges: Number(currentMap.playerState?.assistCharges || 0) + this.challenge.rewardAssist
+            assistCharges: Number(currentMap.playerState?.assistCharges || 0) + Number(result.assistAwarded)
           }
         });
       }
@@ -165,12 +167,18 @@ export const sideChallengeBoardMethods = {
 
     this.snapshot = {
       ...this.snapshot,
-      completed: result.completed
+      completed: result.completed,
+      dailyRewardClaimedToday: Boolean(result.dailyRewardClaimedToday),
+      dailyCompletionsToday: Number(result.dailyCompletionsToday || 0)
     };
 
-    const message = this.snapshot.completed
-      ? `Perfect. Challenge cleared${result.attempts > 1 ? ` after ${result.attempts} attempts` : ''}.`
-      : 'Perfect.';
+    const rewardMessage = Number(result.xpAwarded || 0) > 1
+      ? `Reward claimed: +${Number(result.xpAwarded)} XP${Number(result.assistAwarded || 0) > 0 ? ` and +${Number(result.assistAwarded)} assist` : ''}.`
+      : Number(result.xpAwarded || 0) === 1
+        ? 'Daily main reward already claimed. +1 XP granted.'
+        : 'No XP awarded for this attempt.';
+
+    const message = `Perfect. ${rewardMessage}${result.attempts > 1 ? ` (${result.attempts} attempts total)` : ''}`;
 
     this.setStatusMessage(message, C.good);
   }

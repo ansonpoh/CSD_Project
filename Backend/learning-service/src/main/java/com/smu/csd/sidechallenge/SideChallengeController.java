@@ -4,11 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping("/api/side-challenges")
@@ -16,6 +19,7 @@ import java.util.UUID;
 public class SideChallengeController {
 
     private final SideChallengeRepository repository;
+    private final SideChallengeProgressService progressService;
 
     // ── Learner: fetch challenge for a map theme ─────────────────────────────
 
@@ -27,6 +31,37 @@ public class SideChallengeController {
                 .findFirst()
                 .map(c -> ResponseEntity.ok(toResponse(c)))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** GET /api/side-challenges/random — random active challenge */
+    @GetMapping("/random")
+    public ResponseEntity<SideChallengeResponse> getRandomActiveChallenge() {
+        List<SideChallenge> activeChallenges = repository.findByIsActiveTrue();
+        if (activeChallenges.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        int randomIndex = ThreadLocalRandom.current().nextInt(activeChallenges.size());
+        return ResponseEntity.ok(toResponse(activeChallenges.get(randomIndex)));
+    }
+
+    /** GET /api/side-challenges/{id}/my-progress */
+    @GetMapping("/{id}/my-progress")
+    public ResponseEntity<SideChallengeProgressResponse> getMyProgress(
+            @PathVariable UUID id,
+            Authentication authentication) {
+        SideChallengeProgressSnapshot snapshot = progressService.getMyProgress(getSupabaseUserId(authentication), id);
+        return ResponseEntity.ok(toProgressResponse(snapshot));
+    }
+
+    /** POST /api/side-challenges/{id}/attempt */
+    @PostMapping("/{id}/attempt")
+    public ResponseEntity<SideChallengeProgressResponse> recordAttempt(
+            @PathVariable UUID id,
+            @RequestBody SideChallengeAttemptRequest request,
+            Authentication authentication) {
+        boolean won = request != null && Boolean.TRUE.equals(request.won());
+        SideChallengeProgressSnapshot snapshot = progressService.recordAttempt(getSupabaseUserId(authentication), id, won);
+        return ResponseEntity.ok(toProgressResponse(snapshot));
     }
 
     // ── Admin: full CRUD ─────────────────────────────────────────────────────
@@ -95,7 +130,7 @@ public class SideChallengeController {
 
     private SideChallengeResponse toResponse(SideChallenge c) {
         return new SideChallengeResponse(
-                c.getChallengeId(),
+                c.getSideChallengeId(),
                 c.getTitle(),
                 c.getPrompt(),
                 c.getMapTheme(),
@@ -104,6 +139,19 @@ public class SideChallengeController {
                 c.getRewardAssist(),
                 c.isActive()
         );
+    }
+
+    private SideChallengeProgressResponse toProgressResponse(SideChallengeProgressSnapshot snapshot) {
+        return new SideChallengeProgressResponse(
+                snapshot.completed(),
+                snapshot.attempts(),
+                snapshot.lastResult()
+        );
+    }
+
+    private UUID getSupabaseUserId(Authentication authentication) {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        return UUID.fromString(jwt.getSubject());
     }
 
     public record SideChallengeRequest(
@@ -124,5 +172,13 @@ public class SideChallengeController {
             int rewardXp,
             int rewardAssist,
             boolean isActive
+    ) {}
+
+    public record SideChallengeAttemptRequest(Boolean won) {}
+
+    public record SideChallengeProgressResponse(
+            boolean completed,
+            int attempts,
+            String lastResult
     ) {}
 }

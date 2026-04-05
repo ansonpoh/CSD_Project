@@ -235,7 +235,23 @@ class ApiService {
   }
 
   async getSideChallengeByTheme(theme) {
-    const { data } = await this.api.get(`/side-challenges/theme/${theme}`);
+    const safeTheme = encodeURIComponent(String(theme || ''));
+    const { data } = await this.api.get(`/side-challenges/theme/${safeTheme}`);
+    return data;
+  }
+
+  async getRandomSideChallenge() {
+    const { data } = await this.api.get('/side-challenges/random');
+    return data;
+  }
+
+  async getMySideChallengeProgress(challengeId) {
+    const { data } = await this.api.get(`/side-challenges/${challengeId}/my-progress`);
+    return data;
+  }
+
+  async recordMySideChallengeAttempt(challengeId, won) {
+    const { data } = await this.api.post(`/side-challenges/${challengeId}/attempt`, { won });
     return data;
   }
 

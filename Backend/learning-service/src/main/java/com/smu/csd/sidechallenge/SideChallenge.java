@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "side_challenge")
+@Table(schema = "side_challenge", name = "side_challenge")
 @Getter
 @Setter
 @Builder
@@ -24,17 +24,17 @@ public class SideChallenge {
 
     @Id
     @UuidGenerator
-    @Column(name = "challenge_id")
-    private UUID challengeId;
+    @Column(name = "side_challenge_id")
+    private UUID sideChallengeId;
 
-    @Column(nullable = false)
+    @Column()
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String prompt;
 
     /** Map theme this challenge belongs to: forest, cave, mountain, garden */
-    @Column(name = "map_theme", nullable = false, length = 64)
+    @Column(name = "map_theme", length = 64)
     private String mapTheme;
 
     /** Words in the correct order, stored as a JSON array string */
@@ -42,15 +42,15 @@ public class SideChallenge {
     @Builder.Default
     private String orderedTokensJson = "[]";
 
-    @Column(name = "reward_xp", nullable = false)
+    @Column(name = "reward_xp")
     @Builder.Default
     private int rewardXp = 40;
 
-    @Column(name = "reward_assist", nullable = false)
+    @Column(name = "reward_assist")
     @Builder.Default
     private int rewardAssist = 0;
 
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active")
     @Builder.Default
     private boolean isActive = true;
 

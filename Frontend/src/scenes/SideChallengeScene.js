@@ -66,7 +66,7 @@ export class SideChallengeScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, top + 108, `Reward: +${this.challenge.rewardXp} XP${this.challenge.rewardAssist ? ' and +1 Oracle assist' : ''}`, {
+    this.add.text(width / 2, top + 108, `Reward: first clear each day gives +${this.challenge.rewardXp} XP${this.challenge.rewardAssist ? ' and +1 Oracle assist' : ''}; next clears give +1 XP.`, {
       fontSize: '15px',
       color: P.warn,
       stroke: '#06101a',
@@ -113,11 +113,11 @@ export class SideChallengeScene extends Phaser.Scene {
       this.cards.push(this.createTokenCard(token, x, y, cardW, cardH));
     });
 
-    this.statusText = this.add.text(width / 2, top + panelH - 122, this.snapshot.completed
-      ? 'Already cleared. You can replay for practice, but rewards are awarded once.'
+    this.statusText = this.add.text(width / 2, top + panelH - 122, this.snapshot.dailyRewardClaimedToday
+      ? 'Daily main reward already claimed. You can still clear challenges for +1 XP each.'
       : 'Arrange the words, then submit your answer.', {
       fontSize: '18px',
-      color: this.snapshot.completed ? P.warn : P.sub,
+      color: this.snapshot.dailyRewardClaimedToday ? P.warn : P.sub,
       stroke: '#06101a',
       strokeThickness: 3,
       align: 'center'
@@ -232,7 +232,7 @@ export class SideChallengeScene extends Phaser.Scene {
     this.statusText.setColor(P.sub);
   }
 
-  submitChallenge() {
+  async submitChallenge() {
     const current = this.slotZones.map((slot) => slot.token);
     if (current.some((token) => !token)) {
       this.statusText.setText('Fill every slot before submitting.');
@@ -241,7 +241,9 @@ export class SideChallengeScene extends Phaser.Scene {
     }
 
     const won = current.every((token, index) => token === this.challenge.orderedTokens[index]);
-    const result = recordChallengeAttempt(this.mapConfig, won);
+    const result = await recordChallengeAttempt(this.mapConfig, won, {
+      serverChallenge: this.challenge
+    });
 
     if (!won) {
       this.statusText.setText('Not quite. Reset or drag the cards again and try another order.');
@@ -250,18 +252,18 @@ export class SideChallengeScene extends Phaser.Scene {
     }
 
     const learner = gameState.getLearner();
-    if (learner && !this.snapshot.completed) {
-      gameState.updateXP(this.challenge.rewardXp);
+    if (learner && Number(result.xpAwarded || 0) > 0) {
+      gameState.updateXP(Number(result.xpAwarded));
     }
 
-    if (!this.snapshot.completed && this.challenge.rewardAssist > 0) {
+    if (Number(result.assistAwarded || 0) > 0) {
       const currentMap = gameState.getCurrentMap();
       if (currentMap) {
         gameState.setCurrentMap({
           ...currentMap,
           playerState: {
             ...(currentMap.playerState || {}),
-            assistCharges: Number(currentMap.playerState?.assistCharges || 0) + this.challenge.rewardAssist
+            assistCharges: Number(currentMap.playerState?.assistCharges || 0) + Number(result.assistAwarded)
           }
         });
       }
@@ -269,13 +271,18 @@ export class SideChallengeScene extends Phaser.Scene {
 
     this.snapshot = {
       ...this.snapshot,
-      completed: result.completed
+      completed: result.completed,
+      dailyRewardClaimedToday: Boolean(result.dailyRewardClaimedToday),
+      dailyCompletionsToday: Number(result.dailyCompletionsToday || 0)
     };
-    this.statusText.setText(
-      this.snapshot.completed
-        ? `Perfect. Challenge cleared${result.attempts > 1 ? ` after ${result.attempts} attempts` : ''}.`
-        : 'Perfect.'
-    );
+
+    const rewardMessage = Number(result.xpAwarded || 0) > 1
+      ? `Reward claimed: +${Number(result.xpAwarded)} XP${Number(result.assistAwarded || 0) > 0 ? ` and +${Number(result.assistAwarded)} assist` : ''}.`
+      : Number(result.xpAwarded || 0) === 1
+        ? 'Daily main reward already claimed. +1 XP granted.'
+        : 'No XP awarded for this attempt.';
+
+    this.statusText.setText(`Perfect. ${rewardMessage}${result.attempts > 1 ? ` (${result.attempts} attempts total)` : ''}`);
     this.statusText.setColor(P.good);
   }
 

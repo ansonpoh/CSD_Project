@@ -25,7 +25,7 @@ export const sideChallengeUiMethods = {
       strokeThickness: 3
     }).setOrigin(0.5);
 
-    this.add.text(centerX, top + 108, `Reward: +${this.challenge.rewardXp} XP${this.challenge.rewardAssist ? ' and +1 Oracle assist' : ''}`, {
+    this.add.text(centerX, top + 108, `Reward: first clear each day gives +${this.challenge.rewardXp} XP${this.challenge.rewardAssist ? ' and +1 Oracle assist' : ''}; next clears give +1 XP.`, {
       fontSize: '15px',
       color: C.warn,
       stroke: '#06101a',
@@ -34,13 +34,13 @@ export const sideChallengeUiMethods = {
   },
 
   createStatusText(centerX, y) {
-    const text = this.snapshot.completed
-      ? 'Already cleared. You can replay for practice, but rewards are awarded once.'
+    const text = this.snapshot.dailyRewardClaimedToday
+      ? 'Daily main reward already claimed. You can still clear challenges for +1 XP each.'
       : 'Arrange the words, then submit your answer.';
 
     this.statusText = this.add.text(centerX, y, text, {
       fontSize: '18px',
-      color: this.snapshot.completed ? C.warn : C.sub,
+      color: this.snapshot.dailyRewardClaimedToday ? C.warn : C.sub,
       stroke: '#06101a',
       strokeThickness: 3,
       align: 'center'

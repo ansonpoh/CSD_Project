@@ -12,10 +12,13 @@ export function initializeSideChallengeState(scene) {
 
 export function resetSideChallengeState(scene, data) {
   scene.mapConfig = data?.mapConfig || gameState.getCurrentMap() || null;
-  scene.snapshot = getChallengeSnapshot(scene.mapConfig);
+  scene.snapshot = getChallengeSnapshot(scene.mapConfig, {
+    serverChallenge: data?.serverChallenge,
+    serverProgress: data?.serverProgress
+  });
 
-  // If the caller pre-fetched a challenge from the server, use it.
-  // Otherwise fall back to the local hardcoded challenge for the map theme.
+  // If the caller pre-fetched a challenge, use it.
+  // Otherwise fall back to a locally randomized challenge.
   if (data?.serverChallenge) {
     scene.challenge = {
       id: String(data.serverChallenge.challengeId),

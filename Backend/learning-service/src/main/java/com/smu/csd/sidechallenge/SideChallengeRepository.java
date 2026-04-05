@@ -7,4 +7,5 @@ import java.util.UUID;
 
 public interface SideChallengeRepository extends JpaRepository<SideChallenge, UUID> {
     List<SideChallenge> findByMapThemeIgnoreCaseAndIsActiveTrue(String mapTheme);
+    List<SideChallenge> findByIsActiveTrue();
 }

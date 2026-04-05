@@ -1,7 +1,7 @@
 import { gameState } from '../../services/gameState.js';
 import { apiService } from '../../services/api.js';
 import { mapDiscoveryService } from '../../services/mapDiscovery.js';
-import { getChallengeSnapshot } from '../../services/sideChallenges.js';
+import { hydrateChallengeSnapshot } from '../../services/sideChallenges.js';
 import { HUD } from './constants.js';
 
 export const encounterStateMethods = {
@@ -413,18 +413,34 @@ export const encounterStateMethods = {
   },
 
   async openSideChallenge() {
-    const theme = String(this.mapConfig?.theme || this.mapConfig?.name || 'forest').toLowerCase();
     let serverChallenge = null;
     try {
-      serverChallenge = await apiService.getSideChallengeByTheme(theme);
+      serverChallenge = await apiService.getRandomSideChallenge();
     } catch (_e) {
       // Fall back to hardcoded data in SideChallengeScene
     }
-    const snapshot = getChallengeSnapshot(this.mapConfig);
+    const snapshot = await hydrateChallengeSnapshot(this.mapConfig, serverChallenge);
+    const resolvedChallenge = serverChallenge || {
+      challengeId: snapshot.challenge.id,
+      title: snapshot.challenge.title,
+      prompt: snapshot.challenge.prompt,
+      mapTheme: snapshot.challenge.theme,
+      orderedTokens: snapshot.challenge.orderedTokens,
+      rewardXp: snapshot.challenge.rewardXp,
+      rewardAssist: snapshot.challenge.rewardAssist
+    };
     const title = serverChallenge?.title || snapshot.challenge.title;
-    const suffix = snapshot.completed ? ' Practice mode only.' : '';
+    const suffix = snapshot.dailyRewardClaimedToday ? ' Daily main reward already claimed; clears now give +1 XP.' : '';
     this.showMapToast(`${title} ready.${suffix}`, 1200);
-    this.scene.launch('SideChallengeScene', { mapConfig: this.mapConfig, serverChallenge });
+    this.scene.launch('SideChallengeScene', {
+      mapConfig: this.mapConfig,
+      serverChallenge: resolvedChallenge,
+      serverProgress: {
+        completed: snapshot.completed,
+        attempts: snapshot.attempts,
+        lastResult: snapshot.lastResult
+      }
+    });
     this.scene.pause();
   }
 };

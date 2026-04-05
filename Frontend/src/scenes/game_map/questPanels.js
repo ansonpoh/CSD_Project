@@ -24,23 +24,30 @@ export const questPanelMethods = {
     }
   },
 
-  showRewardClaimCelebration({ xp = 0, gold = 0 } = {}) {
+  showRewardClaimCelebration({ xp = 0, gold = 0, luckyCharmBonusGold = 0 } = {}) {
     this.dismissRewardClaimCelebration();
 
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const hasLuckyCharmBonus = luckyCharmBonusGold > 0;
+    const cardWidth = 460;
+    const cardHeight = hasLuckyCharmBonus ? 212 : 188;
     const overlay = this.add.container(0, 0).setScrollFactor(0).setDepth(260);
-    const backdrop = this.add.rectangle(width / 2, height / 2, width, height, 0x020611, 0.35).setScrollFactor(0);
+    const backdrop = this.add.rectangle(width / 2, height / 2, width, height, 0x020611, 0.45)
+      .setScrollFactor(0)
+      .setInteractive();
 
     const card = this.add.container(width / 2, height / 2).setScrollFactor(0).setScale(0.72).setAlpha(0);
     const cardBg = this.add.graphics().setScrollFactor(0);
     cardBg.fillStyle(0x0d1f16, 0.95);
-    cardBg.fillRoundedRect(-210, -84, 420, 168, 12);
+    cardBg.fillRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 12);
     cardBg.lineStyle(2, 0xf2c14b, 0.95);
-    cardBg.strokeRoundedRect(-210, -84, 420, 168, 12);
+    cardBg.strokeRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 12);
+    cardBg.lineStyle(1, 0xffe6a7, 0.25);
+    cardBg.strokeRoundedRect(-cardWidth / 2 + 6, -cardHeight / 2 + 6, cardWidth - 12, cardHeight - 12, 10);
 
-    const title = this.add.text(0, -36, 'Reward Claimed!', {
-      fontSize: '32px',
+    const title = this.add.text(0, -58, 'Reward Claimed!', {
+      fontSize: '30px',
       fontFamily: HUD.fontUi,
       fontStyle: 'bold',
       color: '#ffecc3',
@@ -50,10 +57,10 @@ export const questPanelMethods = {
 
     const amountText = this.add.text(
       0,
-      6,
+      -12,
       `+${Math.max(0, Number(xp || 0))} XP   |   +${Math.max(0, Number(gold || 0))} Gold`,
       {
-        fontSize: '22px',
+        fontSize: '21px',
         fontFamily: HUD.fontUi,
         fontStyle: 'bold',
         color: '#c8ffd6',
@@ -62,7 +69,18 @@ export const questPanelMethods = {
       }
     ).setOrigin(0.5).setScrollFactor(0);
 
-    const hint = this.add.text(0, 44, 'Quest chain progress updated', {
+    const luckyCharmText = hasLuckyCharmBonus
+      ? this.add.text(0, 24, `Lucky Charm bonus: +${Math.max(0, Number(luckyCharmBonusGold || 0))} Gold`, {
+        fontSize: '15px',
+        fontFamily: HUD.fontUi,
+        fontStyle: 'bold',
+        color: '#ffe9a8',
+        stroke: '#04110b',
+        strokeThickness: 4
+      }).setOrigin(0.5).setScrollFactor(0)
+      : null;
+
+    const hint = this.add.text(0, hasLuckyCharmBonus ? 48 : 34, 'Quest chain progress updated', {
       fontSize: '14px',
       fontFamily: HUD.fontUi,
       color: '#9cd8b0',
@@ -70,7 +88,34 @@ export const questPanelMethods = {
       strokeThickness: 4
     }).setOrigin(0.5).setScrollFactor(0);
 
-    card.add([cardBg, title, amountText, hint]);
+    const closeLabel = this.add.text(0, hasLuckyCharmBonus ? 78 : 70, 'Close', {
+      fontSize: '15px',
+      fontFamily: HUD.fontUi,
+      fontStyle: 'bold',
+      color: '#fef3d1',
+      stroke: '#04110b',
+      strokeThickness: 4,
+      backgroundColor: '#1c3b2b',
+      padding: { x: 18, y: 7 }
+    }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
+
+    const closeX = this.add.text(cardWidth / 2 - 20, -cardHeight / 2 + 20, 'X', {
+      fontSize: '18px',
+      fontFamily: HUD.fontUi,
+      fontStyle: 'bold',
+      color: '#ffecc3',
+      stroke: '#04110b',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
+
+    closeLabel.on('pointerover', () => closeLabel.setStyle({ backgroundColor: '#26543c' }));
+    closeLabel.on('pointerout', () => closeLabel.setStyle({ backgroundColor: '#1c3b2b' }));
+
+    const cardNodes = [cardBg, title, amountText];
+    if (luckyCharmText) cardNodes.push(luckyCharmText);
+    cardNodes.push(hint);
+    cardNodes.push(closeLabel, closeX);
+    card.add(cardNodes);
     overlay.add([backdrop, card]);
 
     const sparkles = [];
@@ -102,18 +147,21 @@ export const questPanelMethods = {
     });
 
     this.rewardClaimFx = overlay;
-    this.rewardClaimFxTimer = this.time.delayedCall(1400, () => {
+    const closePopup = () => {
       this.tweens.add({
         targets: [card, backdrop],
         alpha: 0,
-        duration: 220,
+        duration: 180,
         ease: 'Sine.In',
         onComplete: () => {
           sparkles.forEach((node) => node.destroy());
           this.dismissRewardClaimCelebration();
         }
       });
-    });
+    };
+
+    closeLabel.on('pointerup', closePopup);
+    closeX.on('pointerup', closePopup);
   },
 
   getQuestProgressForEncounter(encounter) {
@@ -398,7 +446,7 @@ export const questPanelMethods = {
       const totalGold = gold + luckyCharmBonusGold;
       dailyQuestService.recordEvent('reward_claimed');
       if (result?.rewardClaimed) {
-        this.showRewardClaimCelebration({ xp, gold: totalGold });
+        this.showRewardClaimCelebration({ xp, gold: totalGold, luckyCharmBonusGold });
       }
       this.showMapToast(
         xp > 0 || totalGold > 0

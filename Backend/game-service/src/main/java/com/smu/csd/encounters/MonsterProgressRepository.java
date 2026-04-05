@@ -15,7 +15,17 @@ public interface MonsterProgressRepository extends JpaRepository<MonsterProgress
 
     List<MonsterProgress> findAllByLearnerIdAndMapMapId(UUID learnerId, UUID mapId);
 
+    long countByAttemptsGreaterThan(Integer attempts);
+
+    long countByWinsGreaterThan(Integer wins);
+
+    long countByLossesGreaterThan(Integer losses);
+
+    long countByRewardClaimedTrue();
+
     long countByMapMapId(UUID mapId);
+
+    long countByMapMapIdAndAttemptsGreaterThan(UUID mapId, Integer attempts);
 
     long countByMapMapIdAndMonsterDefeatedTrue(UUID mapId);
 

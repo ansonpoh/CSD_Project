@@ -25,7 +25,7 @@ spring:
       mode: always
 
   jpa:
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:false}
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     
     hibernate:
@@ -61,7 +61,7 @@ management:
       show-details: always
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans

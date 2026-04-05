@@ -46,7 +46,7 @@ public class EncounterService {
     @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
 
-    @Value("${learning.url:http://learning-service:8081}")
+    @Value("${learning.url:http://learning-service:8083}")
     private String learningServiceUrl;
 
     public EncounterService(
@@ -66,6 +66,14 @@ public class EncounterService {
     public EncounterStateDto getEncounterState(UUID mapId, UUID supabaseUserId) {
         if (mapId == null) throw new IllegalArgumentException("mapId is required.");
         LearnerDto learner = requireLearner(supabaseUserId);
+        return getEncounterStateForLearner(mapId, learner);
+    }
+
+    private EncounterStateDto getEncounterStateForLearner(UUID mapId, LearnerDto learner) {
+        if (mapId == null) throw new IllegalArgumentException("mapId is required.");
+        if (learner == null || learner.learnerId() == null) {
+            throw new IllegalArgumentException("Learner profile is required.");
+        }
 
         List<NPCMapLessonResponse> npcs = getMapNpcs(mapId);
         List<Monster> monsters = getMapMonsters(mapId);
@@ -110,7 +118,7 @@ public class EncounterService {
             npcId,
             npcCompleted,
             message,
-            getEncounterState(mapId, supabaseUserId)
+            getEncounterStateForLearner(mapId, learner)
         );
     }
 
@@ -181,7 +189,8 @@ public class EncounterService {
         }
 
         LearnerDto learner = requireLearner(supabaseUserId);
-        ensureMonsterBelongsToMap(monsterId, mapId);
+        List<Monster> sortedMonsters = getSortedMapMonsters(mapId);
+        ensureMonsterBelongsToMap(monsterId, sortedMonsters);
 
         MonsterProgress progress = getOrCreateMonsterProgress(learner, mapId, monsterId);
         if (!Boolean.TRUE.equals(progress.getMonsterDefeated())) {
@@ -194,7 +203,7 @@ public class EncounterService {
         boolean rewardClaimed = Boolean.TRUE.equals(progress.getRewardClaimed());
         
         if (!rewardClaimed) {
-            xpAwarded = isBossMonster(mapId, monsterId) ? 140 : 90;
+            xpAwarded = isBossMonster(monsterId, sortedMonsters) ? 140 : 90;
             goldAwarded = 100;
             
             // Call internal API to award XP
@@ -228,15 +237,22 @@ public class EncounterService {
     }
 
     public EncounterTelemetryDashboardDto getTelemetryDashboard(UUID mapId) {
-        List<MonsterProgress> rows = monsterProgressRepository.findAll();
-        if (mapId != null) {
-            rows = rows.stream().filter(r -> r.getMap() != null && mapId.equals(r.getMap().getMapId())).toList();
-        }
+        long combatStarted;
+        long combatWon;
+        long combatLost;
+        long rewardClaimed;
 
-        long combatStarted = rows.stream().filter(r -> safeInt(r.getAttempts()) > 0).count();
-        long combatWon = rows.stream().filter(r -> safeInt(r.getWins()) > 0).count();
-        long combatLost = rows.stream().filter(r -> safeInt(r.getLosses()) > 0).count();
-        long rewardClaimed = rows.stream().filter(r -> Boolean.TRUE.equals(r.getRewardClaimed())).count();
+        if (mapId == null) {
+            combatStarted = monsterProgressRepository.countByAttemptsGreaterThan(0);
+            combatWon = monsterProgressRepository.countByWinsGreaterThan(0);
+            combatLost = monsterProgressRepository.countByLossesGreaterThan(0);
+            rewardClaimed = monsterProgressRepository.countByRewardClaimedTrue();
+        } else {
+            combatStarted = monsterProgressRepository.countByMapMapIdAndAttemptsGreaterThan(mapId, 0);
+            combatWon = monsterProgressRepository.countByMapMapIdAndWinsGreaterThan(mapId, 0);
+            combatLost = monsterProgressRepository.countByMapMapIdAndLossesGreaterThan(mapId, 0);
+            rewardClaimed = monsterProgressRepository.countByMapMapIdAndRewardClaimedTrue(mapId);
+        }
 
         return new EncounterTelemetryDashboardDto(
             mapId,
@@ -348,16 +364,26 @@ public class EncounterService {
         }
     }
 
-    private boolean isBossMonster(UUID mapId, UUID monsterId) {
+    private List<Monster> getSortedMapMonsters(UUID mapId) {
         List<Monster> monsters = new ArrayList<>(getMapMonsters(mapId));
         monsters.sort(Comparator.comparing(monster -> asString(monster.getMonsterId())));
+        return monsters;
+    }
+
+    private boolean isBossMonster(UUID monsterId, List<Monster> sortedMonsters) {
+        List<Monster> monsters = sortedMonsters == null ? List.of() : sortedMonsters;
         if (monsters.isEmpty()) return false;
         UUID lastMonsterId = monsters.get(monsters.size() - 1).getMonsterId();
         return monsterId.equals(lastMonsterId);
     }
 
     private void ensureMonsterBelongsToMap(UUID monsterId, UUID mapId) {
-        boolean exists = getMapMonsters(mapId).stream()
+        List<Monster> monsters = getMapMonsters(mapId);
+        ensureMonsterBelongsToMap(monsterId, monsters);
+    }
+
+    private void ensureMonsterBelongsToMap(UUID monsterId, List<Monster> monsters) {
+        boolean exists = monsters.stream()
             .anyMatch(monster -> monsterId.equals(monster.getMonsterId()));
         if (!exists) throw new IllegalArgumentException("Monster does not belong to map.");
     }

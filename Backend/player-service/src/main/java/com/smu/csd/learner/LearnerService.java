@@ -1,20 +1,45 @@
 package com.smu.csd.learner;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.leaderboard.LeaderboardService;
+import com.smu.csd.learner_profile.LearnerProfileState;
+import com.smu.csd.learner_profile.LearnerProfileStateRepository;
+import com.smu.csd.learner_progress.LearnerLessonProgressRepository;
 
 @Service
 public class LearnerService {
     private final LearnerRepository repository;
     private final LeaderboardService leaderboardService;
+
+    @Autowired
+    private LearnerProfileStateRepository profileStateRepository;
+
+    @Autowired
+    private LearnerLessonProgressRepository lessonProgressRepository;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Autowired
+    private LearnerXpRepository learnerXpRepository;
 
     public LearnerService(LearnerRepository repository, LeaderboardService leaderboardService) {
         this.repository = repository;
@@ -25,7 +50,11 @@ public class LearnerService {
     public Learner createLearner(UUID supabaseUserId, String username, String email, String fullName)
             throws ResourceAlreadyExistsException {
         if (repository.existsByEmail(email)) {
-            throw new ResourceAlreadyExistsException("Learner", "email", email);
+            throw new ResourceAlreadyExistsException("Email is already in use.");
+        }
+
+        if (repository.existsByUsernameIgnoreCase(username)) {
+            throw new ResourceAlreadyExistsException("Username is already in use.");
         }
 
         if (repository.existsBySupabaseUserId(supabaseUserId)) {
@@ -41,7 +70,7 @@ public class LearnerService {
                 .total_xp(0)
                 .gold(0)
                 .build();
-        
+
         Learner saved = repository.save(learner);
         leaderboardService.upsertLearnerScore(saved);
         return saved;
@@ -57,19 +86,22 @@ public class LearnerService {
     }
 
     public Learner getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = repository.findBySupabaseUserId(supabaseUserId);
+        if (learner == null) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+        return learner;
     }
 
     @Transactional
     public Learner awardXpAndGoldBySupabaseUserId(UUID supabaseUserId, Integer xpAwarded, Integer goldAwarded)
             throws ResourceNotFoundException {
         Learner learner = getBySupabaseUserId(supabaseUserId);
-        if (learner == null) {
-            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
-        }
 
-        int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(xpAwarded);
-        int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
+        int xpBefore = safeInt(learner.getTotal_xp());
+        int xpDelta = safeInt(xpAwarded);
+        int updatedXp = addClampedNonNegative(learner.getTotal_xp(), xpAwarded);
+        int updatedGold = addClampedNonNegative(learner.getGold(), goldAwarded);
         int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
 
         learner.setTotal_xp(updatedXp);
@@ -78,16 +110,28 @@ public class LearnerService {
         learner.setUpdated_at(LocalDateTime.now());
 
         Learner updated = repository.save(learner);
+        if (xpDelta != 0 && learnerXpRepository != null) {
+            ZoneId zone = ZoneId.systemDefault();
+            learnerXpRepository.save(LearnerXp.builder()
+                    .learner(updated)
+                    .xpDelta(xpDelta)
+                    .xpBefore(xpBefore)
+                    .xpAfter(updatedXp)
+                    .sourceType("AWARD_XP_API")
+                    .occurredAt(OffsetDateTime.ofInstant(Instant.now(), zone))
+                    .build());
+        }
         leaderboardService.upsertLearnerScore(updated);
         return updated;
     }
 
     public boolean existsBySupabaseUserId(UUID supabaseUserId) {
-        return repository.existsBySupabaseUserId(supabaseUserId);
+        return repository.existsBySupabaseUserIdAndIs_activeTrue(supabaseUserId);
     }
 
     @Transactional
-    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level, Integer gold, Boolean isActive)
+    public Learner updateLearner(UUID id, String username, String fullName, Integer totalXp, Integer level,
+            Integer gold, Boolean isActive)
             throws ResourceNotFoundException {
         Learner learner = getById(id);
 
@@ -127,5 +171,132 @@ public class LearnerService {
 
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private int addClampedNonNegative(Integer base, Integer delta) {
+        long sum = (long) safeInt(base) + safeInt(delta);
+        if (sum < 0) {
+            return 0;
+        }
+        if (sum > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) sum;
+    }
+
+    private static Map<LocalDate, Integer> xpByDayFromRows(List<Object[]> rows) {
+        Map<LocalDate, Integer> map = new HashMap<>();
+        if (rows == null) {
+            return map;
+        }
+        for (Object[] row : rows) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) {
+                continue;
+            }
+            map.put(localDateFromSql(row[0]), ((Number) row[1]).intValue());
+        }
+        return map;
+    }
+
+    private static LocalDate localDateFromSql(Object dayObj) {
+        if (dayObj instanceof java.sql.Date) {
+            return ((java.sql.Date) dayObj).toLocalDate();
+        }
+        if (dayObj instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) dayObj).toLocalDateTime().toLocalDate();
+        }
+        if (dayObj instanceof LocalDate) {
+            return (LocalDate) dayObj;
+        }
+        return LocalDate.parse(dayObj.toString());
+    }
+
+    public LearnerAnalyticsResponse getLearnerAnalytics(UUID learnerId) throws ResourceNotFoundException {
+        LearnerAnalyticsResponse response = new LearnerAnalyticsResponse();
+
+        Learner learner = getById(learnerId);
+        int level = learner.getLevel() != null ? learner.getLevel() : 1;
+        int totalXp = learner.getTotal_xp() != null ? learner.getTotal_xp() : 0;
+
+        int xpForCurrentLevel = (int) Math.pow(level - 1, 2) * 100;
+        int xpForNextLevel = (int) Math.pow(level, 2) * 100;
+
+        response.setCurrentLevel(level);
+        response.setCurrentExp(Math.max(0, totalXp - xpForCurrentLevel));
+        response.setExpToNextLevel(Math.max(1, xpForNextLevel - xpForCurrentLevel));
+
+        try {
+            LearnerProfileState profile = profileStateRepository.findById(learnerId).orElse(null);
+            if (profile != null) {
+                int streak = profile.getLearningStreak() != null ? profile.getLearningStreak() : 0;
+                response.setCurrentStreak(streak);
+                response.setLongestStreak(streak);
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Could not load profile streaks: " + e.getMessage());
+        }
+
+        try {
+            List<Object[]> topicStats = lessonProgressRepository.countTopicProgressByStatus(learnerId);
+            if (topicStats != null) {
+                for (Object[] stat : topicStats) {
+                    if (stat == null || stat[0] == null || stat[1] == null) {
+                        continue;
+                    }
+
+                    String status = stat[0].toString();
+                    int count = ((Number) stat[1]).intValue();
+
+                    if ("COMPLETED".equals(status)) {
+                        response.setTopicsCompleted(count);
+                    } else if ("IN_PROGRESS".equals(status)) {
+                        response.setTopicsInProgress(count);
+                    } else if ("NOT_STARTED".equals(status)) {
+                        response.setTopicsNotStarted(count);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Could not load topic stats: " + e.getMessage());
+        }
+
+        try {
+            ZoneId zone = ZoneId.systemDefault();
+            LocalDate today = LocalDate.now(zone);
+            Instant sevenDaysAgo = today.minusDays(6).atStartOfDay(zone).toInstant();
+            OffsetDateTime sinceOdt = OffsetDateTime.ofInstant(sevenDaysAgo, zone);
+            Long gainedLong = learnerXpRepository.sumXpDeltaSince(learnerId, sinceOdt);
+            response.setExpGainedLast7Days(gainedLong != null ? gainedLong.intValue() : 0);
+
+            Map<LocalDate, Integer> byDay = xpByDayFromRows(
+                    learnerXpRepository.sumXpDeltaByDaySince(learnerId, sevenDaysAgo));
+            DateTimeFormatter dayLabel = DateTimeFormatter.ofPattern("MM/dd");
+            List<LearnerAnalyticsResponse.ExpHistoryEntry> expHistory = new ArrayList<>();
+            for (int i = 6; i >= 0; i--) {
+                LocalDate d = today.minusDays(i);
+                int exp = byDay.getOrDefault(d, 0);
+                expHistory.add(new LearnerAnalyticsResponse.ExpHistoryEntry(d.format(dayLabel), exp));
+            }
+            response.setExpHistory(expHistory);
+        } catch (Exception e) {
+            System.err.println("Warning: Could not load learner_xp analytics: " + e.getMessage());
+            response.setExpGainedLast7Days(0);
+            response.setExpHistory(List.of());
+        }
+
+        try {
+            String url = "http://learning-service/api/internal/learning/analytics/" + learnerId;
+            LearnerAnalyticsResponse remoteStats = restTemplate.getForObject(url, LearnerAnalyticsResponse.class);
+
+            if (remoteStats != null) {
+                response.setQuizzesAttempted(remoteStats.getQuizzesAttempted());
+                response.setAverageQuizScore(remoteStats.getAverageQuizScore());
+                response.setBossCompletions(remoteStats.getBossCompletions());
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Failed to fetch remote analytics from learning-service: " + e.getMessage());
+        }
+
+        return response;
     }
 }

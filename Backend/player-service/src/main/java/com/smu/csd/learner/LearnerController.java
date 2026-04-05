@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/learner")
@@ -53,7 +54,7 @@ public class LearnerController {
     }
 
     @PostMapping("/add")
-    public ResponseEntity<Learner> addLearner(@RequestBody Learner learner) throws ResourceAlreadyExistsException {
+    public ResponseEntity<Learner> addLearner(@Valid @RequestBody Learner learner) throws ResourceAlreadyExistsException {
         Learner created = service.createLearner(
                 learner.getSupabaseUserId(),
                 learner.getUsername(),
@@ -97,5 +98,29 @@ public class LearnerController {
     public ResponseEntity<Void> deleteLearner(@PathVariable UUID learner_id) throws ResourceNotFoundException {
         service.deleteLearner(learner_id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping({"/me/analytics", "/{id}/analytics"})
+    public ResponseEntity<LearnerAnalyticsResponse> getAnalytics(
+            @PathVariable(required = false) String id,
+            Authentication authentication) throws ResourceNotFoundException {
+        
+        UUID learnerId;
+        
+        if (id == null || id.equals("me")) {
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+            Learner learner = service.getBySupabaseUserId(supabaseUserId);
+            
+            if (learner == null) {
+                throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+            }
+            learnerId = learner.getLearnerId();
+        } else {
+            learnerId = UUID.fromString(id);
+        }
+        
+        LearnerAnalyticsResponse analytics = service.getLearnerAnalytics(learnerId);
+        return ResponseEntity.ok(analytics);
     }
 }

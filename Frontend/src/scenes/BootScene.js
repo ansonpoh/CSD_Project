@@ -127,6 +127,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('11_Camping_32x32', 'assets/modernexteriors-win/Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/11_Camping_32x32.png')
     this.load.image('19_Graveyard_32x32', 'assets/modernexteriors-win/Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/19_Graveyard_32x32.png')
     this.load.image('tiles-all-32x32', 'assets/basic caves and dungeons 32x32 standard - v1.0/tiles/tiles-all-32x32.png');
+    this.load.image('terrain_tiles_v2.1', 'assets/basic_tileset_and_assets_standard/terrain_tiles_v2.1.png');
+    this.load.image('stone_tiles_v2.1', 'assets/basic_tileset_and_assets_standard/stone_tiles_v2.1.png');
+    this.load.image('assets-all', 'assets/basic caves and dungeons 32x32 standard - v1.0/assets/assets-all.png');
+    this.load.image('water_and_island_tiles_v2.1', 'assets/basic_tileset_and_assets_standard/water_and_island_tiles_v2.1.png');
+    this.load.image('fence_tiles', 'assets/basic_tileset_and_assets_standard/fence_tiles.png');
     this.load.image('17_Garden_32x32', 'assets/modernexteriors-win/Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/17_Garden_32x32.png');
     
     this.load.image('1_Terrains_and_Fences_32x32', 'assets/map4/1_Terrains_and_Fences_32x32.png');

@@ -42,7 +42,7 @@ public class AdministratorController {
     // }
     @PostMapping("add")
     @PreAuthorize("hasRole('ADMIN')")
-    public Administrator addAdministrator(@Valid @RequestBody Administrator administrator) {
+    public Administrator addAdministrator(@Valid @RequestBody Administrator administrator) throws ResourceAlreadyExistsException {
         return service.saveAdministrator(administrator);
     }
 

@@ -13,8 +13,11 @@ spring:
 
     hikari:
       connection-init-sql: SET search_path TO public
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:1}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
       minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:30000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:300000}
+      keepalive-time: ${DB_POOL_KEEPALIVE_MS:0}
       initialization-fail-timeout: 60000
 
   jpa:
@@ -78,3 +81,18 @@ management:
 
 identity:
   url: ${IDENTITY_URL:http://localhost:8081}
+
+chatbot:
+  url: ${CHATBOT_URL:http://localhost:8080}
+  warmup:
+    enabled: ${CHATBOT_WARMUP_ENABLED:true}
+    query: ${CHATBOT_WARMUP_QUERY:Warm up chatbot runtime.}
+    max-chunks: ${CHATBOT_WARMUP_MAX_CHUNKS:1}
+    initial-delay-ms: ${CHATBOT_WARMUP_INITIAL_DELAY_MS:2000}
+    retry-count: ${CHATBOT_WARMUP_RETRY_COUNT:4}
+    retry-delay-ms: ${CHATBOT_WARMUP_RETRY_DELAY_MS:3000}
+
+http:
+  client:
+    connect-timeout-ms: ${HTTP_CLIENT_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${HTTP_CLIENT_READ_TIMEOUT_MS:30000}

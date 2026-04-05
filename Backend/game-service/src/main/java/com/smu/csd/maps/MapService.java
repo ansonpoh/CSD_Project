@@ -18,6 +18,7 @@ import com.smu.csd.roles.ContributorRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -41,9 +42,9 @@ public class MapService {
     private final AdministratorRepository administratorRepository;
     private final ObjectMapper objectMapper;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
-    @Value("${learning.url:http://learning-service:8083}")
+    @Value("${LEARNING_URL:http://learning-service:8083}")
     private String learningServiceUrl;
 
     public MapService(
@@ -281,10 +282,12 @@ public class MapService {
         String description = request.description() == null || request.description().isBlank()
                 ? draft.getDescription()
                 : request.description().trim();
+        JsonNode normalizedMapData = normalizeSubmittedMapData(draft.getMapData());
 
         map.setName(safe(mapName, "Untitled Contributor Map"));
         map.setDescription(safe(description, ""));
         map.setAsset("editor-draft:" + draftId);
+        map.setMapData(normalizedMapData);
         map.setSubmittedByContributor(entityManager.getReference(Contributor.class, contributorId));
         map.setStatus(Map.Status.PENDING_REVIEW);
         map.setRejectionReason(null);
@@ -303,7 +306,7 @@ public class MapService {
                 .contributor(entityManager.getReference(Contributor.class, contributorId))
                 .name(savedMap.getName())
                 .description(savedMap.getDescription())
-                .mapData(draft.getMapData())
+                .mapData(normalizedMapData)
                 .createdAt(now)
                 .submittedAt(now)
                 .build());
@@ -317,6 +320,8 @@ public class MapService {
         if (map.getStatus() != Map.Status.PENDING_REVIEW) {
             throw new IllegalStateException("Only PENDING_REVIEW maps can be approved.");
         }
+
+        syncMapDataFromLatestSubmission(map);
 
         map.setStatus(Map.Status.APPROVED);
         map.setRejectionReason(null);
@@ -364,6 +369,8 @@ public class MapService {
             throw new IllegalStateException("Only APPROVED maps can be published.");
         }
 
+        syncMapDataFromLatestSubmission(map);
+
         map.setPublished(Boolean.TRUE);
         map.setTopic(entityManager.getReference(Topic.class, topicId));
         map.setPublishedByAdmin(entityManager.getReference(Administrator.class, administratorId));
@@ -374,6 +381,10 @@ public class MapService {
     public Object getEditorRuntimeData(UUID mapId) throws ResourceNotFoundException {
         Map map = repository.findById(mapId)
                 .orElseThrow(() -> new ResourceNotFoundException("Map", "mapId", mapId));
+
+        if (map.getMapData() != null && !map.getMapData().isNull()) {
+            return fromJsonNode(map.getMapData());
+        }
 
         Optional<MapSubmission> latestSnapshot = mapSubmissionRepository
                 .findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(mapId);
@@ -590,6 +601,178 @@ public class MapService {
                 publishedMapId != null,
                 publishedMapId
         );
+    }
+
+    private void syncMapDataFromLatestSubmission(Map map) {
+        if (map == null || map.getMapId() == null) return;
+        if (map.getMapData() != null && !map.getMapData().isNull()) return;
+
+        mapSubmissionRepository.findTopByMap_MapIdOrderBySubmittedAtDescCreatedAtDesc(map.getMapId())
+                .map(MapSubmission::getMapData)
+                .filter(node -> node != null && !node.isNull())
+                .ifPresent(map::setMapData);
+    }
+
+    private JsonNode normalizeSubmittedMapData(JsonNode mapData) {
+        if (mapData == null || mapData.isNull()) {
+            return toJsonNode(java.util.Map.of());
+        }
+        if (isTiledMapData(mapData)) {
+            return mapData;
+        }
+        JsonNode converted = convertEditorPayloadToTiled(mapData);
+        return converted == null ? mapData : converted;
+    }
+
+    private boolean isTiledMapData(JsonNode payload) {
+        return payload != null
+                && payload.has("layers")
+                && payload.get("layers").isArray()
+                && payload.has("tilesets")
+                && payload.get("tilesets").isArray();
+    }
+
+    private JsonNode convertEditorPayloadToTiled(JsonNode payload) {
+        JsonNode layersNode = payload == null ? null : payload.get("layers");
+        if (layersNode == null || !layersNode.isObject()) return null;
+
+        JsonNode groundNode = layersNode.get("ground");
+        JsonNode decorNode = layersNode.get("decor");
+        JsonNode collisionNode = layersNode.get("collision");
+        if (!is2dIntArray(groundNode) && !is2dIntArray(decorNode) && !is2dIntArray(collisionNode)) {
+            return null;
+        }
+
+        int explicitWidth = asInt(payload.get("width"), 0);
+        int explicitHeight = asInt(payload.get("height"), 0);
+        int inferredWidth = Math.max(
+                Math.max(inferLayerWidth(groundNode), inferLayerWidth(decorNode)),
+                inferLayerWidth(collisionNode)
+        );
+        int inferredHeight = Math.max(
+                Math.max(inferLayerHeight(groundNode), inferLayerHeight(decorNode)),
+                inferLayerHeight(collisionNode)
+        );
+
+        int width = Math.max(1, explicitWidth > 0 ? explicitWidth : inferredWidth);
+        int height = Math.max(1, explicitHeight > 0 ? explicitHeight : inferredHeight);
+        int tileSize = Math.max(1, asInt(payload.get("tileSize"), 32));
+        String tilesetKey = safe(payload.path("tilesetKey").asText(null), "terrain_tiles_v2.1");
+
+        List<java.util.Map<String, Object>> tiledLayers = new ArrayList<>();
+        addTiledLayer(tiledLayers, 1, "ground", groundNode, width, height, false);
+        addTiledLayer(tiledLayers, 2, "decor", decorNode, width, height, false);
+        addTiledLayer(tiledLayers, 3, "collision", collisionNode, width, height, true);
+
+        java.util.Map<String, Object> tileset = new HashMap<>();
+        tileset.put("firstgid", 1);
+        tileset.put("name", tilesetKey);
+        tileset.put("tilewidth", tileSize);
+        tileset.put("tileheight", tileSize);
+        tileset.put("margin", 0);
+        tileset.put("spacing", 0);
+        tileset.put("columns", 1);
+        tileset.put("tilecount", 1);
+        tileset.put("image", tilesetKey + ".png");
+
+        java.util.Map<String, Object> tiledMap = new HashMap<>();
+        tiledMap.put("compressionlevel", -1);
+        tiledMap.put("height", height);
+        tiledMap.put("width", width);
+        tiledMap.put("infinite", false);
+        tiledMap.put("layers", tiledLayers);
+        tiledMap.put("nextlayerid", tiledLayers.size() + 1);
+        tiledMap.put("nextobjectid", 1);
+        tiledMap.put("orientation", "orthogonal");
+        tiledMap.put("renderorder", "right-down");
+        tiledMap.put("tiledversion", "1.11.2");
+        tiledMap.put("tileheight", tileSize);
+        tiledMap.put("tilewidth", tileSize);
+        tiledMap.put("tilesets", List.of(tileset));
+        tiledMap.put("type", "map");
+        tiledMap.put("version", "1.10");
+        return objectMapper.valueToTree(tiledMap);
+    }
+
+    private void addTiledLayer(
+            List<java.util.Map<String, Object>> out,
+            int id,
+            String name,
+            JsonNode sourceLayer,
+            int width,
+            int height,
+            boolean collisionLayer
+    ) {
+        List<Integer> data = flattenLayerData(sourceLayer, width, height);
+        java.util.Map<String, Object> layer = new HashMap<>();
+        layer.put("id", id);
+        layer.put("name", name);
+        layer.put("type", "tilelayer");
+        layer.put("visible", true);
+        layer.put("opacity", 1);
+        layer.put("x", 0);
+        layer.put("y", 0);
+        layer.put("width", width);
+        layer.put("height", height);
+        layer.put("data", data);
+        if (collisionLayer) {
+            layer.put("properties", List.of(java.util.Map.of("name", "collides", "type", "bool", "value", true)));
+        }
+        out.add(layer);
+    }
+
+    private List<Integer> flattenLayerData(JsonNode sourceLayer, int width, int height) {
+        List<Integer> flattened = new ArrayList<>(width * height);
+        for (int y = 0; y < height; y += 1) {
+            for (int x = 0; x < width; x += 1) {
+                int tile = getLayerTile(sourceLayer, x, y);
+                flattened.add(tile >= 0 ? tile + 1 : 0);
+            }
+        }
+        return flattened;
+    }
+
+    private int getLayerTile(JsonNode sourceLayer, int x, int y) {
+        if (sourceLayer == null || !sourceLayer.isArray() || y < 0 || y >= sourceLayer.size()) return -1;
+        JsonNode row = sourceLayer.get(y);
+        if (row == null || !row.isArray() || x < 0 || x >= row.size()) return -1;
+        return asInt(row.get(x), -1);
+    }
+
+    private int inferLayerWidth(JsonNode layer) {
+        if (layer == null || !layer.isArray()) return 0;
+        int maxWidth = 0;
+        for (JsonNode row : layer) {
+            if (row != null && row.isArray()) {
+                maxWidth = Math.max(maxWidth, row.size());
+            }
+        }
+        return maxWidth;
+    }
+
+    private int inferLayerHeight(JsonNode layer) {
+        return layer != null && layer.isArray() ? layer.size() : 0;
+    }
+
+    private boolean is2dIntArray(JsonNode layer) {
+        if (layer == null || !layer.isArray()) return false;
+        for (JsonNode row : layer) {
+            if (row == null || !row.isArray()) return false;
+        }
+        return true;
+    }
+
+    private int asInt(JsonNode node, int fallback) {
+        if (node == null || node.isNull()) return fallback;
+        if (node.isInt() || node.isLong()) return node.asInt(fallback);
+        if (node.isTextual()) {
+            try {
+                return Integer.parseInt(node.asText());
+            } catch (NumberFormatException ignored) {
+                return fallback;
+            }
+        }
+        return fallback;
     }
 
     private JsonNode toJsonNode(Object payload) {

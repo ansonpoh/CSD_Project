@@ -130,22 +130,11 @@ export const encounterStateMethods = {
       };
     }
 
-    // Determine which monster slot this is (0 = first, 1 = second) for question splitting
-    const sortedPairs = (this.encounterState?.pairs || [])
-      .slice()
-      .sort((a, b) => (a?.encounterOrder ?? 0) - (b?.encounterOrder ?? 0));
-    let monsterIndex = 0;
-    if (sortedPairs.length) {
-      const monsterNpcId = String(npcId || monster?.npcId || '');
-      const idx = sortedPairs.findIndex((p) => String(p?.npcId || '') === monsterNpcId);
-      monsterIndex = idx >= 0 ? idx : 0;
-    } else {
-      // Fallback pairing: use position in the monsters array
-      const idx = this.monsters.findIndex(
-        (m) => String(this.getMonsterId(m) || '') === String(this.getMonsterId(monster) || '')
-      );
-      monsterIndex = idx >= 0 ? idx : 0;
-    }
+    // Pairing metadata is deprecated; use position in the monsters array.
+    const idx = this.monsters.findIndex(
+      (m) => String(this.getMonsterId(m) || '') === String(this.getMonsterId(monster) || '')
+    );
+    const monsterIndex = idx >= 0 ? idx : 0;
 
     const monsterState = this.getEncounterMonsterState(monster);
     const isRematch = Boolean(monsterState?.monsterDefeated);
@@ -155,33 +144,6 @@ export const encounterStateMethods = {
 
   createNpcMonsterMapping() {
     this.npcMonsterMap.clear();
-    const pairRows = Array.isArray(this.encounterState?.pairs) ? [...this.encounterState.pairs] : [];
-
-    if (pairRows.length) {
-      const npcById = new Map(this.npcs.map((npc) => [String(this.getNpcId(npc) || ''), npc]));
-      const monsterById = new Map(this.monsters.map((monster) => [String(this.getMonsterId(monster) || ''), monster]));
-      let resolvedPairs = 0;
-
-      pairRows
-        .sort((a, b) => (a?.encounterOrder ?? 0) - (b?.encounterOrder ?? 0))
-        .forEach((pair) => {
-          const npc = npcById.get(String(pair?.npcId || ''));
-          const monster = monsterById.get(String(pair?.monsterId || ''));
-          if (!npc || !monster) return;
-
-          resolvedPairs += 1;
-          this.npcMonsterMap.set(this.getNpcKey(npc), {
-            npc,
-            monster: {
-              ...monster,
-              name: pair?.monsterName || monster?.name
-            },
-            pair
-          });
-        });
-
-      if (resolvedPairs > 0) return;
-    }
 
     const maxPairs = Math.min(this.npcs.length, this.monsters.length);
     for (let index = 0; index < maxPairs; index += 1) {
@@ -224,9 +186,34 @@ export const encounterStateMethods = {
   },
 
   hydrateEncounterProgress() {
-    this.encounterProgressByNpcKey.clear();
+    const previous = new Map(this.encounterProgressByNpcKey || []);
+    const next = new Map(previous);
+
+    // Backward-compatible: some backends expose per-NPC progress rows.
     const rows = Array.isArray(this.encounterState?.progress) ? this.encounterState.progress : [];
-    rows.forEach((progress) => this.applyEncounterProgress(progress));
+    rows.forEach((progress) => {
+      if (!progress?.npcId) return;
+      const npcKey = String(progress.npcId);
+      const existing = next.get(npcKey) || {};
+      next.set(npcKey, { ...existing, ...progress });
+    });
+
+    // Current encounter state includes completed NPC IDs in summary, not per-NPC rows.
+    // Treat these as interacted at minimum so UI does not regress on resume.
+    const completedNpcIds = Array.isArray(this.encounterState?.npc?.completedNpcIds)
+      ? this.encounterState.npc.completedNpcIds
+      : [];
+    completedNpcIds.forEach((npcId) => {
+      const npcKey = String(npcId);
+      const existing = next.get(npcKey) || {};
+      next.set(npcKey, {
+        ...existing,
+        npcId,
+        npcInteracted: true
+      });
+    });
+
+    this.encounterProgressByNpcKey = next;
   },
 
   getEncounterProgress(npc) {
@@ -302,7 +289,7 @@ export const encounterStateMethods = {
 
     if (progress?.monsterDefeated) {
       monsterSprite.setTint(0x97b59d);
-      monsterSprite.setInteractive({ useHandCursor: true });
+      monsterSprite.setInteractive();
       if (monsterSprite.body) monsterSprite.body.enable = true;
       if (nameText) {
         nameText.setText(`${baseLabel} [DEFEATED]`);

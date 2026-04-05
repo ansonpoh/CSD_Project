@@ -35,6 +35,9 @@ public class ContributorService {
         if (repository.existsByEmail(email)) {
             throw new ResourceAlreadyExistsException("Contributor", "email", email);
         }
+        if (repository.existsBySupabaseUserId(supabaseUserId)) {
+            throw new ResourceAlreadyExistsException("Contributor profile already exists for this user");
+        }
 
         validateBioWordCount(bio);
 

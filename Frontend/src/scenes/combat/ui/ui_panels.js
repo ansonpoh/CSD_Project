@@ -4,18 +4,25 @@ export const combatSceneUiPanelMethods = {
   createBattleLog(width, height) {
     const logY = height - 160;
     const logW = width - 100;
+    const logH = 130;
+    const logPaddingY = 12;
+    const logFontSize = 19;
+    const logLineSpacing = 8;
+    const usableHeight = logH - (logPaddingY * 2);
+    const lineAdvance = logFontSize + logLineSpacing;
+    this.maxBattleLogLines = Math.max(1, Math.floor((usableHeight - logFontSize) / lineAdvance) + 1);
 
     const logBg = this.add.graphics();
     logBg.fillStyle(P.bgPanel, 0.92);
-    logBg.fillRoundedRect(50, logY, logW, 130, 5);
+    logBg.fillRoundedRect(50, logY, logW, logH, 5);
     logBg.lineStyle(1, P.borderGold, 0.4);
-    logBg.strokeRoundedRect(50, logY, logW, 130, 5);
+    logBg.strokeRoundedRect(50, logY, logW, logH, 5);
 
-    this.logText = this.add.text(66, logY + 12, '', this.getCombatTextStyle({
-      fontSize: '19px',
+    this.logText = this.add.text(66, logY + logPaddingY, '', this.getCombatTextStyle({
+      fontSize: `${logFontSize}px`,
       fontStyle: 'bold',
       color: P.textMain,
-      lineSpacing: 8
+      lineSpacing: logLineSpacing
     }));
   },
 
@@ -36,7 +43,8 @@ export const combatSceneUiPanelMethods = {
 
   addLog(message) {
     this.battleLog.push(message);
-    if (this.battleLog.length > 5) this.battleLog.shift();
+    const maxLines = Number.isFinite(this.maxBattleLogLines) ? this.maxBattleLogLines : 4;
+    while (this.battleLog.length > maxLines) this.battleLog.shift();
     this.logText.setText(this.battleLog.join('\n'));
   },
 

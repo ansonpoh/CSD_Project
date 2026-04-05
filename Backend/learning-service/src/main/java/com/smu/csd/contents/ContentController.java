@@ -43,10 +43,16 @@ public class ContentController {
     // Contributor submits content with their narration lines - triggers AI screening
     @PostMapping
     @PreAuthorize("hasRole('CONTRIBUTOR')")
-    public ResponseEntity<Content> submitContent(@Valid @RequestBody SubmitContentRequest request)
+    public ResponseEntity<Content> submitContent(
+            @Valid @RequestBody SubmitContentRequest request,
+            Authentication authentication
+    )
             throws ResourceNotFoundException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID contributorId = UUID.fromString(jwt.getSubject());
+
         Content content = service.submitContent(
-                request.contributorId(),
+                contributorId,
                 request.topicId(),
                 request.npcId(),
                 request.mapId(),
@@ -74,7 +80,7 @@ public class ContentController {
 
     // Contributor views all their own submissions
     @GetMapping("/contributor/{contributorId}")
-    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CONTRIBUTOR') and #contributorId.toString() == authentication.principal.subject)")
     public ResponseEntity<List<Content>> getByContributor(@PathVariable UUID contributorId) {
         return ResponseEntity.ok(service.getByContributorId(contributorId));
     }
@@ -191,7 +197,6 @@ public class ContentController {
     }
 
     public record SubmitContentRequest(
-            UUID contributorId,
             UUID topicId,
             UUID npcId,
             UUID mapId,

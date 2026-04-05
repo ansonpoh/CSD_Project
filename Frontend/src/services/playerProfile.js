@@ -52,6 +52,5 @@ export function getPresetById(presetId) {
 
 export function applyPlayerProfileToSprite(sprite, profile) {
   if (!sprite) return;
-  const resolved = buildPlayerProfile(profile);
-  sprite.setTint(resolved.tint);
+  sprite.clearTint();
 }

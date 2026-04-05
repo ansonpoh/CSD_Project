@@ -212,7 +212,7 @@ export const worldMapPanelFactoryMethods = {
       strokeThickness: 3
     }));
 
-    card.add(this.add.text(16, 60, this.truncate(map.learningGoal, 82), {
+    card.add(this.add.text(16, 60, this.truncate(map.learningGoal, 58), {
       fontSize: '13px',
       color: map.unlocked ? P.textDesc : P.textDisabled,
       stroke: '#060814',
@@ -229,8 +229,8 @@ export const worldMapPanelFactoryMethods = {
     card.add(badge);
 
     const social = `${map.socialProof.rating.toFixed(1)}\u2605  ${this.formatCompact(map.socialProof.likes)} likes  ${this.formatCompact(map.socialProof.completions)} clears`;
-    card.add(this.add.text(width - 12, 58, social, {
-      fontSize: '12px',
+    card.add(this.add.text(width - 12, 72, social, {
+      fontSize: '11px',
       color: textColor,
       stroke: '#060814',
       strokeThickness: 3

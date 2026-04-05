@@ -1,4 +1,5 @@
 import { apiService } from '../../../services/api.js';
+import { gameState } from '../../../services/gameState.js';
 
 export const combatSceneQuizFlowMethods = {
   renderCurrentQuestion() {
@@ -11,6 +12,8 @@ export const combatSceneQuizFlowMethods = {
     }
 
     this.currentSelections = new Set();
+    this.currentHintQuestionId = null;
+    this.hintMessageText?.setText('');
     this.questionText.setText(question.prompt);
 
     this.optionButtons.forEach((btn, idx) => {
@@ -33,6 +36,11 @@ export const combatSceneQuizFlowMethods = {
       this.confirmBtn.setEnabled(isMulti);
     }
 
+    if (this.hintBtn) {
+      this.hintBtn.container.setVisible(true);
+      this.hintBtn.setEnabled(!this.hintRequestInFlight && this.getHintInventoryCount() > 0);
+    }
+
     this.refreshQuizMeta();
   },
 
@@ -46,7 +54,76 @@ export const combatSceneQuizFlowMethods = {
       this.questionTargetText?.setText('No target score. Keep answering until the monster falls.');
     }
 
-    this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${this.maxLifelines}`);
+    const hintCount = this.getHintInventoryCount();
+    this.lifelineText?.setText(`Hearts: ${this.remainingLifelines}/${this.maxLifelines}  |  Hints: ${hintCount}`);
+    if (this.hintBtn?.container?.visible) {
+      this.hintBtn.setEnabled(!this.hintRequestInFlight && hintCount > 0 && !this.battleOver);
+    }
+  },
+
+  async handleUseHint() {
+    if (this.battleOver || this.answerLocked || this.hintRequestInFlight) return;
+
+    const question = this.quizEncounter?.questions?.[this.currentQuestionIndex];
+    if (!question) return;
+
+    const hintItem = this.findHintInventoryItem();
+    if (!hintItem) {
+      this.addLog('No hint item available.');
+      this.refreshQuizMeta();
+      return;
+    }
+
+    const itemId = hintItem?.itemId || hintItem?.item_id;
+    if (!itemId) {
+      this.addLog('Hint item is invalid.');
+      return;
+    }
+
+    const payload = this.buildQuizHintPayload(question);
+    this.hintRequestInFlight = true;
+    this.hintBtn?.setEnabled(false);
+    this.hintMessageText?.setText('Generating hint...');
+
+    try {
+      const hintResponse = await apiService.generateQuizHint(payload);
+      const hintText = String(hintResponse?.hintText || '').trim();
+      if (!hintText) {
+        throw new Error('No hint text returned.');
+      }
+
+      const updatedInventory = await apiService.removeInventoryItem(itemId, 1);
+      gameState.setInventory(updatedInventory);
+
+      this.currentHintQuestionId = question.questionId;
+      this.hintMessageText?.setText(`Hint: ${hintText}`);
+      this.addLog('Hint used for this question.');
+      this.refreshQuizMeta();
+    } catch (error) {
+      console.warn('Failed to use hint item:', error);
+      this.hintMessageText?.setText('');
+      this.addLog('Hint failed. Item was not consumed.');
+    } finally {
+      this.hintRequestInFlight = false;
+      this.refreshQuizMeta();
+    }
+  },
+
+  buildQuizHintPayload(question) {
+    const correctOptionIndexes = [];
+    if (!this.usingMapQuiz && Number.isInteger(question?.correctOptionIndex)) {
+      correctOptionIndexes.push(question.correctOptionIndex);
+    }
+
+    return {
+      questionPrompt: String(question?.prompt || ''),
+      options: Array.isArray(question?.options) ? question.options : [],
+      questionType: question?.isMultiSelect ? 'multi' : 'single',
+      correctOptionIndexes,
+      mapId: this.mapId || null,
+      monsterId: this.monsterData?.monster_id || this.monsterData?.monsterId || null,
+      questionId: this.usingMapQuiz ? question?.questionId : null
+    };
   },
 
   async handleAnswerSelection(selectedOptionIndex) {
@@ -65,7 +142,7 @@ export const combatSceneQuizFlowMethods = {
         this.setQuizOptionsEnabled(false);
         this._recordAnswer(question, [selectedOptionIndex]);
         this._highlightSelected(selectedOptionIndex);
-        this.playPlayerQuizAttack();
+        this.playPlayerQuizAttack({ applyDamage: false, confirmedCorrect: false });
         this.time.delayedCall(600, () => {
           this.answerLocked = false;
           this._advanceQuestion();
@@ -119,7 +196,7 @@ export const combatSceneQuizFlowMethods = {
     if (this.confirmBtn) this.confirmBtn.setEnabled(false);
 
     this._recordAnswer(question, Array.from(this.currentSelections));
-    this.playPlayerQuizAttack();
+    this.playPlayerQuizAttack({ applyDamage: false, confirmedCorrect: false });
 
     this.time.delayedCall(600, () => {
       this.answerLocked = false;
@@ -163,8 +240,10 @@ export const combatSceneQuizFlowMethods = {
 
   _advanceQuestion() {
     this.currentQuestionIndex += 1;
-    this.monsterHP = Math.max(0, this.monsterHP - this.damagePerCorrect);
-    this.updateHealthBars();
+    if (!this.usingMapQuiz) {
+      this.monsterHP = Math.max(0, this.monsterHP - this.damagePerCorrect);
+      this.updateHealthBars();
+    }
     this.evaluateEncounterState();
   },
 
@@ -214,8 +293,10 @@ export const combatSceneQuizFlowMethods = {
 
     try {
       const result = await apiService.submitMapQuizAttempt(this.mapQuizId, this.collectedAnswers);
-      const { passed, score, totalQuestions } = result;
-      this.correctAnswers = score ?? 0;
+      const score = Number(result?.score ?? 0);
+      const totalQuestions = Number(result?.totalQuestions ?? this.totalQuestions ?? this.collectedAnswers.length);
+      const passed = result?.passed === true || (totalQuestions > 0 && (score * 100 / totalQuestions) >= 70);
+      this.correctAnswers = score;
       this.addLog(`Result: ${this.correctAnswers}/${totalQuestions} correct.`);
 
       if (passed) {

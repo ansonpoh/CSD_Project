@@ -16,7 +16,7 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "*"
+            allowedOriginPatterns: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
             allowedMethods:
               - GET
               - POST
@@ -58,7 +58,7 @@ spring:
         - id: learning-service
           uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**, /api/missions/**, /api/side-challenges/**
+            - Path=/api/quizzes/**, /api/ai/**, /api/contents/**, /api/question-bank/**, /api/map-quizzes/**, /api/topic/**, /api/missions/**, /api/side-challenges/**, /api/chatbot/**
           filters:
             - name: RequestRateLimiter
               args:

@@ -31,7 +31,7 @@ public class ContentService {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://localhost:8082}")
+    @Value("${GAME_URL:http://localhost:8082}")
     private String gameServiceUrl;
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
@@ -110,14 +110,6 @@ public class ContentService {
 
         content = contentRepository.save(content);
 
-        vectorStore.add(List.of(new Document(
-                textForEmbedding,
-                java.util.Map.of(
-                        "contentId", content.getContentId().toString(),
-                        "topicId", topicId.toString()
-                )
-        )));
-
         // Call game-service to properly assign NPC to Content on Map
         try {
             String url = gameServiceUrl + "/api/internal/npc-maps";
@@ -135,6 +127,14 @@ public class ContentService {
             contentRepository.delete(content);
             throw new IllegalStateException("Failed to assign content to NPC/Map in Game Service. " + e.getMessage());
         }
+
+        vectorStore.add(List.of(new Document(
+                textForEmbedding,
+                java.util.Map.of(
+                        "contentId", content.getContentId().toString(),
+                        "topicId", topicId.toString()
+                )
+        )));
 
         aiService.screenContent(content);
 

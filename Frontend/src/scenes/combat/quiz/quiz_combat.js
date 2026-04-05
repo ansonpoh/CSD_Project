@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 export const combatSceneQuizCombatMethods = {
-  playPlayerQuizAttack() {
+  playPlayerQuizAttack({ applyDamage = true, confirmedCorrect = true } = {}) {
     const damage = this.damagePerCorrect;
 
     if (this.playerSprite && this.playerAttackAnims.length) {
@@ -21,9 +21,16 @@ export const combatSceneQuizCombatMethods = {
       });
     }
 
-    this.monsterHP = Math.max(0, this.monsterHP - damage);
-    this.updateHealthBars();
-    this.addLog(`Correct! Slash landed for ${damage} damage.`);
+    if (applyDamage) {
+      this.monsterHP = Math.max(0, this.monsterHP - damage);
+      this.updateHealthBars();
+      this.addLog(`Correct! Slash landed for ${damage} damage.`);
+      return;
+    }
+
+    if (!confirmedCorrect) {
+      this.addLog('Answer locked in. Final grading happens after all questions.');
+    }
   },
 
   playMonsterCounterAttack({ applyDamage = true } = {}) {

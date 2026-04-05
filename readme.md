@@ -9,8 +9,12 @@
 
 ### Prerequisites
 - **Docker & Docker Compose**
-- **Node.js (v18+)**
+- **Node.js (v20)**
 - **Java 21**
+
+Recommended local runtime alignment:
+- Use `nvm use` from the repo root to pick up [`.nvmrc`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.nvmrc)
+- Use a Java 21 runtime that matches [`.java-version`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.java-version)
 
 ### 🔐 Environment Configuration
 
@@ -69,3 +73,23 @@ Production environments (e.g., Render, Railway, AWS) do **NOT** use `.env` files
    npm run dev
    ```
    *The game is available at `http://localhost:3000`.*
+
+## CI/CD and Deployment
+
+- CI runs from [`.github/workflows/ci.yml`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.github/workflows/ci.yml) and covers backend service tests, aggregate backend verification, frontend tests, frontend build, Docker image builds, and security scans.
+- CD runs from [`.github/workflows/deploy.yml`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.github/workflows/deploy.yml) and is designed for GHCR + Render.
+- Production deployment documentation lives in [render-vercel.md](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/docs/deployment/render-vercel.md).
+- Rollback steps live in [rollback.md](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/docs/deployment/rollback.md).
+
+### Required GitHub / Platform Secrets
+
+For the deploy workflow:
+- `RENDER_DEPLOY_HOOK_IDENTITY_SERVICE`
+- `RENDER_DEPLOY_HOOK_GAME_SERVICE`
+- `RENDER_DEPLOY_HOOK_LEARNING_SERVICE`
+- `RENDER_DEPLOY_HOOK_PLAYER_SERVICE`
+- `RENDER_DEPLOY_HOOK_GATEWAY`
+- `PROD_GATEWAY_URL`
+- `PROD_FRONTEND_URL`
+
+Platform runtime variables are documented in [render-vercel.md](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/docs/deployment/render-vercel.md).

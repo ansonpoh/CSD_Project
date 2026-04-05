@@ -24,10 +24,10 @@ public class MapQuizService {
     private final LearnerMapQuizAttemptRepository attemptRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${game.url:http://game-srevice:8082}")
+    @Value("${GAME_URL:http://game-service:8082}")
     private String gameServiceUrl;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
 
     public MapQuizService(
@@ -168,9 +168,6 @@ public class MapQuizService {
     public MapQuizSubmitResponse submitAttempt(UUID supabaseUserId, MapQuizSubmitRequest request) {
         LearnerDto learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(request.quizId());
-        if (!checkAllNpcsCompleted(learner.learnerId(), quiz.getMapId())) {
-            throw new IllegalStateException("You must interact with all NPCs before submitting the quiz.");
-        }
 
         // Score only against the questions that were actually submitted (frontend may
         // send a subset of the full quiz due to per-monster question splitting).
@@ -229,6 +226,14 @@ public class MapQuizService {
             .map(quiz -> attemptRepository.existsByLearnerIdAndQuiz_QuizIdAndStatus(
                 learner.learnerId(), quiz.getQuizId(), LearnerMapQuizAttempt.Status.PASSED))
             .orElse(true); // no quiz published = no gate
+    }
+
+    public boolean hasPassedPublishedQuizForLearner(UUID learnerId, UUID mapId) {
+        if (learnerId == null || mapId == null) return false;
+        return quizRepository.findByMapIdAndIsPublishedTrue(mapId)
+            .map(quiz -> attemptRepository.existsByLearnerIdAndQuiz_QuizIdAndStatus(
+                learnerId, quiz.getQuizId(), LearnerMapQuizAttempt.Status.PASSED))
+            .orElse(false);
     }
 
     private LearnerDto fetchLearner(UUID supabaseUserId) {

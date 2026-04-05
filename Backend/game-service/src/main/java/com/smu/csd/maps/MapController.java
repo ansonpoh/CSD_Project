@@ -61,7 +61,7 @@ public class MapController {
     public MapCatalogResponse updateLike(
             Authentication authentication,
             @PathVariable UUID mapId,
-            @RequestBody MapLikeRequest request
+            @RequestBody(required = false) MapLikeRequest request
     ) {
         boolean liked = request != null && Boolean.TRUE.equals(request.liked());
         return service.updateMapLike(mapId, currentUser(authentication), liked);
@@ -71,7 +71,7 @@ public class MapController {
     public MapCatalogResponse updateRating(
             Authentication authentication,
             @PathVariable UUID mapId,
-            @RequestBody MapRatingRequest request
+            @RequestBody(required = false) MapRatingRequest request
     ) {
         int rating = request == null || request.rating() == null ? 0 : request.rating();
         return service.updateMapRating(mapId, currentUser(authentication), rating);

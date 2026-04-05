@@ -39,13 +39,15 @@ export function initializeSceneState(scene) {
   scene.sideChallengeButton = null;
   scene.eventOverlay = null;
   scene.eventPanel = null;
+  scene.rewardClaimFx = null;
+  scene.rewardClaimFxTimer = null;
   scene.mapCompletionRecorded = false;
   scene.mapStartedCompleted = false;
   scene.activeLoadToken = null;
 }
 
 export function resetSceneState(scene, data) {
-  scene.mapConfig = data?.mapConfig || { mapKey: 'map1' };
+  scene.mapConfig = data?.mapConfig || {};
   scene.editorMapData = scene.mapConfig?.editorMapData || null;
 
   scene.player = null;
@@ -82,16 +84,16 @@ export function resetSceneState(scene, data) {
   scene.sideChallengeButton = null;
   scene.eventOverlay = null;
   scene.eventPanel = null;
+  scene.rewardClaimFx = null;
+  scene.rewardClaimFxTimer = null;
   scene.mapCompletionRecorded = false;
   scene.mapStartedCompleted = false;
   scene.activeLoadToken = null;
 
   if (!scene.mapConfig.mapKey && !scene.mapConfig.isEditorMap && !scene.editorMapData) {
     const raw = String(scene.mapConfig.asset || scene.mapConfig.name || '').toLowerCase();
-    if (raw.includes('forest')) scene.mapConfig.mapKey = 'map1';
-    else if (raw.includes('cave')) scene.mapConfig.mapKey = 'map2';
-    else if (raw.includes('mountain')) scene.mapConfig.mapKey = 'map3';
-    else scene.mapConfig.mapKey = 'map1';
+    const directMatch = raw.match(/\bmap([1-4])\b/);
+    if (directMatch) scene.mapConfig.mapKey = `map${directMatch[1]}`;
   }
 
   const learner = gameState.getLearner();

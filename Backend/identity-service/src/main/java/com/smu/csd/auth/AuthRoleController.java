@@ -35,7 +35,7 @@ public class AuthRoleController {
     private final ContributorRepository contributorRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
 
     @GetMapping("/role/me")
@@ -44,9 +44,13 @@ public class AuthRoleController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        UUID supabaseUserId = parseSupabaseUserId(jwt.getSubject());
+        if (supabaseUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid authentication subject"));
+        }
 
-        if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "admin", "supabaseUserId", supabaseUserId));
         }
         if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
@@ -68,10 +72,14 @@ public class AuthRoleController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        UUID supabaseUserId = parseSupabaseUserId(jwt.getSubject());
+        if (supabaseUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid authentication subject"));
+        }
 
         boolean hasRole = switch (role.toLowerCase()) {
-            case "admin" -> administratorRepository.existsBySupabaseUserId(supabaseUserId);
+            case "admin" -> administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId);
             case "contributor" -> contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId);
             case "learner" -> checkLearnerExists(supabaseUserId.toString());
             default -> false;
@@ -82,7 +90,7 @@ public class AuthRoleController {
 
     @GetMapping("/role/internal/{supabaseUserId}")
     public ResponseEntity<Map<String, String>> internalGetRole(@PathVariable UUID supabaseUserId) {
-        if (administratorRepository.existsBySupabaseUserId(supabaseUserId)) {
+        if (administratorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
             return ResponseEntity.ok(Map.of("role", "ADMIN"));
         }
         if (contributorRepository.existsBySupabaseUserIdAndIsActiveTrue(supabaseUserId)) {
@@ -104,6 +112,17 @@ public class AuthRoleController {
         } catch (Exception e) {
             log.error("Failed to check learner existence for user {} at {}: {}", supabaseUserId, playerServiceUrl, e.getMessage());
             return false;
+        }
+    }
+
+    private UUID parseSupabaseUserId(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(subject);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 }

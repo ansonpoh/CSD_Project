@@ -1,10 +1,16 @@
 export function resolveItemEffect(item) {
   const name = String(item?.name || '').toLowerCase();
   const description = String(item?.description || '').toLowerCase();
+  const itemType = String(item?.item_type || '').toLowerCase();
   const blob = `${name} ${description}`;
   const isPotion = blob.includes('potion') || blob.includes('elixir');
   const isHealthPotion = blob.includes('health') || blob.includes('heal') || blob.includes('healing');
   const isManaPotion = blob.includes('mana');
+  const isQuizHintItem =
+    itemType === 'quiz_hint' ||
+    blob.includes('quiz hint') ||
+    blob.includes('hint token') ||
+    (blob.includes('hint') && blob.includes('quiz'));
 
   // Only health/healing potions should grant quiz hearts.
   if (isPotion && isHealthPotion) {
@@ -31,7 +37,16 @@ export function resolveItemEffect(item) {
     };
   }
 
-  if (blob.includes('oracle') || blob.includes('hint') || blob.includes('scroll')) {
+  if (isQuizHintItem) {
+    return {
+      usable: false,
+      combatOnly: true,
+      quizHintItem: true,
+      message: 'Hint items can only be used during quiz combat via the Use Hint button.'
+    };
+  }
+
+  if (blob.includes('oracle') || blob.includes('scroll')) {
     return {
       usable: true,
       assistCharges: 1,

@@ -91,7 +91,7 @@ export function buildAuthFormMarkup(authMode, role = 'learner') {
     </button>
 
     <button id="googleAuthBtn" style="width: 100%; padding: 12px; background: #ffffff; color: #1a1a1a; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px;">
-      ${isLogin ? 'Continue with Google' : 'Register with Google'}
+      Continue with Google
     </button>
 
     <button id="toggleModeBtn" style="width: 100%; padding: 10px; background: transparent; color: #9fc7ff; border: 1px solid #4a90e2; border-radius: 5px; cursor: pointer;">

@@ -1,6 +1,40 @@
+import Phaser from 'phaser';
 import { apiService } from '../../services/api.js';
 
 export const mapRuntimeMethods = {
+  normalizeRuntimeMapPayload(payload) {
+    if (!payload) return null;
+
+    const unwrap = (value) => {
+      if (!value) return value;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch (_error) {
+          return null;
+        }
+      }
+      return value;
+    };
+
+    const candidates = [
+      payload,
+      payload.mapData,
+      payload.map_data,
+      payload.data,
+      payload.payload
+    ];
+
+    for (const candidate of candidates) {
+      const normalized = unwrap(candidate);
+      if (normalized && typeof normalized === 'object' && Array.isArray(normalized.layers)) {
+        return normalized;
+      }
+    }
+
+    return null;
+  },
+
   createGrid() {
     const graphics = this.add.graphics();
     graphics.lineStyle(1, 0x3d6b1f, 0.3);
@@ -107,14 +141,14 @@ export const mapRuntimeMethods = {
   },
 
   async tryLoadEditorMapData() {
-    const isEditorMap = this.mapConfig?.isEditorMap || String(this.mapConfig?.asset || '').startsWith('editor-draft:');
     const mapId = this.mapConfig?.mapId || this.mapConfig?.id;
-    if (!isEditorMap || !mapId) return;
+    if (!mapId) return;
 
     try {
       const payload = await apiService.getEditorMapData(mapId);
-      if (payload?.layers) {
-        this.editorMapData = payload;
+      const normalizedPayload = this.normalizeRuntimeMapPayload(payload);
+      if (normalizedPayload) {
+        this.editorMapData = normalizedPayload;
       }
     } catch (error) {
       console.error('Failed to load editor map payload:', error);
@@ -123,10 +157,44 @@ export const mapRuntimeMethods = {
 
   createEditorTilemap() {
     const payload = this.editorMapData || {};
+    const tiledLayers = Array.isArray(payload.layers)
+      ? payload.layers.filter((layer) => layer?.type === 'tilelayer')
+      : [];
+    const hasTiledSchema = tiledLayers.length > 0 && Array.isArray(payload.tilesets);
+    if (hasTiledSchema) {
+      this.createTiledRuntimeTilemap(payload, tiledLayers);
+      return;
+    }
+
     const tileSize = Number(payload.tileSize || 32);
-    const width = Number(payload.width || 60);
-    const height = Number(payload.height || 34);
-    const tilesetKey = payload.tilesetKey || 'terrain_tiles_v2.1';
+    const groundLayer = Array.isArray(payload.layers?.ground) ? payload.layers.ground : [];
+    const decorLayer = Array.isArray(payload.layers?.decor) ? payload.layers.decor : [];
+    const collisionLayer = Array.isArray(payload.layers?.collision) ? payload.layers.collision : [];
+    const allLayers = [groundLayer, decorLayer, collisionLayer];
+    const inferredHeight = allLayers.reduce((max, layer) => Math.max(max, layer.length), 0);
+    const inferredWidth = allLayers.reduce((max, layer) => {
+      const layerWidth = layer.reduce((rowMax, row) => {
+        if (!Array.isArray(row)) return rowMax;
+        return Math.max(rowMax, row.length);
+      }, 0);
+      return Math.max(max, layerWidth);
+    }, 0);
+    const width = Math.max(1, Number(payload.width) || inferredWidth || 60);
+    const height = Math.max(1, Number(payload.height) || inferredHeight || 34);
+    const requestedTilesetKey = payload.tilesetKey || 'terrain_tiles_v2.1';
+    const fallbackTilesetKey = [
+      requestedTilesetKey,
+      'terrain_tiles_v2.1',
+      'stone_tiles_v2.1',
+      'tiles-all-32x32',
+      '1_Terrains_and_Fences_32x32'
+    ].find((key) => this.textures.exists(key));
+
+    if (!fallbackTilesetKey) {
+      console.error('No loaded tileset texture available for editor map:', requestedTilesetKey);
+      this.createFallbackArena();
+      return;
+    }
 
     this.map = this.make.tilemap({
       tileWidth: tileSize,
@@ -135,13 +203,23 @@ export const mapRuntimeMethods = {
       height
     });
 
-    const tileset = this.map.addTilesetImage(tilesetKey, tilesetKey, tileSize, tileSize, 0, 0);
+    const tileset = this.map.addTilesetImage(fallbackTilesetKey, fallbackTilesetKey, tileSize, tileSize, 0, 0);
+    if (!tileset) {
+      console.error('Failed to add tileset image for editor map:', fallbackTilesetKey);
+      this.createFallbackArena();
+      return;
+    }
+
+    const source = this.textures.get(fallbackTilesetKey)?.getSourceImage?.();
+    const maxTileIndex = source
+      ? Math.max(0, Math.floor((source.width || 0) / tileSize) * Math.floor((source.height || 0) / tileSize) - 1)
+      : 0;
     this.collisionLayers = [];
 
     [
-      ['ground', payload.layers?.ground, 1],
-      ['decor', payload.layers?.decor, 2],
-      ['collision', payload.layers?.collision, 3]
+      ['ground', groundLayer, 1],
+      ['decor', decorLayer, 2],
+      ['collision', collisionLayer, 3]
     ].forEach(([name, data, depth]) => {
       const layer = this.map.createBlankLayer(name, tileset, 0, 0);
       if (!layer || !Array.isArray(data)) return;
@@ -149,11 +227,14 @@ export const mapRuntimeMethods = {
       layer.setDepth(depth);
       if (name === 'collision') layer.setAlpha(0.6);
 
-      for (let y = 0; y < data.length; y += 1) {
+      const writeHeight = Math.min(height, data.length);
+      for (let y = 0; y < writeHeight; y += 1) {
         const row = data[y];
         if (!Array.isArray(row)) continue;
-        for (let x = 0; x < row.length; x += 1) {
-          layer.putTileAt(Number.isInteger(row[x]) ? row[x] : -1, x, y);
+        const writeWidth = Math.min(width, row.length);
+        for (let x = 0; x < writeWidth; x += 1) {
+          const tileId = Number.isInteger(row[x]) ? Math.max(-1, Math.min(row[x], maxTileIndex)) : -1;
+          layer.putTileAt(tileId, x, y);
         }
       }
 
@@ -162,6 +243,154 @@ export const mapRuntimeMethods = {
         this.collisionLayers.push(layer);
       }
     });
+  },
+
+  createTiledRuntimeTilemap(payload, tiledLayers) {
+    const runtimeTilemapKey = `runtime-map-${this.mapConfig?.mapId || this.mapConfig?.id || Date.now()}`;
+    let parsedWithPhaser = false;
+
+    try {
+      this.cache.tilemap.remove(runtimeTilemapKey);
+      this.cache.tilemap.add(runtimeTilemapKey, {
+        format: Phaser.Tilemaps.Formats.TILED_JSON,
+        data: payload
+      });
+      this.map = this.make.tilemap({ key: runtimeTilemapKey });
+      parsedWithPhaser = Boolean(this.map?.layers?.length && this.map?.tilesets?.length);
+    } catch (error) {
+      console.warn('Phaser runtime tiled parser failed, falling back to manual layer build.', error);
+      parsedWithPhaser = false;
+    }
+
+    if (parsedWithPhaser) {
+      const addedTilesets = [];
+      for (const tileset of this.map.tilesets) {
+        const added = this.addTiledRuntimeTileset(tileset, Number(payload.tilewidth || payload.tileSize || 32));
+        if (added) addedTilesets.push(added);
+      }
+
+      if (!addedTilesets.length) {
+        console.error('No loaded tileset textures available for tiled runtime payload.');
+        this.createFallbackArena();
+        return;
+      }
+
+      this.collisionLayers = [];
+      this.collisionBodies = [];
+
+      const fallbackByIndex = this.map.layers.length >= 3 && !this.map.layers.some((layerData) =>
+        /collision|collide|wall|blocked|barrier/i.test(String(layerData?.name || ''))
+      );
+
+      this.map.layers.forEach((layerData, layerIndex) => {
+        const layerName = String(layerData?.name || `Layer ${layerIndex + 1}`);
+        const layer = this.map.createLayer(layerName, addedTilesets, 0, 0);
+        if (!layer) return;
+
+        const collidesByName = /collision|collide|wall|blocked|barrier/i.test(layerName);
+        const hasCollidesProperty = Array.isArray(layer.layer?.properties)
+          && layer.layer.properties.some((prop) => prop?.name === 'collides' && prop?.value === true);
+        const shouldCollide = collidesByName || hasCollidesProperty || (fallbackByIndex && layerIndex >= 2);
+        if (shouldCollide) {
+          layer.setCollisionByExclusion([-1], true);
+          this.collisionLayers.push(layer);
+        }
+      });
+      return;
+    }
+
+    const tileSize = Number(payload.tilewidth || payload.tileSize || 32);
+    const width = Math.max(1, Number(payload.width) || 60);
+    const height = Math.max(1, Number(payload.height) || 34);
+
+    this.map = this.make.tilemap({
+      tileWidth: tileSize,
+      tileHeight: tileSize,
+      width,
+      height
+    });
+
+    const sortedTilesets = [...(payload.tilesets || [])]
+      .filter((tileset) => tileset && Number.isFinite(Number(tileset.firstgid)))
+      .sort((a, b) => Number(a.firstgid) - Number(b.firstgid));
+
+    const addedTilesets = sortedTilesets
+      .map((tileset) => this.addTiledRuntimeTileset(tileset, tileSize))
+      .filter(Boolean);
+
+    if (!addedTilesets.length) {
+      console.error('No loaded tileset textures available for tiled runtime payload.');
+      this.createFallbackArena();
+      return;
+    }
+
+    this.collisionLayers = [];
+    this.collisionBodies = [];
+
+    const fallbackByIndex = tiledLayers.length >= 3 && !tiledLayers.some((layer) =>
+      /collision|collide|wall|blocked|barrier/i.test(String(layer?.name || ''))
+    );
+
+    tiledLayers.forEach((layerData, layerIndex) => {
+      const layerName = String(layerData?.name || `Layer ${layerIndex + 1}`);
+      const layer = this.map.createBlankLayer(layerName, addedTilesets, 0, 0);
+      if (!layer) return;
+
+      layer.setVisible(layerData?.visible !== false);
+      layer.setAlpha(typeof layerData?.opacity === 'number' ? layerData.opacity : 1);
+      layer.setDepth(layerIndex + 1);
+
+      const rawData = Array.isArray(layerData?.data) ? layerData.data : [];
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const gid = Number(rawData[y * width + x] || 0);
+          layer.putTileAt(gid > 0 ? gid : -1, x, y);
+        }
+      }
+
+      const collidesByName = /collision|collide|wall|blocked|barrier/i.test(layerName);
+      const hasCollidesProperty = Array.isArray(layerData?.properties)
+        && layerData.properties.some((prop) => prop?.name === 'collides' && prop?.value === true);
+      const shouldCollide = collidesByName || hasCollidesProperty || (fallbackByIndex && layerIndex >= 2);
+      if (shouldCollide) {
+        layer.setCollisionByExclusion([-1], true);
+        this.collisionLayers.push(layer);
+      }
+    });
+  },
+
+  addTiledRuntimeTileset(tilesetDef, fallbackTileSize) {
+    const tilesetName = String(tilesetDef?.name || '').trim();
+    if (!tilesetName) return null;
+
+    const fromImagePath = String(tilesetDef?.image || '').replace(/\\/g, '/');
+    const fromImage = fromImagePath.split('/').pop() || '';
+    const fromImageNoExt = fromImage.replace(/\.[^.]+$/, '');
+    const availableKeys = this.textures.getTextureKeys();
+    const lowerToActual = new Map(availableKeys.map((key) => [String(key).toLowerCase(), key]));
+    const textureKeyCandidates = [
+      tilesetName,
+      fromImage,
+      fromImageNoExt
+    ];
+    const textureKey = textureKeyCandidates
+      .map((key) => (key ? lowerToActual.get(String(key).toLowerCase()) : null))
+      .find(Boolean);
+
+    if (!textureKey) {
+      console.warn('Missing tileset texture for runtime map payload:', tilesetName, tilesetDef?.image || '(no image)');
+      return null;
+    }
+
+    return this.map.addTilesetImage(
+      tilesetName,
+      textureKey,
+      Number(tilesetDef.tilewidth || tilesetDef.tileWidth || fallbackTileSize),
+      Number(tilesetDef.tileheight || tilesetDef.tileHeight || fallbackTileSize),
+      Number(tilesetDef.margin || 0),
+      Number(tilesetDef.spacing || 0),
+      Number(tilesetDef.firstgid || 1)
+    );
   },
 
   fixTilesetTexCoords(tileset, jsonTileset) {

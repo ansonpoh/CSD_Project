@@ -4,6 +4,8 @@ import { SoldierController } from '../../characters/soldier/SoldierController.js
 import { apiService } from '../../services/api.js';
 import { HUD } from './constants.js';
 
+const PLAYER_TOP_BOUNDARY_Y = 90;
+
 function showMapLoadingOverlay(scene) {
   const width = scene.cameras.main.width;
   const height = scene.cameras.main.height;
@@ -53,12 +55,17 @@ export async function createGameMapScene() {
     this.events.off('resume', this.handleSceneResume, this);
     this.playerCtrl?.destroy?.();
     this.playerCtrl = null;
+    this.dismissRewardClaimCelebration?.();
     this.destroyEventPanel();
     hideMapLoadingOverlay(this);
   });
 
   const width = this.cameras.main.width;
   const height = this.cameras.main.height;
+  const isContributorMap = Boolean(
+    this.mapConfig?.isEditorMap
+    || String(this.mapConfig?.asset || '').startsWith('editor-draft:')
+  );
   showMapLoadingOverlay(this);
   await new Promise((resolve) => this.time.delayedCall(0, resolve));
 
@@ -84,10 +91,22 @@ export async function createGameMapScene() {
       });
     }
 
-    this.cameras.main.startFollow(this.playerCtrl.sprite);
-    if (this.map) {
-      this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
-      this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+    if (isContributorMap) {
+      this.cameras.main.stopFollow();
+      this.cameras.main.setScroll(0, 0);
+      this.cameras.main.setBounds(0, 0, width, height);
+      this.physics.world.setBounds(0, PLAYER_TOP_BOUNDARY_Y, width, Math.max(1, height - PLAYER_TOP_BOUNDARY_Y));
+    } else {
+      this.cameras.main.startFollow(this.playerCtrl.sprite);
+      if (this.map) {
+        this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+        this.physics.world.setBounds(
+          0,
+          PLAYER_TOP_BOUNDARY_Y,
+          this.map.widthInPixels,
+          Math.max(1, this.map.heightInPixels - PLAYER_TOP_BOUNDARY_Y)
+        );
+      }
     }
     this.playerCtrl?.sprite?.setCollideWorldBounds(true);
 
@@ -179,7 +198,7 @@ export function updateGameMapScene() {
       this.placeNameLabel(sprite, nameText, offsetY);
     }
     const statusBadge = sprite.getData('statusBadge');
-    if (statusBadge) statusBadge.setPosition(sprite.x, sprite.y - 58);
+    if (statusBadge) this.placeStatusBadge(sprite, statusBadge);
   });
 
   this.monsterSprites.forEach((sprite) => {

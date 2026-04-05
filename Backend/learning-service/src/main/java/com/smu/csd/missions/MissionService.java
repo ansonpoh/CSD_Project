@@ -29,7 +29,7 @@ public class MissionService {
     private final AIService aiService;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
 
     // ── Admin: mission pool management ──────────────────────────────────────

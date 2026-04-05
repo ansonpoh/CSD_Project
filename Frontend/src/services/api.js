@@ -219,11 +219,6 @@ class ApiService {
     return data;
   }
 
-  async assignEncounterPair(mapId, npcId, monsterId) {
-    const { data } = await this.api.put(`/encounters/map/${mapId}/pair`, { npcId, monsterId });
-    return data;
-  }
-
   async markEncounterNpcInteracted(mapId, npcId) {
     const { data } = await this.api.put(`/encounters/map/${mapId}/npc/${npcId}/interact`);
     return data;
@@ -303,6 +298,12 @@ class ApiService {
 
   async getLearner(id) {
     const { data } = await this.api.get(`/learner/${id}`);
+    return data;
+  }
+
+  async getLearnerAnalytics(learnerId) {
+    const id = learnerId || 'me';
+    const { data } = await this.api.get(`/learner/${id}/analytics`);
     return data;
   }
 
@@ -608,6 +609,11 @@ class ApiService {
     return data;
   }
 
+  async generateQuizHint(payload) {
+    const { data } = await this.api.post('/ai/quiz-hint', payload);
+    return data;
+  }
+
   // Content endpoints
   async submitContent(content) {
     const { data } = await this.api.post('/contents', content);
@@ -743,7 +749,7 @@ class ApiService {
   }
 
   async submitMapQuizAttempt(quizId, answers) {
-    const { data } = await this.api.post('/map-quizzes/submit', { quizId, answers });
+    const { data } = await this.api.post('/map-quizzes/submit', { quizId, answers }, { timeout: 15000 });
     return data;
   }
 
@@ -796,6 +802,23 @@ class ApiService {
 
   async submitReflection(missionId, reflection) {
     const { data } = await this.api.post(`/missions/${missionId}/reflect`, { reflection });
+    return data;
+  }
+
+  // Chatbot
+  async chatbotQuery(query, conversationId = null, maxChunks = null) {
+    const { data } = await this.api.post('/chatbot/query', {
+      query,
+      conversation_id: conversationId,
+      max_chunks: maxChunks
+    });
+    return data;
+  }
+
+  async chatbotClearHistory(conversationId) {
+    const { data } = await this.api.post('/chatbot/clear-history', {
+      conversation_id: conversationId
+    });
     return data;
   }
 }

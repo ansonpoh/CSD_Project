@@ -28,6 +28,7 @@ import com.smu.csd.encounters.dtos.MonsterStateDto;
 import com.smu.csd.encounters.dtos.NpcSummaryDto;
 import com.smu.csd.maps.MapRepository;
 import com.smu.csd.monsters.Monster;
+import com.smu.csd.monsters.MonsterRepository;
 import com.smu.csd.monsters.MonsterService;
 import com.smu.csd.npcs.NPCService;
 import com.smu.csd.npcs.npc_map.NPCMapLessonResponse;
@@ -42,8 +43,11 @@ public class EncounterService {
     private final MapRepository mapRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${player.url:http://player-service:8084}")
+    @Value("${PLAYER_SERVICE_URL:http://player-service:8084}")
     private String playerServiceUrl;
+
+    @Value("${learning.url:http://learning-service:8081}")
+    private String learningServiceUrl;
 
     public EncounterService(
         NPCService npcService,
@@ -116,7 +120,6 @@ public class EncounterService {
     ) {
         UUID mapId = request == null ? null : request.mapId();
         UUID monsterId = request == null ? null : request.monsterId();
-        Boolean won = request == null ? null : request.won();
 
         if (mapId == null || monsterId == null) {
             throw new IllegalArgumentException("mapId and monsterId are required.");
@@ -131,7 +134,7 @@ public class EncounterService {
         }
 
         MonsterProgress progress = getOrCreateMonsterProgress(learner, mapId, monsterId);
-        boolean didWin = Boolean.TRUE.equals(won);
+        boolean didWin = hasPassedAuthoritativeMapQuiz(learner.learnerId(), mapId);
 
         progress.setAttempts(safeInt(progress.getAttempts()) + 1);
         progress.setWins(safeInt(progress.getWins()) + (didWin ? 1 : 0));
@@ -158,6 +161,20 @@ public class EncounterService {
         );
     }
 
+    private boolean hasPassedAuthoritativeMapQuiz(UUID learnerId, UUID mapId) {
+        try {
+            String url = learningServiceUrl
+                + "/api/internal/map-quizzes/passed?learnerId="
+                + learnerId
+                + "&mapId="
+                + mapId;
+            ResponseEntity<Boolean> response = restTemplate.getForEntity(url, Boolean.class);
+            return response.getStatusCode().is2xxSuccessful() && Boolean.TRUE.equals(response.getBody());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public EncounterClaimRewardResponseDto claimReward(UUID mapId, UUID monsterId, UUID supabaseUserId) {
         if (mapId == null || monsterId == null) {
             throw new IllegalArgumentException("mapId and monsterId are required.");
@@ -174,8 +191,9 @@ public class EncounterService {
         int xpAwarded = 0;
         int goldAwarded = 0;
         LearnerDto updatedLearner = learner;
+        boolean rewardClaimed = Boolean.TRUE.equals(progress.getRewardClaimed());
         
-        if (!Boolean.TRUE.equals(progress.getRewardClaimed())) {
+        if (!rewardClaimed) {
             xpAwarded = isBossMonster(mapId, monsterId) ? 140 : 90;
             goldAwarded = 100;
             
@@ -184,13 +202,17 @@ public class EncounterService {
                 String url = playerServiceUrl + "/api/internal/learners/" + learner.learnerId() + "/award-xp";
                 AwardXpRequestDto request = new AwardXpRequestDto(xpAwarded, goldAwarded);
                 updatedLearner = restTemplate.postForObject(url, request, LearnerDto.class);
+                if (updatedLearner == null) {
+                    throw new IllegalStateException("Player service returned empty award response.");
+                }
             } catch (Exception e) {
-                System.err.println("Failed to award rewards: " + e.getMessage());
+                throw new IllegalStateException("Failed to award rewards. Reward was not claimed.", e);
             }
 
             progress.setRewardClaimed(true);
             if (progress.getRewardClaimedAt() == null) progress.setRewardClaimedAt(LocalDateTime.now());
-            monsterProgressRepository.save(progress);
+            progress = monsterProgressRepository.save(progress);
+            rewardClaimed = Boolean.TRUE.equals(progress.getRewardClaimed());
         }
 
         return new EncounterClaimRewardResponseDto(
@@ -201,7 +223,7 @@ public class EncounterService {
             updatedLearner != null ? safeInt(updatedLearner.totalXp()) : safeInt(learner.totalXp()),
             updatedLearner != null ? safeInt(updatedLearner.level()) : safeInt(learner.level()),
             updatedLearner != null ? safeInt(updatedLearner.gold()) : safeInt(learner.gold()),
-            true
+            rewardClaimed
         );
     }
 

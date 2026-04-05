@@ -54,10 +54,12 @@ export const mapEventMethods = {
     const event = this.mapConfig?.event;
     const lastChoice = this.mapConfig?.playerState?.lastChoice;
     const challenge = getChallengeSnapshot(this.mapConfig);
+    const mapDescription = String(this.mapConfig?.description || 'No map description available.');
+    const compactDescription = mapDescription.length > 92 ? `${mapDescription.slice(0, 89)}...` : mapDescription;
     const lines = [
       `${this.mapConfig?.theme || this.mapConfig?.name || 'Map'}  |  ${this.mapConfig?.difficulty || 'Adaptive'}`,
       `${this.mapConfig?.creatorName || 'Unknown creator'} [${this.mapConfig?.creatorBadge || 'Builder'}]`,
-      `Likes ${this.mapConfig?.socialProof?.likes || 0}  |  Clears ${this.mapConfig?.socialProof?.completions || 0}`
+      compactDescription
     ];
 
     if (lastChoice?.label) {

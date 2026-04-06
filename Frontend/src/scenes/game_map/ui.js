@@ -83,6 +83,45 @@ export const uiMethods = {
     this.missionText.setPosition(x + width / 2, y + computedHeight / 2);
   },
 
+  layoutQuestPanel() {
+    if (!this.questCard || !this.questCardBounds || !this.questTitleText || !this.questStepsText || !this.claimRewardButton?.container) {
+      return;
+    }
+
+    const camHeight = this.cameras?.main?.height || 0;
+    const { x, y, width, minHeight } = this.questCardBounds;
+    const buttonWidth = 120;
+    const buttonHeight = 40;
+    const bottomPad = 14;
+    const stepsTop = 42;
+    const spacingBeforeButton = 10;
+
+    this.questStepsText.setWordWrapWidth(width - 28, true);
+    this.questStepsText.setPosition(x + 14, y + stepsTop);
+
+    const desiredHeight = Math.ceil(
+      stepsTop
+      + this.questStepsText.height
+      + spacingBeforeButton
+      + buttonHeight
+      + bottomPad
+    );
+    const maxHeight = camHeight > 0 ? Math.max(minHeight, camHeight - y - 18) : Math.max(minHeight, desiredHeight);
+    const computedHeight = Math.max(minHeight, Math.min(desiredHeight, maxHeight));
+
+    this.questCard.clear();
+    this.questCard.fillStyle(HUD.cardBg, 0.95);
+    this.questCard.fillRoundedRect(x, y, width, computedHeight, 8);
+    this.questCard.lineStyle(2, HUD.border, 0.82);
+    this.questCard.strokeRoundedRect(x, y, width, computedHeight, 8);
+
+    this.questCardBounds.height = computedHeight;
+    this.claimRewardButton.container.setPosition(
+      x + (width - buttonWidth) / 2,
+      y + computedHeight - bottomPad - buttonHeight
+    );
+  },
+
   createUI() {
     const width = this.cameras.main.width;
 
@@ -158,6 +197,8 @@ export const uiMethods = {
     const questW = 250;
     const questH = 230;
     const questCard = this.add.graphics().setScrollFactor(0).setDepth(119);
+    this.questCard = questCard;
+    this.questCardBounds = { x: questX, y: questY, width: questW, minHeight: questH, height: questH };
     questCard.fillStyle(HUD.cardBg, 0.95);
     questCard.fillRoundedRect(questX, questY, questW, questH, 8);
     questCard.lineStyle(2, HUD.border, 0.82);
@@ -191,6 +232,7 @@ export const uiMethods = {
     );
     this.claimRewardButton.setEnabled(false);
     this.layoutMissionPanel();
+    this.layoutQuestPanel();
     this.refreshMapSignalPanel();
   }
 };

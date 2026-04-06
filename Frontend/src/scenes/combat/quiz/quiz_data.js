@@ -86,8 +86,8 @@ export const combatSceneQuizDataMethods = {
     this.totalQuestions = this.quizEncounter.totalQuestions;
     this.requiredCorrectAnswers = this.quizEncounter.requiredCorrectAnswers;
     this.requiredAccuracyPercent = this.quizEncounter.requiredAccuracyPercent;
-    this.startingMonsterHpPercent = this.quizEncounter.startingMonsterHpPercent;
-    this.lossStreak = this.quizEncounter.lossStreak;
+    this.startingMonsterHpPercent = 100;
+    this.lossStreak = 0;
 
     if (!this.usingMapQuiz) {
       this.applyEventAssistModifiers();
@@ -104,8 +104,6 @@ export const combatSceneQuizDataMethods = {
       this.addLog('Answer all questions — results submitted at the end.');
     } else {
       this.addLog('Encounter rule: each wrong answer costs 1 heart. Reach 0 hearts and you lose.');
-      if (this.monsterHP < 100) this.addLog(`Retry assist active: monster starts at ${this.monsterHP}% HP.`);
-      if (this.lossStreak > 0) this.addLog(`Current loss streak: ${this.lossStreak}`);
     }
 
     this.renderCurrentQuestion();
@@ -178,10 +176,8 @@ export const combatSceneQuizDataMethods = {
 
     if (!normalizedQuestions.length) return this.buildFallbackQuizEncounter();
 
-    const startingMonsterHpPercent = Number.isFinite(payload?.startingMonsterHpPercent)
-      ? Phaser.Math.Clamp(Number(payload.startingMonsterHpPercent), 1, 100)
-      : 100;
-    const lossStreak = Number.isInteger(payload?.lossStreak) ? Math.max(0, payload.lossStreak) : 0;
+    const startingMonsterHpPercent = 100;
+    const lossStreak = 0;
 
     return {
       bossEncounter: Boolean(payload?.bossEncounter),

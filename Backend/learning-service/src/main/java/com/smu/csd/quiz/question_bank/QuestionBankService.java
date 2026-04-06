@@ -1,6 +1,7 @@
 package com.smu.csd.quiz.question_bank;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -276,7 +277,15 @@ public class QuestionBankService {
         MapQuiz quiz = mapQuizRepository.findById(quizId)
             .orElseThrow(() -> new IllegalArgumentException("Quiz not found: " + quizId));
 
-        int nextOrder = mapQuizQuestionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId).size();
+        List<MapQuizQuestion> existingQuestions = mapQuizQuestionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId);
+        String incomingScenario = normalizeScenarioText(bankQuestion.getScenarioText());
+        boolean alreadyExists = existingQuestions.stream()
+            .anyMatch(existing -> normalizeScenarioText(existing.getScenarioText()).equals(incomingScenario));
+        if (alreadyExists) {
+            throw new IllegalStateException("This question is already in the quiz.");
+        }
+
+        int nextOrder = existingQuestions.size();
 
         MapQuizQuestion quizQuestion = MapQuizQuestion.builder()
             .quiz(quiz)
@@ -293,6 +302,13 @@ public class QuestionBankService {
                 .isCorrect(opt.isCorrect())
                 .build())
         );
+    }
+
+    private String normalizeScenarioText(String scenarioText) {
+        return String.valueOf(scenarioText == null ? "" : scenarioText)
+            .trim()
+            .replaceAll("\\s+", " ")
+            .toLowerCase(Locale.ROOT);
     }
 
     // --- Helpers ---

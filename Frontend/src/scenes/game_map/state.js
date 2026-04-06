@@ -30,6 +30,8 @@ export function initializeSceneState(scene) {
   scene.lastMissionSnapshot = '';
   scene.questTitleText = null;
   scene.questStepsText = null;
+  scene.questCard = null;
+  scene.questCardBounds = null;
   scene.claimRewardButton = null;
   scene.mapBannerText = null;
   scene.mapSignalText = null;
@@ -75,6 +77,8 @@ export function resetSceneState(scene, data) {
   scene.closestNpcSprite = null;
   scene.questTitleText = null;
   scene.questStepsText = null;
+  scene.questCard = null;
+  scene.questCardBounds = null;
   scene.claimRewardButton = null;
   scene.mapBannerText = null;
   scene.mapSignalText = null;

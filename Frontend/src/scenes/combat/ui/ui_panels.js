@@ -63,10 +63,11 @@ export const combatSceneUiPanelMethods = {
   },
 
   renderOutcomeSummary(won, reason = '') {
-    const answered = Math.max(1, this.currentQuestionIndex);
-    const accuracy = Math.round((this.correctAnswers / answered) * 100);
+    const attempts = Math.max(1, this.correctAnswers + this.wrongAnswers);
+    const accuracy = Math.round((this.correctAnswers / attempts) * 100);
     const summary = [
       `Correct: ${this.correctAnswers}/${this.totalQuestions}`,
+      `Wrong attempts: ${this.wrongAnswers}`,
       `Accuracy: ${accuracy}%`,
       `Hearts left: ${this.remainingLifelines}/${this.maxLifelines}`,
       won ? 'Reward ready on the map.' : reason

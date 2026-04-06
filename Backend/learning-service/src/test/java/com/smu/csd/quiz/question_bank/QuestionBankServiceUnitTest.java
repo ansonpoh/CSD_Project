@@ -196,6 +196,41 @@ public class QuestionBankServiceUnitTest {
     }
 
     @Test
+    void addBankQuestionToQuiz_RejectsDuplicateQuestionAlreadyInQuiz() {
+        UUID bankQuestionId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+
+        BankQuestion approvedBankQuestion = BankQuestion.builder()
+                .bankQuestionId(bankQuestionId)
+                .status(BankQuestion.Status.APPROVED)
+                .mapId(UUID.randomUUID())
+                .scenarioText("How should you respond in this scenario?")
+                .isMultiSelect(false)
+                .build();
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).build();
+        MapQuizQuestion existingQuestion = MapQuizQuestion.builder()
+                .questionId(UUID.randomUUID())
+                .quiz(quiz)
+                .scenarioText(" how should you   respond in this scenario? ")
+                .questionOrder(0)
+                .isMultiSelect(false)
+                .build();
+
+        when(bankQuestionRepository.findById(bankQuestionId)).thenReturn(Optional.of(approvedBankQuestion));
+        when(mapQuizRepository.findById(quizId)).thenReturn(Optional.of(quiz));
+        when(mapQuizQuestionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(existingQuestion));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> service.addBankQuestionToQuiz(quizId, bankQuestionId)
+        );
+
+        assertEquals("This question is already in the quiz.", exception.getMessage());
+        verify(mapQuizQuestionRepository, never()).save(any(MapQuizQuestion.class));
+        verify(mapQuizOptionRepository, never()).save(any(MapQuizOption.class));
+    }
+
+    @Test
     void getContentSummary_MapsGameServiceContentRowsIntoSummaryDtos() {
         UUID mapId = UUID.randomUUID();
         when(restTemplate.getForObject(anyString(), eq(List.class))).thenReturn(List.of(Map.of(

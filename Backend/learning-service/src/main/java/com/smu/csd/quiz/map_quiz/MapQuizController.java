@@ -80,6 +80,14 @@ public class MapQuizController {
         return mapQuizService.submitAttempt(getSupabaseUserId(authentication), request);
     }
 
+    @PostMapping("/evaluate")
+    public MapQuizEvaluateResponse evaluateAnswer(
+        @RequestBody MapQuizEvaluateRequest request,
+        Authentication authentication
+    ) {
+        return mapQuizService.evaluateAnswer(getSupabaseUserId(authentication), request);
+    }
+
     @GetMapping("/map/{mapId}/my-status")
     public boolean getMyStatus(@PathVariable UUID mapId, Authentication authentication) {
         return mapQuizService.hasPassedQuiz(getSupabaseUserId(authentication), mapId);

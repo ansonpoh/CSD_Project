@@ -137,16 +137,11 @@ export const combatSceneQuizFlowMethods = {
         // Toggle selection — confirm button submits
         this._toggleMultiSelectOption(selectedOptionIndex, question);
       } else {
-        // Single-select: lock immediately and advance
         this.answerLocked = true;
         this.setQuizOptionsEnabled(false);
-        this._recordAnswer(question, [selectedOptionIndex]);
+        if (this.confirmBtn) this.confirmBtn.setEnabled(false);
         this._highlightSelected(selectedOptionIndex);
-        this.playPlayerQuizAttack({ applyDamage: false, confirmedCorrect: false });
-        this.time.delayedCall(600, () => {
-          this.answerLocked = false;
-          this._advanceQuestion();
-        });
+        await this._resolveMapQuizAnswer(question, [selectedOptionIndex], 600);
       }
       return;
     }
@@ -164,6 +159,7 @@ export const combatSceneQuizFlowMethods = {
     }
 
     this.consumeHeartLifeline();
+    this.wrongAnswers += 1;
     this.playMonsterCounterAttack({ applyDamage: false });
     this.addLog('Wrong answer. A heart was lost.');
     this.refreshQuizMeta();
@@ -184,7 +180,7 @@ export const combatSceneQuizFlowMethods = {
     });
   },
 
-  handleConfirmSelection() {
+  async handleConfirmSelection() {
     if (this.answerLocked || this.battleOver) return;
 
     const question = this.quizEncounter?.questions?.[this.currentQuestionIndex];
@@ -195,13 +191,7 @@ export const combatSceneQuizFlowMethods = {
     this.setQuizOptionsEnabled(false);
     if (this.confirmBtn) this.confirmBtn.setEnabled(false);
 
-    this._recordAnswer(question, Array.from(this.currentSelections));
-    this.playPlayerQuizAttack({ applyDamage: false, confirmedCorrect: false });
-
-    this.time.delayedCall(600, () => {
-      this.answerLocked = false;
-      this._advanceQuestion();
-    });
+    await this._resolveMapQuizAnswer(question, Array.from(this.currentSelections), 700);
   },
 
   _toggleMultiSelectOption(idx, question) {
@@ -232,9 +222,73 @@ export const combatSceneQuizFlowMethods = {
       .map((i) => question.optionIds?.[i])
       .filter(Boolean);
 
-    this.collectedAnswers.push({
+    const entry = {
       questionId: question.questionId,
       selectedOptionIds
+    };
+
+    const existingIndex = this.collectedAnswers.findIndex((answer) => answer.questionId === question.questionId);
+    if (existingIndex >= 0) {
+      this.collectedAnswers[existingIndex] = entry;
+      return;
+    }
+
+    this.collectedAnswers.push(entry);
+  },
+
+  async _resolveMapQuizAnswer(question, selectedIndices, delayMs = 600) {
+    this._recordAnswer(question, selectedIndices);
+
+    let isCorrect;
+    try {
+      const selectedOptionIds = selectedIndices
+        .map((i) => question.optionIds?.[i])
+        .filter(Boolean);
+      const evaluation = await apiService.evaluateMapQuizAnswer(this.mapQuizId, question.questionId, selectedOptionIds);
+      isCorrect = evaluation?.correct === true;
+    } catch (error) {
+      console.warn('Failed to evaluate map quiz answer:', error);
+      this.addLog('Could not verify answer. Try again.');
+      this.answerLocked = false;
+      this.setQuizOptionsEnabled(true);
+      if (this.confirmBtn && question.isMultiSelect) this.confirmBtn.setEnabled(this.currentSelections.size > 0);
+      return;
+    }
+
+    selectedIndices.forEach((idx) => this.showAnswerFeedback(idx, isCorrect));
+
+    if (isCorrect) {
+      this.correctAnswers += 1;
+      this.playPlayerQuizAttack({ applyDamage: true, confirmedCorrect: true });
+    } else {
+      this.consumeHeartLifeline();
+      this.wrongAnswers += 1;
+      this.playMonsterCounterAttack({ applyDamage: false });
+      this.addLog('Wrong answer. A heart was lost.');
+    }
+
+    this.refreshQuizMeta();
+
+    if (this.remainingLifelines <= 0) {
+      this.time.delayedCall(delayMs, () => {
+        this.answerLocked = false;
+        this.defeat('You ran out of hearts.');
+      });
+      return;
+    }
+
+    this.time.delayedCall(delayMs, () => {
+      if (this.battleOver) return;
+      this.answerLocked = false;
+
+      if (isCorrect) {
+        this._advanceQuestion();
+        return;
+      }
+
+      this.addLog('Try again to proceed.');
+      this.renderCurrentQuestion();
+      this.setQuizOptionsEnabled(true);
     });
   },
 
@@ -268,6 +322,10 @@ export const combatSceneQuizFlowMethods = {
     if (this.battleOver) return;
 
     if (this.usingMapQuiz) {
+      if (this.remainingLifelines <= 0) {
+        this.defeat('You ran out of hearts.');
+        return;
+      }
       if (this.currentQuestionIndex >= this.totalQuestions) {
         await this._submitMapQuizAndResolve();
       } else {

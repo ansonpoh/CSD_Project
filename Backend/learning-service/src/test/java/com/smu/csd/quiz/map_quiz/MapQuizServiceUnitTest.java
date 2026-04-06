@@ -302,6 +302,62 @@ public class MapQuizServiceUnitTest {
     }
 
     @Test
+    public void testEvaluateAnswer_Correct() {
+        UUID userId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        UUID questionId = UUID.randomUUID();
+        LearnerDto learner = new LearnerDto(UUID.randomUUID(), 0, 1);
+
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).mapId(UUID.randomUUID()).build();
+        MapQuizQuestion question = MapQuizQuestion.builder().questionId(questionId).quiz(quiz).build();
+        MapQuizOption correctOption = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption wrongOption = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(false).build();
+
+        MapQuizEvaluateRequest request = new MapQuizEvaluateRequest(
+                quizId,
+                questionId,
+                List.of(correctOption.getOptionId())
+        );
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
+        when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question));
+        when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctOption, wrongOption));
+
+        MapQuizEvaluateResponse response = service.evaluateAnswer(userId, request);
+
+        assertTrue(response.correct());
+    }
+
+    @Test
+    public void testEvaluateAnswer_Wrong() {
+        UUID userId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        UUID questionId = UUID.randomUUID();
+        LearnerDto learner = new LearnerDto(UUID.randomUUID(), 0, 1);
+
+        MapQuiz quiz = MapQuiz.builder().quizId(quizId).mapId(UUID.randomUUID()).build();
+        MapQuizQuestion question = MapQuizQuestion.builder().questionId(questionId).quiz(quiz).build();
+        MapQuizOption correctOption = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(true).build();
+        MapQuizOption wrongOption = MapQuizOption.builder().optionId(UUID.randomUUID()).isCorrect(false).build();
+
+        MapQuizEvaluateRequest request = new MapQuizEvaluateRequest(
+                quizId,
+                questionId,
+                List.of(wrongOption.getOptionId())
+        );
+
+        when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
+        when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question));
+        when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctOption, wrongOption));
+
+        MapQuizEvaluateResponse response = service.evaluateAnswer(userId, request);
+
+        assertFalse(response.correct());
+    }
+
+    @Test
     public void testSubmitAttempt_MultiSelectRequiresExactMatch() {
         UUID userId = UUID.randomUUID();
         UUID quizId = UUID.randomUUID();
@@ -326,6 +382,7 @@ public class MapQuizServiceUnitTest {
 
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question));
         when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctA, correctB, wrong));
         when(attemptRepository.save(any(LearnerMapQuizAttempt.class))).thenAnswer(i -> i.getArguments()[0]);
 
@@ -377,6 +434,7 @@ public class MapQuizServiceUnitTest {
 
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
+        when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question1, question2, question3));
         when(optionRepository.findByQuestion_QuestionId(q1)).thenReturn(List.of(q1Correct));
         when(optionRepository.findByQuestion_QuestionId(q2)).thenReturn(List.of(q2Correct, q2Wrong));
         when(optionRepository.findByQuestion_QuestionId(q3)).thenReturn(List.of(q3Correct, q3Wrong));

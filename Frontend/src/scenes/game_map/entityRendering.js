@@ -60,8 +60,13 @@ export const entityRenderingMethods = {
     }
 
     // Right quest chain panel + claim button
-    const questPanelX = cam.width - 290;
-    pushRect(questPanelX, 160, 250, 230, 20);
+    if (this.questCardBounds) {
+      const questHeight = Math.max(
+        Number(this.questCardBounds.minHeight || 230),
+        Number(this.questCardBounds.height || 0)
+      );
+      pushRect(this.questCardBounds.x, this.questCardBounds.y, this.questCardBounds.width, questHeight, 20);
+    }
     if (this.claimRewardButton?.container) {
       pushRect(this.claimRewardButton.container.x, this.claimRewardButton.container.y, 120, 40);
     }

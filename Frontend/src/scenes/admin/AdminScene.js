@@ -1509,7 +1509,8 @@ export class AdminScene extends Phaser.Scene {
     const draft = this.state.bankDraft || [];
 
     const approvedQuestions = bankQuestions.filter((q) => q.status === 'APPROVED');
-    const quizQuestionIds = new Set((mapQuiz?.questions || []).map((q) => q.questionId));
+    const normalizeScenarioText = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const quizScenarioTexts = new Set((mapQuiz?.questions || []).map((q) => normalizeScenarioText(q.scenarioText)));
 
     const bankHtml = bankQuestions.length === 0
       ? renderEmptyState('No questions in bank', 'Generate a draft or add questions for this map.')
@@ -1532,7 +1533,7 @@ export class AdminScene extends Phaser.Scene {
                 <button class="dash-button" style="font-size:12px;padding:4px 10px;" data-action="approve-bank-question" data-bank-question-id="${q.bankQuestionId}">Approve</button>
                 <button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;" data-action="reject-bank-question" data-bank-question-id="${q.bankQuestionId}">Reject</button>
               ` : ''}
-              ${q.status === 'APPROVED' && mapQuiz && !quizQuestionIds.has(q.bankQuestionId) ? `
+              ${q.status === 'APPROVED' && mapQuiz && !quizScenarioTexts.has(normalizeScenarioText(q.scenarioText)) ? `
                 <button class="dash-button" style="font-size:12px;padding:4px 10px;" data-action="add-to-quiz" data-bank-question-id="${q.bankQuestionId}">Add to Quiz</button>
               ` : ''}
             </div>
@@ -1562,7 +1563,9 @@ export class AdminScene extends Phaser.Scene {
                   <span style="font-size:12px;color:#b58d84;">Q${i + 1}${q.isMultiSelect ? ' · multi' : ''}</span>
                   <p style="margin:4px 0 0;font-size:13px;">${escapeHtml(q.scenarioText)}</p>
                 </div>
-                ${!mapQuiz.isPublished ? `<button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;margin-left:12px;" data-action="remove-from-quiz" data-question-id="${q.questionId}">Remove</button>` : ''}
+                <button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;margin-left:12px;" data-action="remove-from-quiz" data-question-id="${q.questionId}">
+                  ${mapQuiz.isPublished ? 'Unpublish & Remove' : 'Remove'}
+                </button>
               </div>`).join('')}
         </div>`;
 
@@ -1765,6 +1768,15 @@ export class AdminScene extends Phaser.Scene {
   async addBankQuestionToQuiz(bankQuestionId) {
     const quizId = this.state.mapQuiz?.quizId;
     if (!quizId || !bankQuestionId) return;
+    const bankQuestion = this.state.bankQuestions.find((q) => q.bankQuestionId === bankQuestionId);
+    const normalizeScenarioText = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const alreadyInQuiz = (this.state.mapQuiz?.questions || []).some(
+      (q) => normalizeScenarioText(q?.scenarioText) === normalizeScenarioText(bankQuestion?.scenarioText)
+    );
+    if (alreadyInQuiz) {
+      this.setStatus('This question is already in the quiz.', true);
+      return;
+    }
     this.setStatus('Adding question to quiz...', false);
     try {
       await apiService.addBankQuestionToQuiz(quizId, bankQuestionId);
@@ -1781,15 +1793,19 @@ export class AdminScene extends Phaser.Scene {
   async removeFromMapQuiz(questionId) {
     const quizId = this.state.mapQuiz?.quizId;
     if (!quizId || !questionId) return;
-    this.setStatus('Removing question...', false);
+    const quizIsPublished = Boolean(this.state.mapQuiz?.isPublished);
+    this.setStatus(quizIsPublished ? 'Unpublishing quiz and removing question...' : 'Removing question...', false);
     try {
+      if (quizIsPublished) {
+        this.state.mapQuiz = await apiService.unpublishQuiz(quizId);
+      }
       const updated = await apiService.removeQuizQuestion(quizId, questionId);
       this.state.mapQuiz = updated;
       this.renderQuestionBankSection();
-      showToast(this.toastHost, 'Question removed.');
+      showToast(this.toastHost, quizIsPublished ? 'Quiz unpublished and question removed.' : 'Question removed.');
       this.setStatus('', false);
     } catch (error) {
-      this.setStatus(getErrorMessage(error, 'Failed to remove question'), true);
+      this.setStatus(getErrorMessage(error, quizIsPublished ? 'Failed to unpublish/remove question' : 'Failed to remove question'), true);
     }
   }
 

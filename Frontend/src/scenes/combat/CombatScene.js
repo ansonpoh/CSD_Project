@@ -271,7 +271,6 @@ export class CombatScene extends Phaser.Scene {
     this.setQuizOptionsEnabled(false);
     this.runBtn?.setEnabled(false);
     this.addLog(reason);
-    this.addLog('Retry assist will strengthen your next attempt.');
     void this.submitCombatResult({ won: false });
 
     if (this.playerSprite && this.canPlayAnim('dead')) this.playerSprite.play('dead', true);

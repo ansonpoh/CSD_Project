@@ -292,14 +292,6 @@ export const questPanelMethods = {
     return null;
   },
 
-  getRetryAssistSummary(lossStreak) {
-    const streak = Math.max(0, Number(lossStreak || 0));
-    const questionReduction = Math.min(3, streak);
-    if (questionReduction <= 0) return null;
-    const hpPercent = questionReduction === 1 ? 85 : questionReduction === 2 ? 72 : 60;
-    return `Retry assist: -${questionReduction} qns, monster starts ${hpPercent}% HP`;
-  },
-
   updateQuestPanel() {
     if (!this.questTitleText || !this.questStepsText || !this.claimRewardButton) return;
 
@@ -307,6 +299,7 @@ export const questPanelMethods = {
     if (!ordered.length) {
       this.questTitleText.setText('Quest Chain');
       this.questStepsText.setText('No encounter quests on this map.');
+      this.layoutQuestPanel?.();
       this.claimRewardButton.setEnabled(false);
       return;
     }
@@ -316,6 +309,7 @@ export const questPanelMethods = {
     if (!activeQuest) {
       this.questTitleText.setText('Quest Chain Complete');
       this.questStepsText.setText(`All quests cleared.\nRewards claimed: ${claimedCount}/${ordered.length}`);
+      this.layoutQuestPanel?.();
       this.claimRewardButton.setEnabled(false);
       return;
     }
@@ -338,8 +332,6 @@ export const questPanelMethods = {
       `Chain progress: ${claimedCount}/${ordered.length} claimed`
     ];
 
-    const retryInfo = !progress.monsterDefeated ? this.getRetryAssistSummary(progress.lossStreak) : null;
-    if (retryInfo) lines.push(retryInfo);
     const assistCharges = this.mapConfig?.playerState?.assistCharges || 0;
     if (assistCharges > 0) lines.push(`Oracle assist ready: ${assistCharges}`);
     const luckyCharmPct = Math.max(0, Number(gameState.getActiveEffects().nextRewardGoldBonusPct || 0));
@@ -349,6 +341,7 @@ export const questPanelMethods = {
       `Quest ${activeQuest.index + 1}/${activeQuest.total}${activeQuest.pair?.bossEncounter ? ' [BOSS]' : ''}`
     );
     this.questStepsText.setText(lines.join('\n'));
+    this.layoutQuestPanel?.();
     this.claimRewardButton.setEnabled(Boolean(progress.monsterDefeated) && !Boolean(progress.rewardClaimed));
     this.checkForMapCompletion();
   },

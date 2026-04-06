@@ -769,6 +769,11 @@ class ApiService {
     return data;
   }
 
+  async evaluateMapQuizAnswer(quizId, questionId, selectedOptionIds) {
+    const { data } = await this.api.post('/map-quizzes/evaluate', { quizId, questionId, selectedOptionIds }, { timeout: 15000 });
+    return data;
+  }
+
   async publishQuiz(quizId) {
     const { data } = await this.api.put(`/map-quizzes/${quizId}/publish`);
     return data;

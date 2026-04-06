@@ -175,16 +175,9 @@ public class MapQuizService {
         int correct = 0;
 
         for (MapQuizAnswerRequest answer : request.answers()) {
-            List<MapQuizOption> options = optionRepository.findByQuestion_QuestionId(answer.questionId());
-            Set<UUID> correctIds = options.stream()
-                .filter(MapQuizOption::isCorrect)
-                .map(MapQuizOption::getOptionId)
-                .collect(Collectors.toSet());
-            Set<UUID> selectedIds = answer.selectedOptionIds() == null
-                ? Set.of()
-                : Set.copyOf(answer.selectedOptionIds());
-
-            if (correctIds.equals(selectedIds)) correct++;
+            if (isAnswerCorrect(quiz, answer.questionId(), answer.selectedOptionIds())) {
+                correct++;
+            }
         }
 
         boolean passed = total > 0 && (correct * 100 / total) >= PASSING_SCORE_PERCENT;
@@ -199,6 +192,13 @@ public class MapQuizService {
 
         attempt = attemptRepository.save(attempt);
         return new MapQuizSubmitResponse(attempt.getAttemptId(), passed, correct, total);
+    }
+
+    public MapQuizEvaluateResponse evaluateAnswer(UUID supabaseUserId, MapQuizEvaluateRequest request) {
+        requireLearner(supabaseUserId);
+        MapQuiz quiz = requireQuiz(request.quizId());
+        boolean correct = isAnswerCorrect(quiz, request.questionId(), request.selectedOptionIds());
+        return new MapQuizEvaluateResponse(correct);
     }
 
     public List<LearnerMapQuizAttemptResponse> getMyAttempts(UUID supabaseUserId, UUID quizId) {
@@ -256,6 +256,25 @@ public class MapQuizService {
         LearnerDto learner = fetchLearner(supabaseUserId);
         if (learner == null) throw new IllegalArgumentException("Learner not found.");
         return learner;
+    }
+
+    private boolean isAnswerCorrect(MapQuiz quiz, UUID questionId, List<UUID> selectedOptionIds) {
+        if (quiz == null || questionId == null) return false;
+
+        List<MapQuizQuestion> quizQuestions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quiz.getQuizId());
+        boolean questionBelongsToQuiz = quizQuestions.stream()
+            .anyMatch(question -> questionId.equals(question.getQuestionId()));
+        if (!questionBelongsToQuiz) {
+            throw new IllegalArgumentException("Question does not belong to this quiz.");
+        }
+
+        List<MapQuizOption> options = optionRepository.findByQuestion_QuestionId(questionId);
+        Set<UUID> correctIds = options.stream()
+            .filter(MapQuizOption::isCorrect)
+            .map(MapQuizOption::getOptionId)
+            .collect(Collectors.toSet());
+        Set<UUID> selectedIds = selectedOptionIds == null ? Set.of() : Set.copyOf(selectedOptionIds);
+        return correctIds.equals(selectedIds);
     }
 
     private MapQuizResponse toResponse(MapQuiz quiz, boolean includeAnswers) {

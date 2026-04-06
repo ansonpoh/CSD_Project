@@ -23,11 +23,11 @@ This repository is prepared for a split production setup:
 
 Publish backend images to:
 
-- `ghcr.io/<owner>/csd-project/identity-service`
-- `ghcr.io/<owner>/csd-project/game-service`
-- `ghcr.io/<owner>/csd-project/learning-service`
-- `ghcr.io/<owner>/csd-project/player-service`
-- `ghcr.io/<owner>/csd-project/gateway`
+- `ghcr.io/ansonpoh/csd-project/identity-service`
+- `ghcr.io/ansonpoh/csd-project/game-service`
+- `ghcr.io/ansonpoh/csd-project/learning-service`
+- `ghcr.io/ansonpoh/csd-project/player-service`
+- `ghcr.io/ansonpoh/csd-project/gateway`
 
 Tags:
 

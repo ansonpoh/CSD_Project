@@ -11,7 +11,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}/csd-project
+  IMAGE_NAMESPACE: ghcr.io/ansonpoh/csd-project
 
 jobs:
   publish-images:

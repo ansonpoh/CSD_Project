@@ -101,6 +101,24 @@ jobs:
     needs: trigger-render-deploys
     steps:
       - uses: actions/checkout@v4
+      - name: Validate production URLs
+        env:
+          PROD_GATEWAY_URL: ${{ secrets.PROD_GATEWAY_URL }}
+          PROD_FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
+        run: |
+          missing=0
+
+          if [ -z "${PROD_GATEWAY_URL}" ]; then
+            echo "::error::Missing GitHub secret PROD_GATEWAY_URL. Add the live gateway URL before merging to main."
+            missing=1
+          fi
+
+          if [ -z "${PROD_FRONTEND_URL}" ]; then
+            echo "::error::Missing GitHub secret PROD_FRONTEND_URL. Add the live frontend URL before merging to main."
+            missing=1
+          fi
+
+          exit "$missing"
       - name: Wait for Render rollout
         run: sleep 90
       - name: Verify live gateway

@@ -56,16 +56,44 @@ jobs:
     runs-on: ubuntu-latest
     needs: publish-images
     steps:
+      - name: Validate Render deploy hooks
+        env:
+          RENDER_DEPLOY_HOOK_IDENTITY_SERVICE: ${{ secrets.RENDER_DEPLOY_HOOK_IDENTITY_SERVICE }}
+          RENDER_DEPLOY_HOOK_GAME_SERVICE: ${{ secrets.RENDER_DEPLOY_HOOK_GAME_SERVICE }}
+          RENDER_DEPLOY_HOOK_LEARNING_SERVICE: ${{ secrets.RENDER_DEPLOY_HOOK_LEARNING_SERVICE }}
+          RENDER_DEPLOY_HOOK_PLAYER_SERVICE: ${{ secrets.RENDER_DEPLOY_HOOK_PLAYER_SERVICE }}
+          RENDER_DEPLOY_HOOK_GATEWAY: ${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}
+        run: |
+          missing=0
+          for hook in IDENTITY_SERVICE GAME_SERVICE LEARNING_SERVICE PLAYER_SERVICE GATEWAY; do
+            var="RENDER_DEPLOY_HOOK_${hook}"
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing GitHub secret ${var}. Add it in repository settings before merging to main."
+              missing=1
+            fi
+          done
+
+          exit "$missing"
       - name: Trigger identity-service deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_IDENTITY_SERVICE }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_IDENTITY_SERVICE }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
       - name: Trigger game-service deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_GAME_SERVICE }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_GAME_SERVICE }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
       - name: Trigger learning-service deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_LEARNING_SERVICE }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_LEARNING_SERVICE }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
       - name: Trigger player-service deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PLAYER_SERVICE }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_PLAYER_SERVICE }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
       - name: Trigger gateway deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
 
   production-smoke-test:
     name: Production Smoke Test

@@ -84,15 +84,16 @@ public class ContentService {
         List<Document> similar = vectorStore.similaritySearch(
                 SearchRequest.builder()
                         .query(textForEmbedding)
-                        .topK(1)
+                        .topK(5)
                         .similarityThreshold(0.80)
                         .filterExpression("topicId == '" + topicId + "'")
                         .build()
         );
 
-        if (!similar.isEmpty()) {
+        Optional<UUID> semanticDuplicateId = findExistingSemanticDuplicate(similar);
+        if (semanticDuplicateId.isPresent()) {
             throw new IllegalStateException(
-                    "Likely semantic duplicate of content " + similar.get(0).getMetadata().get("contentId")
+                    "Likely semantic duplicate of content " + semanticDuplicateId.get()
             );
         }
 
@@ -148,6 +149,36 @@ public class ContentService {
 
     private boolean hasVideoAttachment(String videoUrl) {
         return videoUrl != null && !videoUrl.trim().isEmpty();
+    }
+
+    private Optional<UUID> findExistingSemanticDuplicate(List<Document> similar) {
+        if (similar == null || similar.isEmpty()) {
+            return Optional.empty();
+        }
+
+        for (Document document : similar) {
+            Object rawId = document.getMetadata() == null ? null : document.getMetadata().get("contentId");
+            if (rawId == null) {
+                continue;
+            }
+
+            UUID contentId;
+            try {
+                contentId = UUID.fromString(rawId.toString());
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+
+            Optional<Content> candidate = contentRepository.findById(contentId);
+            if (candidate.isPresent()) {
+                Content.Status status = candidate.get().getStatus();
+                if (status == Content.Status.PENDING_REVIEW || status == Content.Status.APPROVED) {
+                    return Optional.of(contentId);
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     public Content getById(UUID contentId) throws ResourceNotFoundException {

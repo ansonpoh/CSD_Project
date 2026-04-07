@@ -550,8 +550,12 @@ export const entityRenderingMethods = {
 
   placeStatusBadge(sprite, statusBadge) {
     const nameText = sprite?.getData?.('nameText');
-    const offsetY = Number.isFinite(sprite?.getData?.('statusBadgeOffsetY')) ? sprite.getData('statusBadgeOffsetY') : 14;
+    const configuredOffsetY = Number.isFinite(sprite?.getData?.('statusBadgeOffsetY')) ? sprite.getData('statusBadgeOffsetY') : 14;
     if (nameText) {
+      // Keep a consistent gap above the name, regardless of font/padding differences.
+      const minGap = 4;
+      const requiredOffsetY = Math.ceil(nameText.height + minGap);
+      const offsetY = Math.max(configuredOffsetY, requiredOffsetY);
       statusBadge.setPosition(sprite.x, nameText.y - offsetY);
       return;
     }

@@ -1518,11 +1518,27 @@ export class AdminScene extends Phaser.Scene {
     if (subtitleEl) subtitleEl.textContent = subtitle;
   }
 
+  isMapEligibleForQuiz(map) {
+    return map?.status === 'APPROVED' && map?.published === true;
+  }
+
+  getEligibleQuizMaps() {
+    return (this.state.maps || []).filter((map) => this.isMapEligibleForQuiz(map));
+  }
+
   renderQuestionBankSection() {
     const container = this.portalRoot?.querySelector('#admin-question-bank');
     if (!container) return;
 
-    const maps = this.state.maps || [];
+    const maps = this.getEligibleQuizMaps();
+    const selectedMapIsEligible = maps.some((m) => m.mapId === this.state.selectedQuizMapId);
+    if (!selectedMapIsEligible && this.state.selectedQuizMapId) {
+      this.state.selectedQuizMapId = '';
+      this.state.bankQuestions = [];
+      this.state.mapQuiz = null;
+      this.state.bankDraft = [];
+    }
+
     const mapOptions = maps.map((m) =>
       `<option value="${escapeHtml(m.mapId)}" ${this.state.selectedQuizMapId === m.mapId ? 'selected' : ''}>${escapeHtml(m.name || m.mapId)}</option>`
     ).join('');
@@ -1663,6 +1679,16 @@ export class AdminScene extends Phaser.Scene {
     const mapId = this.state.selectedQuizMapId;
     if (!mapId) {
       this.setStatus('Please select a map first.', true);
+      return;
+    }
+    const selectedMap = this.getEligibleQuizMaps().find((m) => m.mapId === mapId);
+    if (!selectedMap) {
+      this.state.selectedQuizMapId = '';
+      this.state.bankQuestions = [];
+      this.state.mapQuiz = null;
+      this.state.bankDraft = [];
+      this.renderQuestionBankSection();
+      this.setStatus('Only approved and published maps can be selected for quiz management.', true);
       return;
     }
     this.setStatus('Loading quiz data...', false);

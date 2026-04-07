@@ -108,7 +108,7 @@ public class AIService {
 
         moderationRepository.save(AIModerationResult.builder()
                 .content(content)
-                .qualityScore(parsed.qualityScore())
+                .qualityScore(normalizeQualityScore(parsed.qualityScore()))
                 .isRelevant(parsed.isRelevant())
                 .isAppropriate(parsed.isAppropriate())
                 .aiVerdict(parsed.aiVerdict())
@@ -133,7 +133,7 @@ public class AIService {
     public void markForManualVideoReview(Content content) {
         moderationRepository.save(AIModerationResult.builder()
                 .content(content)
-                .qualityScore(0)
+                .qualityScore(1)
                 .isRelevant(true)
                 .isAppropriate(false)
                 .aiVerdict(AIModerationResult.Verdict.NEEDS_REVIEW)
@@ -352,5 +352,9 @@ public class AIService {
             return "Eliminate choices that are too absolute or off-topic, then pick the one closest to the core concept.";
         }
         return "Look for the option that best aligns with the main idea in the question.";
+    }
+
+    private int normalizeQualityScore(int score) {
+        return Math.max(1, Math.min(10, score));
     }
 }

@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.smu.csd.ai.AIModerationResult;
 import com.smu.csd.contents.flags.ContentFlag;
 import com.smu.csd.contents.flags.ContentFlagService;
@@ -239,6 +240,7 @@ public class ContentController {
         return ResponseEntity.ok(flag);
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record SubmitContentRequest(
             UUID topicId,
             UUID npcId,

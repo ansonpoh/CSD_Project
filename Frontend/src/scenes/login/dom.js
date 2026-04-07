@@ -16,16 +16,17 @@ function ensureAuthFormStyles() {
       --login-auth-danger: #ff6b6b;
       --login-auth-google-bg: #ffffff;
       --login-auth-google-text: #1a1a1a;
+      --login-auth-top: clamp(215px, 22dvh, 275px);
       position: absolute;
       left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
+      top: var(--login-auth-top);
+      transform: translateX(-50%);
       padding: 30px;
       background: var(--login-auth-bg);
       border-radius: 10px;
       border: 2px solid var(--login-auth-border);
       width: min(400px, calc(100vw - 32px));
-      max-height: calc(100dvh - 32px);
+      max-height: calc(100dvh - var(--login-auth-top) - 16px);
       overflow-y: auto;
       box-sizing: border-box;
     }
@@ -165,6 +166,7 @@ function ensureAuthFormStyles() {
 
     @media (max-width: 480px) {
       .login-auth-form {
+        --login-auth-top: clamp(190px, 21dvh, 240px);
         padding: 20px;
         border-radius: 8px;
       }

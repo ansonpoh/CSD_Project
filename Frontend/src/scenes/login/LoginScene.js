@@ -17,13 +17,26 @@ import {
 import { transitionToScene } from '../shared/sceneTransition.js';
 
 export class LoginScene extends Phaser.Scene {
-  constructor() {
-    super({ key: 'LoginScene' });
+  constructor({
+    key = 'LoginScene',
+    initialAuthMode = 'login',
+    initialRole = 'learner',
+    formOptions = {}
+  } = {}) {
+    super({ key });
     this.loginForm = null;
-    this.authMode = 'login';
+    this.authMode = initialAuthMode;
     this.cloudSet = 1;
     this.cloudLayerCount = 4;
-    this.role = 'learner'
+    this.role = initialRole;
+    this.formOptions = {
+      roles: ['learner', 'contributor'],
+      showRoleSelector: true,
+      showModeSelector: true,
+      allowRegister: true,
+      showGoogleButton: true,
+      ...formOptions
+    };
   }
 
   preload() {
@@ -41,7 +54,9 @@ export class LoginScene extends Phaser.Scene {
 
     createTimeBasedBackground(this, width, height);
 
-    const logo = this.add.image(width / 2, 130, 'logo').setOrigin(0.5);
+    const logo = this.add.image(width / 2, 120, 'logo').setOrigin(0.5);
+    const logoSize = Phaser.Math.Clamp(Math.min(width, height) * 0.34, 260, 380);
+    logo.setDisplaySize(logoSize, logoSize);
     
     this.startAuthEntryFlow();
   }
@@ -74,7 +89,7 @@ export class LoginScene extends Phaser.Scene {
       this.loginForm = createAuthFormContainer();
     }
     //user input is a nono to prevent XSS :(
-    this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode, this.role);
+    this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode, this.role, this.formOptions);
     wireAuthForm(this);
   }
 
@@ -83,6 +98,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   setAuthMode(mode) {
+    if (!this.formOptions.allowRegister && mode !== 'login') return;
     if (!mode || mode === this.authMode) return;
     this.authMode = mode;
     if (this.authMode === 'register' && this.role === 'admin') {
@@ -93,6 +109,7 @@ export class LoginScene extends Phaser.Scene {
 
   setRole(role) {
     if (!role || role === this.role) return;
+    if (!this.formOptions.roles.includes(role)) return;
     if (this.authMode === 'register' && role === 'admin') return;
     this.role = role;
     this.renderAuthForm();

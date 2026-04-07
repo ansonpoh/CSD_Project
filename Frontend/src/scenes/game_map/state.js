@@ -18,6 +18,7 @@ export function initializeSceneState(scene) {
   scene.monsterInteractDistance = 95;
   scene.map = null;
   scene.collisionBodies = [];
+  scene._spawnReachabilityCache = null;
   scene.npcMonsterMap = new Map();
   scene.monsterSpriteByNpcKey = new Map();
   scene.revealedMonsterNpcKeys = new Set();
@@ -64,6 +65,7 @@ export function resetSceneState(scene, data) {
   scene.interactPromptBg = null;
   scene.closestMonsterSprite = null;
   scene.collisionBodies = [];
+  scene._spawnReachabilityCache = null;
   scene.npcMonsterMap = new Map();
   scene.monsterSpriteByNpcKey = new Map();
   scene.revealedMonsterNpcKeys = new Set();

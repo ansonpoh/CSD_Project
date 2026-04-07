@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene.js';
 import { LoginScene } from '../scenes/login/LoginScene.js';
+import { AdminLoginScene } from '../scenes/login/AdminLoginScene.js';
 import { WorldMapScene } from '../scenes/world_map/WorldMapScene.js';
 import { GameMapScene } from '../scenes/game_map/GameMapScene.js';
 import { CombatScene } from '../scenes/combat/CombatScene.js';
@@ -38,6 +39,7 @@ const config = {
   scene: [
     BootScene,
     LoginScene,
+    AdminLoginScene,
     WorldMapScene,
     GameMapScene,
     CombatScene,

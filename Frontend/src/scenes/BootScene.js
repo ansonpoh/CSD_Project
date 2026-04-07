@@ -8,6 +8,7 @@ import { dailyQuestService } from '../services/dailyQuests.js';
 import { gameState } from '../services/gameState';
 import { buildPlayerProfile, getDefaultPlayerProfile } from '../services/playerProfile.js';
 import { loadSharedUiAssets } from '../services/uiAssets.js';
+import { getLoginSceneKey } from '../config/authEntry.js';
 
 const P = {
   bgDeep:     0x090f24,
@@ -225,7 +226,7 @@ export class BootScene extends Phaser.Scene {
 
       if (!session?.access_token) {
         gameState.clearState();
-        this.scene.start('LoginScene');
+        this.scene.start(getLoginSceneKey());
         return;
       }
 
@@ -264,7 +265,7 @@ export class BootScene extends Phaser.Scene {
     } catch (error) {
       console.error('Boot auth check failed:', error);
       gameState.clearState();
-      this.scene.start('LoginScene');
+      this.scene.start(getLoginSceneKey());
     }
   }
 }

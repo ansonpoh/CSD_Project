@@ -82,6 +82,8 @@ export async function showUserProfile(scene) {
       apiService.getCurrentLearner(),
       apiService.getMyRole()
     ]);
+    const learnerId = learnerData?.id || learnerData?.learnerId || 'me';
+    const analyticsData = await apiService.getLearnerAnalytics(learnerId).catch(() => null);
 
     loadingText.destroy();
     ensureProfileIdleAnimation(scene, soldier);
@@ -90,7 +92,7 @@ export async function showUserProfile(scene) {
 
     nodes.push(
       scene.add.image(width / 2, height / 2 + 16, 'ui-portrait-frame')
-        .setScale(4.2)
+        .setScale(4.1, 4.75)
         .setDepth(depth + 2)
     );
 
@@ -113,10 +115,10 @@ export async function showUserProfile(scene) {
 
     renderProfileColumns(scene, {
       learnerData,
+      analyticsData,
       roleData,
       playerProfile,
       nodes,
-      width,
       panelLeft,
       panelTop,
       panelWidth,
@@ -138,9 +140,9 @@ export async function showUserProfile(scene) {
     nodes.push(
       createUiButton(scene, {
         x: width / 2,
-        y: panelTop + rows * tileSize - 115, // Placed slightly above the Logout button
-        width: 180,
-        height: 36,
+        y: panelTop + rows * tileSize - 72,
+        width: 158,
+        height: 26,
         label: 'VIEW ANALYTICS',
         fillNormal: 0x0f3460, // Deep Blue
         fillHover: 0x1a5294,  // Bright Blue
@@ -161,9 +163,9 @@ export async function showUserProfile(scene) {
     nodes.push(
       createUiButton(scene, {
         x: width / 2,
-        y: panelTop + rows * tileSize - 70,
-        width: 140,
-        height: 36,
+        y: panelTop + rows * tileSize - 40,
+        width: 118,
+        height: 26,
         label: 'LOGOUT',
         fillNormal: 0x3a0e0e,
         fillHover: 0x601818,
@@ -176,13 +178,6 @@ export async function showUserProfile(scene) {
         }
       })
     );
-
-    nodes.push(
-      scene.add.text(width / 2, panelTop + rows * tileSize - 28, 'Tap X to close', {
-        fontSize: '13px',
-        color: '#7a96b4'
-      }).setOrigin(0.5).setDepth(depth + 3)
-    );
   } catch (error) {
     console.error('Error fetching profile:', error);
     loadingText.setText('Failed to load profile data.\nPlease ensure you are logged in.');
@@ -193,10 +188,10 @@ export async function showUserProfile(scene) {
 function renderProfileColumns(scene, config) {
   const {
     learnerData,
+    analyticsData,
     roleData,
     playerProfile,
     nodes,
-    width,
     panelLeft,
     panelTop,
     panelWidth,
@@ -208,6 +203,7 @@ function renderProfileColumns(scene, config) {
   const leftStats = getPrimaryLeftStats(learnerData, roleData || gameState.getRole() || 'User', playerProfile);
   const rightStats = getPrimaryRightStats(learnerData);
   const extras = getExtraProfileStats(learnerData);
+  const analyticsStats = buildAnalyticsProfileStats(analyticsData);
 
   const drawRows = (startX, startY, rowsToDraw, align = 'left') => {
     let y = startY;
@@ -235,16 +231,33 @@ function renderProfileColumns(scene, config) {
   };
 
   drawRows(panelLeft + 36, panelTop + 102, leftStats);
-  drawRows(panelLeft + panelWidth - 36, panelTop + 102, rightStats, 'right');
+  drawRows(panelLeft + panelWidth - 36, panelTop + 102, rightStats.concat(analyticsStats), 'right');
 
-  let extraY = panelTop + rows * tileSize - 150;
-  extras.slice(0, 2).forEach(([label, value]) => {
+  const bottomY = panelTop + rows * tileSize - 110;
+  extras.slice(0, 2).forEach(([label, value], index) => {
+    const x = index === 0 ? panelLeft + 36 : panelLeft + panelWidth - 36;
+    const alignRight = index === 1;
     nodes.push(
-      scene.add.text(width / 2, extraY, `${label}: ${truncateProfileValue(value, 52)}`, {
+      scene.add.text(x, bottomY, `${label}: ${truncateProfileValue(value, 22)}`, {
         fontSize: '15px',
         color: '#c4def8'
-      }).setOrigin(0.5).setDepth(depth + 3)
+      }).setOrigin(alignRight ? 1 : 0, 0).setDepth(depth + 3)
     );
-    extraY += 24;
   });
+}
+
+function buildAnalyticsProfileStats(analyticsData) {
+  if (!analyticsData) {
+    return [['Analytics', 'Unavailable']];
+  }
+  const exp7d = Math.max(0, Number(analyticsData.expGainedLast7Days || 0));
+  const streak = Math.max(0, Number(analyticsData.currentStreak || 0));
+  const quizRate = Number(analyticsData.averageQuizScore || 0);
+  const safeQuizRate = Number.isFinite(quizRate) ? `${quizRate.toFixed(1)}%` : '0%';
+
+  return [
+    ['7d XP', String(exp7d)],
+    ['Streak', `${streak}d`],
+    ['Avg Quiz', safeQuizRate]
+  ];
 }

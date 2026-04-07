@@ -49,14 +49,15 @@ function buildLoginTitle(role) {
   return 'Login';
 }
 
-function buildRoleChips(activeRole, authMode) {
-  const roles = [
-    { value: 'learner', label: 'Learner' },
-    { value: 'contributor', label: 'Contributor' },
-    { value: 'admin', label: 'Admin' }
-  ];
+function buildRoleChips(activeRole, authMode, roles) {
+  const roleDefs = {
+    learner: 'Learner',
+    contributor: 'Contributor',
+    admin: 'Admin'
+  };
 
-  return roles.map(({ value, label }) => {
+  return roles.map((value) => {
+    const label = roleDefs[value] || value;
     const isDisabled = authMode === 'register' && value === 'admin';
     const isActive = value === activeRole;
 
@@ -92,26 +93,44 @@ function buildModeChips(authMode) {
   `;
 }
 
-export function buildAuthFormMarkup(authMode, role = 'learner') {
-  const isLogin = authMode === 'login';
-  const effectiveRole = isLogin ? role : (role === 'admin' ? 'learner' : role);
+export function buildAuthFormMarkup(authMode, role = 'learner', options = {}) {
+  const {
+    roles = ['learner', 'contributor'],
+    showRoleSelector = true,
+    showModeSelector = true,
+    allowRegister = true,
+    showGoogleButton = true
+  } = options;
+
+  const allowedRoles = Array.isArray(roles) && roles.length ? roles : ['learner', 'contributor'];
+  const selectedRole = allowedRoles.includes(role) ? role : allowedRoles[0];
+  const effectiveAuthMode = allowRegister ? authMode : 'login';
+  const isLogin = effectiveAuthMode === 'login';
+  const effectiveRole = isLogin ? selectedRole : (selectedRole === 'admin' ? 'learner' : selectedRole);
   const title = isLogin ? buildLoginTitle(effectiveRole) : 'Register';
+  const showTopControls = showRoleSelector || (showModeSelector && allowRegister);
 
   return `
-    <div class="login-auth-top-controls">
-      <div class="login-auth-control-group">
-        <p class="login-auth-group-label">Role</p>
-        <div class="login-auth-chip-row">
-          ${buildRoleChips(effectiveRole, authMode)}
-        </div>
+    ${showTopControls ? `
+      <div class="login-auth-top-controls">
+        ${showRoleSelector ? `
+          <div class="login-auth-control-group">
+            <p class="login-auth-group-label">Role</p>
+            <div class="login-auth-chip-row">
+              ${buildRoleChips(effectiveRole, effectiveAuthMode, allowedRoles)}
+            </div>
+          </div>
+        ` : ''}
+        ${showModeSelector && allowRegister ? `
+          <div class="login-auth-control-group login-auth-control-group--mode">
+            <p class="login-auth-group-label">Auth Mode</p>
+            <div class="login-auth-chip-row">
+              ${buildModeChips(effectiveAuthMode)}
+            </div>
+          </div>
+        ` : ''}
       </div>
-      <div class="login-auth-control-group login-auth-control-group--mode">
-        <p class="login-auth-group-label">Auth Mode</p>
-        <div class="login-auth-chip-row">
-          ${buildModeChips(authMode)}
-        </div>
-      </div>
-    </div>
+    ` : ''}
 
     <h2 class="login-auth-title">${title}</h2>
     ${isLogin ? '' : `<input type="hidden" id="role" value="${effectiveRole}" />`}
@@ -131,9 +150,11 @@ export function buildAuthFormMarkup(authMode, role = 'learner') {
       ${isLogin ? 'Login' : 'Register'}
     </button>
 
-    <button id="googleAuthBtn" class="login-auth-button login-auth-button--google">
-      Continue with Google
-    </button>
+    ${showGoogleButton ? `
+      <button id="googleAuthBtn" class="login-auth-button login-auth-button--google">
+        Continue with Google
+      </button>
+    ` : ''}
 
     <div id="message" class="login-auth-message"></div>
   `;

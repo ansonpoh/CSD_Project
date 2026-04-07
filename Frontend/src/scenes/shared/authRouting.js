@@ -1,6 +1,8 @@
+import { getLoginPageUrl, getLoginSceneKey } from '../../config/authEntry.js';
+
 export function routeToLogin(scene, { hardReload = false } = {}) {
   if (hardReload && typeof window !== 'undefined') {
-    window.location.assign(window.location.origin);
+    window.location.assign(getLoginPageUrl());
     return;
   }
 
@@ -12,9 +14,9 @@ export function routeToLogin(scene, { hardReload = false } = {}) {
   activeScenes.forEach((activeScene) => {
     const key = activeScene?.scene?.key;
     if (!key) return;
-    if (key === 'LoginScene' || key === 'BootScene' || key === currentKey) return;
+    if (key === 'LoginScene' || key === 'AdminLoginScene' || key === 'BootScene' || key === currentKey) return;
     scene.scene.stop(key);
   });
 
-  scene.scene.start('LoginScene');
+  scene.scene.start(getLoginSceneKey());
 }

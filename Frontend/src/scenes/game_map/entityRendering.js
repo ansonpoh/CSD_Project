@@ -152,6 +152,139 @@ export const entityRenderingMethods = {
     });
   },
 
+  getSpawnReachabilityCache() {
+    if (this._spawnReachabilityCache) return this._spawnReachabilityCache;
+
+    const mapWidth = Number(this.map?.width || 0);
+    const mapHeight = Number(this.map?.height || 0);
+    const tileWidth = Number(this.map?.tileWidth || 0);
+    const tileHeight = Number(this.map?.tileHeight || 0);
+    if (!mapWidth || !mapHeight || !tileWidth || !tileHeight) return null;
+
+    const toTile = (worldX, worldY) => ({
+      tileX: Phaser.Math.Clamp(Math.floor(worldX / tileWidth), 0, mapWidth - 1),
+      tileY: Phaser.Math.Clamp(Math.floor(worldY / tileHeight), 0, mapHeight - 1)
+    });
+
+    const toWorldCenter = (tileX, tileY) => ({
+      x: tileX * tileWidth + tileWidth / 2,
+      y: tileY * tileHeight + tileHeight / 2
+    });
+
+    const worldBounds = this.physics?.world?.bounds;
+    const isBlockedTile = (tileX, tileY) => {
+      const { x, y } = toWorldCenter(tileX, tileY);
+      if (worldBounds) {
+        const left = Number.isFinite(worldBounds.x) ? worldBounds.x : Number.NEGATIVE_INFINITY;
+        const right = Number.isFinite(worldBounds.right) ? worldBounds.right : Number.POSITIVE_INFINITY;
+        const top = Number.isFinite(worldBounds.y) ? worldBounds.y : Number.NEGATIVE_INFINITY;
+        const bottom = Number.isFinite(worldBounds.bottom) ? worldBounds.bottom : Number.POSITIVE_INFINITY;
+        if (x < left || x > right || y < top || y > bottom) return true;
+      }
+
+      if (Array.isArray(this.collisionLayers) && this.collisionLayers.length) {
+        for (const layer of this.collisionLayers) {
+          if (!layer?.getTileAt) continue;
+          const tile = layer.getTileAt(tileX, tileY, false);
+          if (tile?.collides) return true;
+        }
+      }
+
+      if (Array.isArray(this.collisionBodies) && this.collisionBodies.length) {
+        for (const body of this.collisionBodies) {
+          if (!body) continue;
+          const left = body.x - body.width / 2;
+          const right = body.x + body.width / 2;
+          const top = body.y - body.height / 2;
+          const bottom = body.y + body.height / 2;
+          if (x >= left && x <= right && y >= top && y <= bottom) return true;
+        }
+      }
+
+      return false;
+    };
+
+    const totalTiles = mapWidth * mapHeight;
+    const blocked = new Uint8Array(totalTiles);
+    for (let tileY = 0; tileY < mapHeight; tileY += 1) {
+      for (let tileX = 0; tileX < mapWidth; tileX += 1) {
+        const index = tileY * mapWidth + tileX;
+        blocked[index] = isBlockedTile(tileX, tileY) ? 1 : 0;
+      }
+    }
+
+    const anchor = this.playerCtrl?.sprite || this.player;
+    const defaultX = this.cameras?.main?.worldView?.centerX ?? this.cameras?.main?.centerX ?? 0;
+    const defaultY = this.cameras?.main?.worldView?.centerY ?? this.cameras?.main?.centerY ?? 0;
+    let { tileX: startX, tileY: startY } = toTile(anchor?.x ?? defaultX, anchor?.y ?? defaultY);
+    let startIndex = startY * mapWidth + startX;
+
+    if (blocked[startIndex]) {
+      let found = false;
+      const maxRadius = Math.max(mapWidth, mapHeight);
+      for (let radius = 1; radius <= maxRadius && !found; radius += 1) {
+        const minX = Math.max(0, startX - radius);
+        const maxX = Math.min(mapWidth - 1, startX + radius);
+        const minY = Math.max(0, startY - radius);
+        const maxY = Math.min(mapHeight - 1, startY + radius);
+        for (let tileY = minY; tileY <= maxY && !found; tileY += 1) {
+          for (let tileX = minX; tileX <= maxX && !found; tileX += 1) {
+            const onRing = tileX === minX || tileX === maxX || tileY === minY || tileY === maxY;
+            if (!onRing) continue;
+            const index = tileY * mapWidth + tileX;
+            if (blocked[index]) continue;
+            startX = tileX;
+            startY = tileY;
+            startIndex = index;
+            found = true;
+          }
+        }
+      }
+      if (!found) return null;
+    }
+
+    const reachable = new Uint8Array(totalTiles);
+    const queue = [startIndex];
+    reachable[startIndex] = 1;
+    let head = 0;
+
+    while (head < queue.length) {
+      const index = queue[head++];
+      const tileX = index % mapWidth;
+      const tileY = Math.floor(index / mapWidth);
+      const neighbors = [
+        [tileX + 1, tileY],
+        [tileX - 1, tileY],
+        [tileX, tileY + 1],
+        [tileX, tileY - 1]
+      ];
+      for (const [nx, ny] of neighbors) {
+        if (nx < 0 || ny < 0 || nx >= mapWidth || ny >= mapHeight) continue;
+        const nIndex = ny * mapWidth + nx;
+        if (blocked[nIndex] || reachable[nIndex]) continue;
+        reachable[nIndex] = 1;
+        queue.push(nIndex);
+      }
+    }
+
+    this._spawnReachabilityCache = {
+      mapWidth,
+      mapHeight,
+      tileWidth,
+      tileHeight,
+      reachable
+    };
+    return this._spawnReachabilityCache;
+  },
+
+  isReachableFromPlayerAt(x, y) {
+    const cache = this.getSpawnReachabilityCache();
+    if (!cache) return true;
+    const tileX = Phaser.Math.Clamp(Math.floor(x / cache.tileWidth), 0, cache.mapWidth - 1);
+    const tileY = Phaser.Math.Clamp(Math.floor(y / cache.tileHeight), 0, cache.mapHeight - 1);
+    return Boolean(cache.reachable[tileY * cache.mapWidth + tileX]);
+  },
+
   getWalkableSpawnPoint(preferredX, preferredY, occupied = [], options = {}) {
     const minGap = Number.isFinite(options.minGap) ? options.minGap : 18;
     const maxRadius = Number.isFinite(options.maxRadius) ? options.maxRadius : 260;
@@ -174,6 +307,7 @@ export const entityRenderingMethods = {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
       const x = clampX(preferredX + Math.cos(angle) * radius);
       const y = clampY(preferredY + Math.sin(angle) * radius);
+      if (!this.isReachableFromPlayerAt(x, y)) continue;
       if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
       if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
       if (this.isTooCloseToOccupied(x, y, footprintRadius, occupied, minGap)) continue;
@@ -181,7 +315,8 @@ export const entityRenderingMethods = {
     }
 
     if (
-      !this.isBlockedByCollisionAt(fallback.x, fallback.y, spawnRadius)
+      this.isReachableFromPlayerAt(fallback.x, fallback.y)
+      && !this.isBlockedByCollisionAt(fallback.x, fallback.y, spawnRadius)
       && !this.isBlockedByUiAt(fallback.x, fallback.y, spawnRadius)
       && !this.isTooCloseToOccupied(fallback.x, fallback.y, footprintRadius, occupied, minGap)
     ) return fallback;
@@ -189,11 +324,45 @@ export const entityRenderingMethods = {
     for (let i = 0; i < maxAttempts; i += 1) {
       const x = Phaser.Math.FloatBetween(minX, maxX);
       const y = Phaser.Math.FloatBetween(minY, maxY);
+      if (!this.isReachableFromPlayerAt(x, y)) continue;
       if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
       if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
       if (this.isTooCloseToOccupied(x, y, footprintRadius, occupied, minGap)) continue;
       return { x, y };
     }
+
+    const cache = this.getSpawnReachabilityCache();
+    if (cache) {
+      const prefTileX = Phaser.Math.Clamp(Math.floor(fallback.x / cache.tileWidth), 0, cache.mapWidth - 1);
+      const prefTileY = Phaser.Math.Clamp(Math.floor(fallback.y / cache.tileHeight), 0, cache.mapHeight - 1);
+      const maxTileRadius = Math.max(cache.mapWidth, cache.mapHeight);
+      for (let radius = 0; radius <= maxTileRadius; radius += 1) {
+        const minTileX = Math.max(0, prefTileX - radius);
+        const maxTileX = Math.min(cache.mapWidth - 1, prefTileX + radius);
+        const minTileY = Math.max(0, prefTileY - radius);
+        const maxTileY = Math.min(cache.mapHeight - 1, prefTileY + radius);
+        for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
+          for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
+            const onRing = tileX === minTileX || tileX === maxTileX || tileY === minTileY || tileY === maxTileY;
+            if (!onRing) continue;
+            const index = tileY * cache.mapWidth + tileX;
+            if (!cache.reachable[index]) continue;
+            const x = tileX * cache.tileWidth + cache.tileWidth / 2;
+            const y = tileY * cache.tileHeight + cache.tileHeight / 2;
+            if (this.isBlockedByCollisionAt(x, y, spawnRadius)) continue;
+            if (this.isBlockedByUiAt(x, y, spawnRadius)) continue;
+            if (this.isTooCloseToOccupied(x, y, footprintRadius, occupied, minGap)) continue;
+            return { x, y };
+          }
+        }
+      }
+    }
+
+    if (
+      !this.isBlockedByCollisionAt(fallback.x, fallback.y, spawnRadius)
+      && !this.isBlockedByUiAt(fallback.x, fallback.y, spawnRadius)
+      && !this.isTooCloseToOccupied(fallback.x, fallback.y, footprintRadius, occupied, minGap)
+    ) return fallback;
 
     console.warn('Could not satisfy non-overlap spawn spacing; using clamped fallback position.');
     return fallback;

@@ -70,6 +70,7 @@ export class CombatScene extends Phaser.Scene {
     this.currentHintQuestionId = null;
     this.monsterIndex = 0;
     this.isRematch = false;
+    this.quizLoadingUi = null;
   }
 
   init(data) {
@@ -115,6 +116,7 @@ export class CombatScene extends Phaser.Scene {
     this.confirmBtn = null;
     this.hintRequestInFlight = false;
     this.currentHintQuestionId = null;
+    this.quizLoadingUi = null;
 
     // Scene objects are recreated on each entry; clear old references first.
     this.optionButtons = [];
@@ -173,8 +175,14 @@ export class CombatScene extends Phaser.Scene {
       this.addLog(`Prepared item effect: +${this.preCombatHpBonus} bonus HP this battle.`);
     }
 
-    await this.loadEncounterQuiz();
+    this.showQuizLoadingScreen();
+    try {
+      await this.loadEncounterQuiz();
+    } finally {
+      this.hideQuizLoadingScreen();
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.hideQuizLoadingScreen();
       this.answerKeys.forEach((key) => key?.destroy?.());
       this.answerKeys = [];
     });

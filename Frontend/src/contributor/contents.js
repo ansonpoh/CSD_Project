@@ -27,11 +27,29 @@ function renderRow(content) {
   return row;
 }
 
+async function resolveContributorId() {
+  const storedId = localStorage.getItem("contributorId");
+  if (storedId) return storedId;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const supabaseUserId = session?.user?.id;
+  if (!supabaseUserId) {
+    throw new Error("No active contributor session found.");
+  }
+
+  const profile = await apiService.getContributorBySupabaseId(supabaseUserId);
+  if (!profile?.contributorId) {
+    throw new Error("Contributor profile missing.");
+  }
+
+  return profile.contributorId;
+}
+
 // ── Load table ────────────────────────────────────────────────────────────────
 
 async function loadContents() {
   const tableBody = document.getElementById("content-table-body");
-  const contributorId = localStorage.getItem("contributorId");
+  const contributorId = await resolveContributorId();
 
   const contents = await apiService.getContentsByContributorId(contributorId);
 
@@ -78,7 +96,7 @@ async function handleSubmit() {
   submitBtn.textContent = "Submitting…";
 
   try {
-    const contributorId = localStorage.getItem("contributorId");
+    const contributorId = await resolveContributorId();
     await apiService.submitContent({ contributorId, topicId, title, description });
 
     submitSuccess.textContent = "Content submitted successfully!";

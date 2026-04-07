@@ -439,8 +439,9 @@ export class ContributorScene extends Phaser.Scene {
       if (!uid) throw new Error('No active contributor session');
 
       const profile = await apiService.getContributorBySupabaseId(uid);
+      const contentOwnerId = profile?.contributorId || uid;
       const [contents, analytics, topics, npcs, maps, mapSubmissions] = await Promise.all([
-        apiService.getContentByContributor(profile.contributorId).catch(() => []),
+        apiService.getContentByContributor(contentOwnerId).catch(() => []),
         apiService.getMyContributorAnalytics().catch(() => null),
         apiService.getAllTopics().catch(() => []),
         apiService.getAllNPCs().catch(() => []),
@@ -1134,9 +1135,12 @@ export class ContributorScene extends Phaser.Scene {
       const successMsg = isResubmission
         ? 'Lesson resubmitted successfully. Status is now Pending Review.'
         : 'Lesson submitted for review.';
+      const reviewNote = videoFile
+        ? ' Video detected: AI screening was skipped and admin manual review is required.'
+        : '';
 
-      showToast(this.toastHost, successMsg);
-      this.setSubmitStatus(`${successMsg} Your content list is refreshing.`, false);
+      showToast(this.toastHost, `${successMsg}${reviewNote}`);
+      this.setSubmitStatus(`${successMsg}${reviewNote} Your content list is refreshing.`, false);
 
       this.state.editingContent = null;
       await this.loadInitialData();

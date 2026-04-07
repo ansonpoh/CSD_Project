@@ -599,6 +599,7 @@ export class AdminScene extends Phaser.Scene {
             ${renderBadge('PENDING_REVIEW')}
           </div>
           <div class="dash-row-card__body">${escapeHtml(previewText(row?.body || row?.description || '', 280) || 'No preview available.')}</div>
+          ${this.renderContentVideoReviewBlock(row)}
           <div class="dash-inline">
             <div class="dash-detail-list">
               <span>Contributor:
@@ -640,6 +641,28 @@ export class AdminScene extends Phaser.Scene {
       </div>
       <div class="dash-list">
         ${cards || renderEmptyState('Queue cleared', 'There is no pending lesson content at the moment.')}
+      </div>
+    `;
+  }
+
+  renderContentVideoReviewBlock(row) {
+    const videoUrl = String(row?.videoUrl || '').trim();
+    if (!videoUrl) return '';
+
+    const escapedVideoUrl = escapeHtml(videoUrl);
+    return `
+      <div class="dash-card" style="margin:10px 0 12px; padding:12px;">
+        <div class="dash-inline" style="margin-bottom:8px;">
+          ${renderBadge('VIDEO')}
+          <span class="dash-muted">Video attachment present. Manually verify it is safe before approving.</span>
+        </div>
+        <video controls preload="metadata" style="width:100%; max-height:280px; border-radius:8px; background:#000;">
+          <source src="${escapedVideoUrl}" />
+          Your browser does not support embedded video playback.
+        </video>
+        <div class="dash-detail-list" style="margin-top:8px;">
+          <span>Source: <a href="${escapedVideoUrl}" target="_blank" rel="noopener noreferrer">${escapedVideoUrl}</a></span>
+        </div>
       </div>
     `;
   }

@@ -123,7 +123,6 @@ export function buildAuthFormMarkup(authMode, role = 'learner', options = {}) {
         ` : ''}
         ${showModeSelector && allowRegister ? `
           <div class="login-auth-control-group login-auth-control-group--mode">
-            <p class="login-auth-group-label">Auth Mode</p>
             <div class="login-auth-chip-row">
               ${buildModeChips(effectiveAuthMode)}
             </div>

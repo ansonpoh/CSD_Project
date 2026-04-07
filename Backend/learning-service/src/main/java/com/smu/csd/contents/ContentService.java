@@ -136,10 +136,18 @@ public class ContentService {
                 )
         )));
 
-        aiService.screenContent(content);
+        if (hasVideoAttachment(videoUrl)) {
+            aiService.markForManualVideoReview(content);
+        } else {
+            aiService.screenContent(content);
+        }
 
         // Re-fetch so returned object reflects status set by AIService
         return getById(content.getContentId());
+    }
+
+    private boolean hasVideoAttachment(String videoUrl) {
+        return videoUrl != null && !videoUrl.trim().isEmpty();
     }
 
     public Content getById(UUID contentId) throws ResourceNotFoundException {
@@ -149,6 +157,17 @@ public class ContentService {
 
     public List<Content> getByContributorId(UUID contributorId) {
         return contentRepository.findByContributorId(contributorId);
+    }
+
+    public List<Content> getByContributorIdWithFallback(UUID contributorId, UUID supabaseUserId) {
+        List<Content> rows = contentRepository.findByContributorId(contributorId);
+        if (!rows.isEmpty()) {
+            return rows;
+        }
+        if (supabaseUserId == null || supabaseUserId.equals(contributorId)) {
+            return rows;
+        }
+        return contentRepository.findByContributorId(supabaseUserId);
     }
 
     public List<Content> getByStatus(Content.Status status) {

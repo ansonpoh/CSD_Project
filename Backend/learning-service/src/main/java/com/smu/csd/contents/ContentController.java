@@ -7,11 +7,17 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import com.smu.csd.ai.AIModerationResult;
@@ -29,18 +35,25 @@ public class ContentController {
     private final ContentService service;
     private final ContentFlagService contentFlagService;
     private final ContentRatingService contentRatingService;
+    private final RestTemplate restTemplate;
+
+    @Value("${identity.url:http://localhost:8081}")
+    private String identityUrl;
 
     public ContentController(
             ContentService service,
             ContentFlagService contentFlagService,
-            ContentRatingService contentRatingService
+            ContentRatingService contentRatingService,
+            RestTemplate restTemplate
     ) {
         this.service = service;
         this.contentFlagService = contentFlagService;
         this.contentRatingService = contentRatingService;
+        this.restTemplate = restTemplate;
     }
 
-    // Contributor submits content with their narration lines - triggers AI screening
+    // Contributor submits content with narration lines.
+    // If video is attached, AI screening is skipped and admin review is required.
     @PostMapping
     @PreAuthorize("hasRole('CONTRIBUTOR')")
     public ResponseEntity<Content> submitContent(
@@ -49,7 +62,12 @@ public class ContentController {
     )
             throws ResourceNotFoundException {
         Jwt jwt = (Jwt) authentication.getPrincipal();
-        UUID contributorId = UUID.fromString(jwt.getSubject());
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+        ContributorLookup contributor = fetchContributorBySupabaseId(jwt, supabaseUserId);
+        if (contributor == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Contributor record not found.");
+        }
+        UUID contributorId = contributor.contributorId();
 
         Content content = service.submitContent(
                 contributorId,
@@ -80,8 +98,33 @@ public class ContentController {
 
     // Contributor views all their own submissions
     @GetMapping("/contributor/{contributorId}")
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('CONTRIBUTOR') and #contributorId.toString() == authentication.principal.subject)")
-    public ResponseEntity<List<Content>> getByContributor(@PathVariable UUID contributorId) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('CONTRIBUTOR')")
+    public ResponseEntity<List<Content>> getByContributor(
+            @PathVariable UUID contributorId,
+            Authentication authentication
+    ) {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        UUID supabaseUserId = UUID.fromString(jwt.getSubject());
+
+        if (!isAdmin(authentication)) {
+            ContributorLookup contributor = fetchContributorBySupabaseId(jwt, supabaseUserId);
+            if (contributor == null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Contributor record not found.");
+            }
+            if (!contributorId.equals(contributor.contributorId()) && !contributorId.equals(supabaseUserId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed to access other contributor content.");
+            }
+            return ResponseEntity.ok(
+                    service.getByContributorIdWithFallback(contributor.contributorId(), supabaseUserId)
+            );
+        }
+
+        ContributorLookup contributor = fetchContributorById(jwt, contributorId);
+        if (contributor != null) {
+            return ResponseEntity.ok(
+                    service.getByContributorIdWithFallback(contributor.contributorId(), contributor.supabaseUserId())
+            );
+        }
         return ResponseEntity.ok(service.getByContributorId(contributorId));
     }
 
@@ -221,4 +264,41 @@ public class ContentController {
             String rejectionReason, 
             String adminComments
     ) {}
+
+    private boolean isAdmin(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if ("ROLE_ADMIN".equals(authority.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private ContributorLookup fetchContributorBySupabaseId(Jwt jwt, UUID supabaseUserId) {
+        String url = identityUrl + "/api/contributors/supabase/" + supabaseUserId;
+        return fetchContributor(jwt, url);
+    }
+
+    private ContributorLookup fetchContributorById(Jwt jwt, UUID contributorId) {
+        String url = identityUrl + "/api/contributors/" + contributorId;
+        return fetchContributor(jwt, url);
+    }
+
+    private ContributorLookup fetchContributor(Jwt jwt, String url) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.getTokenValue());
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<ContributorLookup> response = restTemplate.exchange(
+                    url, HttpMethod.GET, request, ContributorLookup.class);
+            return response.getBody();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    public record ContributorLookup(UUID contributorId, UUID supabaseUserId) {}
 }

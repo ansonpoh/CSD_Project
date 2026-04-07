@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -177,6 +178,64 @@ public class ContentServiceUnitTest {
                 () -> service.rejectContent(content.getContentId(), "reason", "admin comments"));
 
         assertEquals("Only PENDING_REVIEW content can be rejected", exception.getMessage());
+    }
+
+    @Test
+    void submitContent_WithVideo_SkipsAiScreeningAndMarksManualReview() throws Exception {
+        UUID topicId = UUID.randomUUID();
+        UUID contributorId = UUID.randomUUID();
+        UUID npcId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID contentId = UUID.randomUUID();
+        Topic topic = topic(topicId);
+
+        doReturn(topic).when(topicService).getById(topicId);
+        when(contentRepository.findFirstByContentFingerprintAndTopicAndStatusIn(anyString(), eq(topic), anyList()))
+                .thenReturn(Optional.empty());
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> {
+            Content content = invocation.getArgument(0);
+            content.setContentId(contentId);
+            return content;
+        });
+        when(restTemplate.postForEntity(anyString(), any(), eq(Map.class))).thenReturn(ResponseEntity.ok(Map.of()));
+        when(contentRepository.findById(contentId)).thenReturn(Optional.of(
+                Content.builder().contentId(contentId).status(Content.Status.PENDING_REVIEW).build()
+        ));
+
+        service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), "https://cdn.example/video.mp4", null);
+
+        verify(aiService).markForManualVideoReview(any(Content.class));
+        verify(aiService, never()).screenContent(any(Content.class));
+    }
+
+    @Test
+    void submitContent_WithoutVideo_UsesAiScreening() throws Exception {
+        UUID topicId = UUID.randomUUID();
+        UUID contributorId = UUID.randomUUID();
+        UUID npcId = UUID.randomUUID();
+        UUID mapId = UUID.randomUUID();
+        UUID contentId = UUID.randomUUID();
+        Topic topic = topic(topicId);
+
+        doReturn(topic).when(topicService).getById(topicId);
+        when(contentRepository.findFirstByContentFingerprintAndTopicAndStatusIn(anyString(), eq(topic), anyList()))
+                .thenReturn(Optional.empty());
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> {
+            Content content = invocation.getArgument(0);
+            content.setContentId(contentId);
+            return content;
+        });
+        when(restTemplate.postForEntity(anyString(), any(), eq(Map.class))).thenReturn(ResponseEntity.ok(Map.of()));
+        when(contentRepository.findById(contentId)).thenReturn(Optional.of(
+                Content.builder().contentId(contentId).status(Content.Status.PENDING_REVIEW).build()
+        ));
+
+        service.submitContent(contributorId, topicId, npcId, mapId, "Title", "Desc", List.of("Line 1"), null, null);
+
+        verify(aiService).screenContent(any(Content.class));
+        verify(aiService, never()).markForManualVideoReview(any(Content.class));
     }
 
     private Topic topic(UUID topicId) {

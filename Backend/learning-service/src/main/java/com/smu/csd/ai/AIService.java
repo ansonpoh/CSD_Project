@@ -125,6 +125,22 @@ public class AIService {
         }
     }
 
+    /**
+     * Marks a submission as manual-review only when it includes video.
+     * Video safety is intentionally deferred to admins.
+     */
+    @Transactional
+    public void markForManualVideoReview(Content content) {
+        moderationRepository.save(AIModerationResult.builder()
+                .content(content)
+                .qualityScore(0)
+                .isRelevant(true)
+                .isAppropriate(false)
+                .aiVerdict(AIModerationResult.Verdict.NEEDS_REVIEW)
+                .reasoning("AI moderation skipped because submission contains video. Admin manual review required.")
+                .build());
+    }
+
     private String buildPrompt(Content content) {
         return """
                 You are moderating NPC narration content for a Gen Alpha culture learning game.

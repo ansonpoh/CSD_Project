@@ -1,6 +1,7 @@
 package com.smu.csd;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.smu.csd.leaderboard.LeaderboardService;
 import com.smu.csd.learner.Learner;
+import com.smu.csd.learner.LearnerXp;
+import com.smu.csd.learner.LearnerXpRepository;
 import com.smu.csd.learner.LearnerRepository;
 import com.smu.csd.learner_progress.LearnerLessonProgress;
 import com.smu.csd.learner_progress.LearnerLessonProgressRepository;
@@ -34,6 +37,7 @@ public class InternalPlayerController {
     private final LearnerRepository learnerRepository;
     private final LearnerLessonProgressRepository learnerLessonProgressRepository;
     private final LeaderboardService leaderboardService;
+    private final LearnerXpRepository learnerXpRepository;
 
     // ----- Learner Service mock-endpoints -----
     @GetMapping("/learners/supabase/{supabaseUserId}")
@@ -54,9 +58,11 @@ public class InternalPlayerController {
     @PostMapping("/learners/{learnerId}/award-xp")
     public ResponseEntity<Map<String, Object>> awardXp(@PathVariable UUID learnerId, @RequestBody AwardXpRequestDto request) {
         return learnerRepository.findById(learnerId).map(learner -> {
-            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(request.xpAwarded());
+            int xpAwarded = request == null ? 0 : safeInt(request.xpAwarded());
+            int goldAwarded = request == null ? 0 : safeInt(request.goldAwarded());
+            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + xpAwarded;
             int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
-            int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(request.goldAwarded());
+            int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + goldAwarded;
             
             learner.setTotal_xp(updatedXp);
             learner.setLevel(updatedLevel);
@@ -64,6 +70,17 @@ public class InternalPlayerController {
             learner.setUpdated_at(LocalDateTime.now());
             learnerRepository.save(learner);
             leaderboardService.upsertLearnerScore(learner);
+            if (xpAwarded > 0) {
+                learnerXpRepository.save(LearnerXp.builder()
+                        .learner(learner)
+                        .xpDelta(xpAwarded)
+                        .xpBefore(updatedXp - xpAwarded)
+                        .xpAfter(updatedXp)
+                        .sourceType("internal_award")
+                        .occurredAt(OffsetDateTime.now())
+                        .createdAt(OffsetDateTime.now())
+                        .build());
+            }
 
             return ResponseEntity.ok(Map.<String, Object>of(
                 "learnerId", learner.getLearnerId(),

@@ -1,7 +1,9 @@
 package com.smu.csd.learner;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,7 +40,7 @@ public class LearnerService {
     private LearnerLessonProgressRepository lessonProgressRepository;
 
     @Autowired
-    private LearnerXpLogRepository xpLogRepository;
+    private LearnerXpRepository learnerXpRepository;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -118,12 +120,15 @@ public class LearnerService {
         leaderboardService.upsertLearnerScore(updated);
 
         if (xpAwarded != null && xpAwarded > 0) {
-            LearnerXpLog log = LearnerXpLog.builder()
-                    .learnerId(learner.getLearnerId())
-                    .xpAwarded(xpAwarded)
-                    .awardedAt(LocalDateTime.now())
-                    .build();
-            xpLogRepository.save(log);
+            learnerXpRepository.save(LearnerXp.builder()
+                    .learner(learner)
+                    .xpDelta(xpAwarded)
+                    .xpBefore(updatedXp - xpAwarded)
+                    .xpAfter(updatedXp)
+                    .sourceType("manual_award")
+                    .occurredAt(OffsetDateTime.now())
+                    .createdAt(OffsetDateTime.now())
+                    .build());
         }
 
         return updated;
@@ -230,20 +235,34 @@ public class LearnerService {
         }
 
         try {
-            LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(6).withHour(0).withMinute(0);
-            List<LearnerXpLog> recentLogs = xpLogRepository.findByLearnerIdAndAwardedAtAfter(learnerId, sevenDaysAgo);
+            Instant since = LocalDate.now().minusDays(6).atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+            Long total7d = learnerXpRepository.sumXpDeltaSince(learnerId, OffsetDateTime.ofInstant(since, java.time.ZoneOffset.UTC));
+            response.setExpGainedLast7Days(total7d == null ? 0 : Math.max(0, total7d.intValue()));
 
+            List<Object[]> rows = learnerXpRepository.sumXpDeltaByDaySince(learnerId, since);
             Map<LocalDate, Integer> last7DaysExp = new LinkedHashMap<>();
             LocalDate today = LocalDate.now();
             for (int i = 6; i >= 0; i--) {
                 last7DaysExp.put(today.minusDays(i), 0);
             }
 
-            for (LearnerXpLog log : recentLogs) {
-                LocalDate logDate = log.getAwardedAt().toLocalDate();
-                if (last7DaysExp.containsKey(logDate)) {
-                    last7DaysExp.put(logDate, last7DaysExp.get(logDate) + log.getXpAwarded());
+            for (Object[] row : rows) {
+                if (row == null || row.length < 2 || row[0] == null || row[1] == null) continue;
+                LocalDate day = null;
+                if (row[0] instanceof java.sql.Date d) {
+                    day = d.toLocalDate();
+                } else if (row[0] instanceof LocalDate ld) {
+                    day = ld;
+                } else {
+                    try {
+                        day = LocalDate.parse(row[0].toString());
+                    } catch (Exception ignored) {
+                        day = null;
+                    }
                 }
+                if (day == null || !last7DaysExp.containsKey(day)) continue;
+                int gained = ((Number) row[1]).intValue();
+                last7DaysExp.put(day, Math.max(0, gained));
             }
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
@@ -252,9 +271,10 @@ public class LearnerService {
                 graphData.add(new LearnerAnalyticsResponse.ExpHistoryEntry(entry.getKey().format(formatter), entry.getValue()));
             }
             response.setExpHistory(graphData);
-            
         } catch (Exception e) {
             System.err.println("Warning: Could not build EXP graph: " + e.getMessage());
+            response.setExpGainedLast7Days(0);
+            response.setExpHistory(List.of());
         }
 
         return response;

@@ -18,6 +18,8 @@ import org.springframework.http.ResponseEntity;
 
 import com.smu.csd.leaderboard.LeaderboardService;
 import com.smu.csd.learner.Learner;
+import com.smu.csd.learner.LearnerXp;
+import com.smu.csd.learner.LearnerXpRepository;
 import com.smu.csd.learner.LearnerRepository;
 import com.smu.csd.learner_progress.LearnerLessonProgressRepository;
 
@@ -27,13 +29,20 @@ public class InternalPlayerControllerUnitTest {
     private LearnerRepository learnerRepository;
     private LearnerLessonProgressRepository learnerLessonProgressRepository;
     private LeaderboardService leaderboardService;
+    private LearnerXpRepository learnerXpRepository;
 
     @BeforeEach
     public void setUp() {
         learnerRepository = mock(LearnerRepository.class);
         learnerLessonProgressRepository = mock(LearnerLessonProgressRepository.class);
         leaderboardService = mock(LeaderboardService.class);
-        controller = new InternalPlayerController(learnerRepository, learnerLessonProgressRepository, leaderboardService);
+        learnerXpRepository = mock(LearnerXpRepository.class);
+        controller = new InternalPlayerController(
+                learnerRepository,
+                learnerLessonProgressRepository,
+                leaderboardService,
+                learnerXpRepository
+        );
     }
 
     @Test
@@ -102,6 +111,7 @@ public class InternalPlayerControllerUnitTest {
         assertEquals(2, response.getBody().get("level"));
         assertEquals(50, response.getBody().get("gold"));
         verify(leaderboardService).upsertLearnerScore(learner);
+        verify(learnerXpRepository).save(org.mockito.ArgumentMatchers.any(LearnerXp.class));
     }
 
     @Test

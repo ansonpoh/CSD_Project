@@ -46,8 +46,11 @@ public class MissionController {
     /** GET /api/missions — list all missions in the pool */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Mission>> getAllMissions() {
-        return ResponseEntity.ok(missionService.getAllMissions());
+    public ResponseEntity<List<Mission>> getAllMissions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        return ResponseEntity.ok(missionService.getAllMissions(page, size));
     }
 
     /** POST /api/missions — create a new mission */

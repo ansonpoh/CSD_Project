@@ -1,4 +1,3 @@
-import Phaser from 'phaser';
 import { soldier } from '../../characters/soldier/Soldier.js';
 import { gameState } from '../../services/gameState.js';
 import { mapDiscoveryService } from '../../services/mapDiscovery.js';
@@ -72,38 +71,7 @@ export const worldMapProfilePanelMethods = {
       y += 38;
     });
 
-    const xp = Number(learner.total_xp ?? learner.totalXp ?? 0);
-    const lvl = Number(learner.level ?? 1);
-    const thresh = Math.max(100, Math.floor(lvl * 140));
-    const pct = Phaser.Math.Clamp((xp % thresh) / thresh, 0, 1);
-    const barW = panel.width - pad * 2;
-    const barH = 14;
     const avatarY = panel.height - 96;
-    const barY = Math.min(y, avatarY - 56);
-
-    const track = this.add.graphics();
-    track.fillStyle(P.xpTrack, 1);
-    track.fillRoundedRect(pad, barY, barW, barH, 3);
-    track.lineStyle(1, P.xpBorder, 0.7);
-    track.strokeRoundedRect(pad, barY, barW, barH, 3);
-    c.add(track);
-
-    if (pct > 0) {
-      const fillW = Math.max(6, Math.floor((barW - 4) * pct));
-      const fill = this.add.graphics();
-      fill.fillStyle(P.xpFill, 1);
-      fill.fillRoundedRect(pad + 2, barY + 2, fillW, barH - 4, 2);
-      fill.fillStyle(0xffffff, 0.25);
-      fill.fillRoundedRect(pad + 2, barY + 2, fillW, Math.floor((barH - 4) * 0.5), { tl: 2, tr: 2, bl: 0, br: 0 });
-      c.add(fill);
-    }
-
-    c.add(this.add.text(pad + barW / 2, barY + barH / 2, `${xp % thresh} / ${thresh} XP`, {
-      fontSize: '11px',
-      color: '#ffffff',
-      stroke: '#06101a',
-      strokeThickness: 4
-    }).setOrigin(0.5, 0.5));
 
     const avatar = this.add.sprite(panel.width / 2, avatarY, soldier.sheetKey, 0).setScale(3.2);
     avatar.play('wm_soldier_idle');

@@ -6,6 +6,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,8 @@ import com.smu.csd.npcs.npc_map.NPCMapRepository;
 @Service
 public class NPCService {
     private static final String APPROVED_STATUS = "APPROVED";
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 500;
 
     private final NPCMapRepository npcMapRepository;
     private final NPCRepository repository;
@@ -44,7 +48,17 @@ public class NPCService {
     }
 
     public List<NPC> getAllNPCs() {
-        return repository.findAll();
+        return getAllNPCs(0, DEFAULT_PAGE_SIZE);
+    }
+
+    public List<NPC> getAllNPCs(int page, int size) {
+        return repository.findAll(
+                PageRequest.of(
+                        normalizePage(page),
+                        normalizeSize(size),
+                        Sort.by(Sort.Direction.ASC, "npcId")
+                )
+        ).getContent();
     }
 
     public NPC getNPCById(UUID npc_id) {
@@ -203,5 +217,14 @@ public class NPCService {
 
     public void deleteNPC(UUID npc_id) {
         repository.deleteById(npc_id);  
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        if (size <= 0) return DEFAULT_PAGE_SIZE;
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 }

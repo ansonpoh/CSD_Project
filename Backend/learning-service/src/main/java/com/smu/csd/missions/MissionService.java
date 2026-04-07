@@ -5,6 +5,8 @@ import com.smu.csd.dtos.LearnerDto;
 import com.smu.csd.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,6 +24,8 @@ import java.util.UUID;
 public class MissionService {
 
     private static final int MAX_DAILY_MISSIONS = 2;
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 500;
 
     private final MissionRepository missionRepository;
     private final LearnerDailyMissionRepository dailyMissionRepository;
@@ -46,7 +50,17 @@ public class MissionService {
     }
 
     public List<Mission> getAllMissions() {
-        return missionRepository.findAll();
+        return getAllMissions(0, DEFAULT_PAGE_SIZE);
+    }
+
+    public List<Mission> getAllMissions(int page, int size) {
+        return missionRepository.findAll(
+                PageRequest.of(
+                        normalizePage(page),
+                        normalizeSize(size),
+                        Sort.by(Sort.Direction.DESC, "createdAt")
+                )
+        ).getContent();
     }
 
     public Mission setActive(UUID missionId, boolean active) throws ResourceNotFoundException {
@@ -188,5 +202,14 @@ public class MissionService {
                     dm.setStatus(LearnerDailyMission.Status.COMPLETED);
                     dailyMissionRepository.save(dm);
                 });
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        if (size <= 0) return DEFAULT_PAGE_SIZE;
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 }

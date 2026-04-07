@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,9 @@ import com.smu.csd.learner_progress.LearnerLessonProgressRepository;
 
 @Service
 public class LearnerService {
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 500;
+
     private final LearnerRepository repository;
     private final LeaderboardService leaderboardService;
 
@@ -70,7 +75,17 @@ public class LearnerService {
     }
 
     public List<Learner> getAllLearners() {
-        return repository.findAll();
+        return getAllLearners(0, DEFAULT_PAGE_SIZE);
+    }
+
+    public List<Learner> getAllLearners(int page, int size) {
+        return repository.findAll(
+                PageRequest.of(
+                        normalizePage(page),
+                        normalizeSize(size),
+                        Sort.by(Sort.Direction.ASC, "learnerId")
+                )
+        ).getContent();
     }
 
     public Learner getById(UUID id) throws ResourceNotFoundException {
@@ -147,6 +162,15 @@ public class LearnerService {
 
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        if (size <= 0) return DEFAULT_PAGE_SIZE;
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 
     public LearnerAnalyticsResponse getLearnerAnalytics(UUID learnerId) throws ResourceNotFoundException {

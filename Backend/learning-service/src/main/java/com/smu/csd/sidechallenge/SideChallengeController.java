@@ -1,6 +1,8 @@
 package com.smu.csd.sidechallenge;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,12 +13,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping("/api/side-challenges")
 @RequiredArgsConstructor
 public class SideChallengeController {
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 500;
 
     private final SideChallengeRepository repository;
     private final SideChallengeProgressService progressService;
@@ -36,12 +39,9 @@ public class SideChallengeController {
     /** GET /api/side-challenges/random — random active challenge */
     @GetMapping("/random")
     public ResponseEntity<SideChallengeResponse> getRandomActiveChallenge() {
-        List<SideChallenge> activeChallenges = repository.findByIsActiveTrue();
-        if (activeChallenges.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        int randomIndex = ThreadLocalRandom.current().nextInt(activeChallenges.size());
-        return ResponseEntity.ok(toResponse(activeChallenges.get(randomIndex)));
+        return repository.findRandomActive()
+                .map(challenge -> ResponseEntity.ok(toResponse(challenge)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /** GET /api/side-challenges/{id}/my-progress */
@@ -69,8 +69,25 @@ public class SideChallengeController {
     /** GET /api/side-challenges — all challenges */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<SideChallengeResponse>> getAll() {
-        return ResponseEntity.ok(repository.findAll().stream().map(this::toResponse).toList());
+    public ResponseEntity<List<SideChallengeResponse>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        int normalizedPage = Math.max(0, page);
+        int normalizedSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        return ResponseEntity.ok(
+                repository.findAll(
+                                PageRequest.of(
+                                        normalizedPage,
+                                        normalizedSize,
+                                        Sort.by(Sort.Direction.ASC, "sideChallengeId")
+                                )
+                        )
+                        .getContent()
+                        .stream()
+                        .map(this::toResponse)
+                        .toList()
+        );
     }
 
     /** POST /api/side-challenges — create */

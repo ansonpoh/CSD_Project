@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.smu.csd.exception.ResourceNotFoundException;
@@ -14,6 +16,9 @@ import lombok.NonNull;
 
 @Service
 public class MonsterService {
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 500;
+
     private final MonsterRepository repository;
     private final MonsterMapRepository monsterMapRepository;
 
@@ -24,7 +29,17 @@ public class MonsterService {
 
     //Get Requests
     public List<Monster> getAllMonsters() {
-        return repository.findAll();
+        return getAllMonsters(0, DEFAULT_PAGE_SIZE);
+    }
+
+    public List<Monster> getAllMonsters(int page, int size) {
+        return repository.findAll(
+                PageRequest.of(
+                        normalizePage(page),
+                        normalizeSize(size),
+                        Sort.by(Sort.Direction.ASC, "monsterId")
+                )
+        ).getContent();
     }
 
     public @NonNull Monster getMonsterById(@NonNull UUID monsterId) {
@@ -58,5 +73,14 @@ public class MonsterService {
             throw new ResourceNotFoundException("Monster", "id", monsterId);
         }
         repository.deleteById(monsterId);
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        if (size <= 0) return DEFAULT_PAGE_SIZE;
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 }

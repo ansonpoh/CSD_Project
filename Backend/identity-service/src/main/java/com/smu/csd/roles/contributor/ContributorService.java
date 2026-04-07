@@ -3,6 +3,8 @@ package com.smu.csd.roles.contributor;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +13,9 @@ import com.smu.csd.exception.ResourceNotFoundException;
 
 @Service
 public class ContributorService {
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 500;
+
     private final ContributorRepository repository;
 
     public ContributorService(ContributorRepository repository) {
@@ -52,7 +57,17 @@ public class ContributorService {
     }
 
     public List<Contributor> getAllContributors() {
-        return repository.findAll();
+        return getAllContributors(0, DEFAULT_PAGE_SIZE);
+    }
+
+    public List<Contributor> getAllContributors(int page, int size) {
+        return repository.findAll(
+                PageRequest.of(
+                        normalizePage(page),
+                        normalizeSize(size),
+                        Sort.by(Sort.Direction.DESC, "createdAt")
+                )
+        ).getContent();
     }
 
     public Contributor getById(UUID id) throws ResourceNotFoundException {
@@ -101,5 +116,14 @@ public class ContributorService {
         Contributor contributor = getById(id);
         contributor.setIsActive(false);
         return repository.save(contributor);
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        if (size <= 0) return DEFAULT_PAGE_SIZE;
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 }

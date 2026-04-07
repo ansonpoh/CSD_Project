@@ -1,6 +1,7 @@
 package com.smu.csd.quiz.map_quiz;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -195,7 +196,12 @@ public class MapQuizService {
     }
 
     public MapQuizEvaluateResponse evaluateAnswer(UUID supabaseUserId, MapQuizEvaluateRequest request) {
-        requireLearner(supabaseUserId);
+        if (supabaseUserId == null) {
+            throw new IllegalArgumentException("Supabase user id is required.");
+        }
+        if (request == null || request.quizId() == null || request.questionId() == null) {
+            throw new IllegalArgumentException("quizId and questionId are required.");
+        }
         MapQuiz quiz = requireQuiz(request.quizId());
         boolean correct = isAnswerCorrect(quiz, request.questionId(), request.selectedOptionIds());
         return new MapQuizEvaluateResponse(correct);
@@ -261,19 +267,17 @@ public class MapQuizService {
     private boolean isAnswerCorrect(MapQuiz quiz, UUID questionId, List<UUID> selectedOptionIds) {
         if (quiz == null || questionId == null) return false;
 
-        List<MapQuizQuestion> quizQuestions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quiz.getQuizId());
-        boolean questionBelongsToQuiz = quizQuestions.stream()
-            .anyMatch(question -> questionId.equals(question.getQuestionId()));
+        boolean questionBelongsToQuiz = questionRepository.existsByQuiz_QuizIdAndQuestionId(quiz.getQuizId(), questionId);
         if (!questionBelongsToQuiz) {
             throw new IllegalArgumentException("Question does not belong to this quiz.");
         }
 
-        List<MapQuizOption> options = optionRepository.findByQuestion_QuestionId(questionId);
-        Set<UUID> correctIds = options.stream()
-            .filter(MapQuizOption::isCorrect)
-            .map(MapQuizOption::getOptionId)
+        Set<UUID> correctIds = optionRepository.findCorrectOptionIdsByQuestionId(questionId).stream()
+            .filter(id -> id != null)
             .collect(Collectors.toSet());
-        Set<UUID> selectedIds = selectedOptionIds == null ? Set.of() : Set.copyOf(selectedOptionIds);
+        Set<UUID> selectedIds = selectedOptionIds == null
+            ? Set.of()
+            : selectedOptionIds.stream().filter(id -> id != null).collect(Collectors.toCollection(HashSet::new));
         return correctIds.equals(selectedIds);
     }
 

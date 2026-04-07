@@ -37,8 +37,11 @@ public class MonsterController {
     }
 
     @GetMapping("/all")
-    public List<Monster> getAllMonsters() {
-        return service.getAllMonsters();
+    public List<Monster> getAllMonsters(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        return service.getAllMonsters(page, size);
     }
 
     @GetMapping("/map/{map_id}")

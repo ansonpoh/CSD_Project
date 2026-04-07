@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MapQuizQuestionRepository extends JpaRepository<MapQuizQuestion, UUID> {
     List<MapQuizQuestion> findByQuiz_QuizIdOrderByQuestionOrder(UUID quizId);
+    boolean existsByQuiz_QuizIdAndQuestionId(UUID quizId, UUID questionId);
 }

@@ -115,6 +115,35 @@ class AIServiceUnitTest {
     }
 
     @Test
+    void screenContent_RejectsWhenModelMarksSubmissionAsOffTopicEvenIfVerdictWasApproved() {
+        Content content = content();
+        stubEntityResponse(createModerationResponse(9, false, true, AIModerationResult.Verdict.APPROVED, "off topic"));
+
+        service.screenContent(content);
+
+        ArgumentCaptor<AIModerationResult> captor = ArgumentCaptor.forClass(AIModerationResult.class);
+        verify(moderationRepository).save(captor.capture());
+        assertFalse(captor.getValue().isRelevant());
+        assertEquals(AIModerationResult.Verdict.REJECTED, captor.getValue().getAiVerdict());
+        assertEquals(Content.Status.REJECTED, content.getStatus());
+        verify(contentRepository).save(content);
+    }
+
+    @Test
+    void screenContent_ApprovesWhenScoreAndFlagsMeetAutoApproveRulesEvenIfModelReturnedNeedsReview() {
+        Content content = content();
+        stubEntityResponse(createModerationResponse(9, true, true, AIModerationResult.Verdict.NEEDS_REVIEW, "strong quality"));
+
+        service.screenContent(content);
+
+        ArgumentCaptor<AIModerationResult> captor = ArgumentCaptor.forClass(AIModerationResult.class);
+        verify(moderationRepository).save(captor.capture());
+        assertEquals(AIModerationResult.Verdict.APPROVED, captor.getValue().getAiVerdict());
+        assertEquals(Content.Status.APPROVED, content.getStatus());
+        verify(contentRepository).save(content);
+    }
+
+    @Test
     void screenContent_FallsBackToNeedsReviewModerationResultWhenAiParsingThrows() {
         Content content = content();
         when(responseSpec.entity(any(Class.class))).thenThrow(new IllegalStateException("boom"));

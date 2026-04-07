@@ -23,9 +23,6 @@ export const worldMapIntelPanelMethods = {
     }
 
     const lines = [
-      { label: 'Theme', value: map.theme },
-      { label: 'Biome', value: map.biome },
-      { label: 'Difficulty', value: map.difficulty },
       { label: 'Creator', value: `${map.creatorName} [${map.creatorBadge}]` },
       { label: 'Topic', value: map.recommendedTopic },
       { label: 'Unlock', value: map.unlockText }
@@ -41,16 +38,6 @@ export const worldMapIntelPanelMethods = {
       strokeThickness: 5
     }));
     y += 30;
-
-    const descText = this.add.text(pad, y, this.truncate(map.description || map.learningGoal, 110), {
-      fontSize: '13px',
-      color: P.textDesc,
-      stroke: '#060814',
-      strokeThickness: 3,
-      wordWrap: { width: textWidth }
-    });
-    c.add(descText);
-    y += descText.height + 12;
 
     lines.forEach(({ label, value }) => {
       c.add(this.add.text(pad, y, `${label}:`, {

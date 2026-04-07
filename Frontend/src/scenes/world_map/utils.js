@@ -4,6 +4,64 @@ import { mapDiscoveryService } from '../../services/mapDiscovery.js';
 import { transitionToScene } from '../shared/sceneTransition.js';
 
 export const worldMapUtilityMethods = {
+  inferUsernameFromEmail(email) {
+    const text = String(email || '').trim();
+    if (!text.includes('@')) return '';
+    return text.split('@')[0] || '';
+  },
+
+  getContributorUsername(contributor, usernameBySupabaseId) {
+    const supabaseUserId = String(contributor?.supabaseUserId || '');
+    if (supabaseUserId && usernameBySupabaseId.has(supabaseUserId)) {
+      return usernameBySupabaseId.get(supabaseUserId);
+    }
+    const fallback = String(contributor?.username || contributor?.fullName || this.inferUsernameFromEmail(contributor?.email) || '').trim();
+    return fallback || 'contributor';
+  },
+
+  enrichMapCatalogMaps(rawMaps = [], contributors = [], topics = [], learners = []) {
+    const safeMaps = Array.isArray(rawMaps) ? rawMaps : [];
+    const safeContributors = Array.isArray(contributors) ? contributors : [];
+    const safeTopics = Array.isArray(topics) ? topics : [];
+    const safeLearners = Array.isArray(learners) ? learners : [];
+
+    const usernameBySupabaseId = new Map(
+      safeLearners
+        .map((row) => [String(row?.supabaseUserId || ''), String(row?.username || '').trim()])
+        .filter(([supabaseUserId, username]) => supabaseUserId && username)
+    );
+
+    const contributorUsernameById = new Map(
+      safeContributors
+        .map((row) => [String(row?.contributorId || ''), this.getContributorUsername(row, usernameBySupabaseId)])
+        .filter(([contributorId, username]) => contributorId && username)
+    );
+
+    const topicNameById = new Map(
+      safeTopics
+        .map((row) => [String(row?.topicId || ''), String(row?.topicName || '').trim()])
+        .filter(([topicId, topicName]) => topicId && topicName)
+    );
+
+    return safeMaps.map((map) => {
+      const contributorId = String(map?.submittedByContributorId || '').trim();
+      const topicId = String(map?.topicId || '').trim();
+      const isContributorMap = Boolean(contributorId);
+      const creatorUsername = isContributorMap
+        ? (contributorUsernameById.get(contributorId) || 'contributor')
+        : 'admin';
+      const topicName = topicNameById.get(topicId) || (topicId ? 'Unknown topic' : 'Unassigned');
+
+      return {
+        ...map,
+        creatorName: creatorUsername,
+        creatorBadge: isContributorMap ? 'Contributor' : 'Admin',
+        topicName,
+        recommendedTopic: topicName
+      };
+    });
+  },
+
   getMockMaps() {
     return [
       { id: 1, name: 'Forest Clearing', description: 'A peaceful forest filled with mysteries', mapKey: 'map1' },
@@ -46,7 +104,13 @@ export const worldMapUtilityMethods = {
   },
 
   async reloadMapCatalog() {
-    this.rawMaps = await apiService.getAllMaps();
+    const [maps, contributors, topics, learners] = await Promise.all([
+      apiService.getAllMaps(),
+      apiService.getAllContributors().catch(() => []),
+      apiService.getAllTopics().catch(() => []),
+      apiService.getAllLearners().catch(() => [])
+    ]);
+    this.rawMaps = this.enrichMapCatalogMaps(maps, contributors, topics, learners);
     this.refreshCatalog();
   },
 

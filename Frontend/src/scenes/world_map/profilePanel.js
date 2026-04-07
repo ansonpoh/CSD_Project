@@ -61,14 +61,15 @@ export const worldMapProfilePanelMethods = {
     y += 26;
 
     recommendations.forEach((line, index) => {
-      c.add(this.add.text(pad, y, `${index + 1}. ${this.truncate(line, 44)}`, {
+      const feedLine = this.add.text(pad, y, `${index + 1}. ${line}`, {
         fontSize: '13px',
         color: P.textMain,
         stroke: '#060814',
         strokeThickness: 3,
         wordWrap: { width: panel.width - pad * 2 }
-      }));
-      y += 38;
+      });
+      c.add(feedLine);
+      y += feedLine.height + 10;
     });
 
     const avatarY = panel.height - 96;

@@ -747,18 +747,18 @@ export class AdminScene extends Phaser.Scene {
             <p>Add a new topic so it appears in the publish dropdown for approved maps.</p>
           </div>
         </div>
-        <div class="dash-form__grid">
-          <div class="dash-field">
-            <label for="admin-topic-name">Topic name</label>
-            <input id="admin-topic-name" class="dash-input" type="text" placeholder="e.g. Algebra Foundations" />
+        <div class="dash-topic-create-form">
+          <div class="dash-topic-create-row">
+            <div class="dash-field">
+              <label for="admin-topic-name">Topic name</label>
+              <input id="admin-topic-name" class="dash-input" type="text" placeholder="e.g. Algebra Foundations" />
+            </div>
+            <button type="button" class="dash-button" data-action="create-topic">Create topic</button>
           </div>
           <div class="dash-field">
             <label for="admin-topic-description">Description (optional)</label>
             <textarea id="admin-topic-description" class="dash-textarea" placeholder="Brief topic description"></textarea>
           </div>
-        </div>
-        <div class="dash-button-group">
-          <button type="button" class="dash-button" data-action="create-topic">Create topic</button>
         </div>
       </div>
       <div class="dash-grid dash-grid--two">

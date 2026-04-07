@@ -159,6 +159,7 @@ export const worldMapMapPanelMethods = {
   },
 
   populateMapPanel(panel) {
+    const previousScrollOffset = panel?.scrollState?.offset ?? 0;
     this.clearPanelBody(panel);
 
     const c = this.createScrollableBody(panel, {
@@ -174,7 +175,7 @@ export const worldMapMapPanelMethods = {
     const viewportWidth = panel.scrollState?.viewport?.width ?? (panel.width - panel.pad * 2);
     const clickGuard = (pointer) => this.isPointerInsidePanelViewport(panel, pointer);
     const cardW = viewportWidth;
-    const cardH = 88;
+    const cardH = 108;
     let y = 14;
 
     const searchBar = this.createMapSearchBar(0, y, viewportWidth, clickGuard);
@@ -246,5 +247,6 @@ export const worldMapMapPanelMethods = {
     });
 
     this.setPanelScrollMetrics(panel, y + 24);
+    this.setPanelScrollOffset(panel, previousScrollOffset);
   }
 };

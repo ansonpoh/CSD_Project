@@ -2,177 +2,6 @@ import { loadJsonFromStorage, saveJsonToStorage } from './storage.js';
 
 const STORAGE_KEY = 'mapDiscoveryState';
 
-const DEFAULT_THEMES = [
-  {
-    key: 'map1',
-    theme: 'Whispering Canopy',
-    biome: 'Forest',
-    difficulty: 'Novice',
-    estimatedMinutes: 8,
-    learningGoal: 'A gentle intro to what Gen Alpha terms are, where they come from, and why they matter.',
-    creatorName: 'Studio Archive',
-    creatorBadge: 'Curated',
-    featured: true,
-    seasonalTag: 'Starter Route',
-    unlockLevel: 1,
-    recommendedTopic: 'Foundations',
-    event: {
-      id: 'forest_oracle',
-      title: 'Whisperleaf Oracle',
-      intro: 'An ancient tree offers a bargain before the first encounter.',
-      options: [
-        {
-          id: 'wisdom',
-          label: 'Seek wisdom',
-          summary: '+25 XP and a stronger lesson focus',
-          outcome: 'The oracle blesses your study path. Lessons on this map feel sharper and more rewarding.',
-          rewards: { bonusXp: 25, reputationDelta: 1, lessonBoost: true }
-        },
-        {
-          id: 'speed',
-          label: 'Take the shortcut',
-          summary: 'Spawn the next monster immediately',
-          outcome: 'A hidden route opens. The next threat reveals itself early, saving time but raising tension.',
-          rewards: { revealNextMonster: true, reputationDelta: 2 }
-        },
-        {
-          id: 'respect',
-          label: 'Leave an offering',
-          summary: '+1 map star and creator support',
-          outcome: 'The grove records your tribute and marks you as a respectful explorer.',
-          rewards: { bonusStars: 1, creatorBoost: 1 }
-        }
-      ]
-    }
-  },
-  {
-    key: 'map2',
-    theme: 'Echoing Hollow',
-    biome: 'Cavern',
-    difficulty: 'Skilled',
-    estimatedMinutes: 12,
-    learningGoal: 'Learn the most common foundational terms and their straightforward meanings.',
-    creatorName: 'Depth Cartographer Ivo',
-    creatorBadge: 'Community Pick',
-    featured: false,
-    seasonalTag: 'Challenge Run',
-    unlockLevel: 2,
-    recommendedTopic: 'Recall',
-    event: {
-      id: 'cave_echo',
-      title: 'Echo Chamber',
-      intro: 'The cavern repeats your choices back to you. You can shape the run before the monsters notice.',
-      options: [
-        {
-          id: 'focus',
-          label: 'Steady your mind',
-          summary: 'Reduce pressure on the next fight',
-          outcome: 'The echo settles. Your next battle feels more controlled.',
-          rewards: { bonusXp: 20, encounterAssist: true, reputationDelta: 1 }
-        },
-        {
-          id: 'broadcast',
-          label: 'Broadcast your challenge',
-          summary: '+trend score, tougher run',
-          outcome: 'The cave amplifies your presence. The map becomes hotter, and your name travels further.',
-          rewards: { bonusTrend: 3, riskFlag: true, reputationDelta: 3 }
-        },
-        {
-          id: 'survey',
-          label: 'Survey hidden marks',
-          summary: 'Unlock creator notes',
-          outcome: 'You find traces left by earlier explorers and learn how the cave was designed.',
-          rewards: { unlockLore: true, bonusStars: 1 }
-        }
-      ]
-    }
-  },
-  {
-    key: 'map3',
-    theme: 'Summit of Trials',
-    biome: 'Mountain',
-    difficulty: 'Expert',
-    estimatedMinutes: 16,
-    learningGoal: 'Build a reliable vocabulary set you will repeatedly see in conversations and content.',
-    creatorName: 'Highpeak Council',
-    creatorBadge: 'Verified',
-    featured: true,
-    seasonalTag: 'Boss Path',
-    unlockLevel: 4,
-    recommendedTopic: 'Mastery',
-    event: {
-      id: 'summit_signal',
-      title: 'Signal Fire',
-      intro: 'A dormant beacon can change how this summit run unfolds.',
-      options: [
-        {
-          id: 'ignite',
-          label: 'Ignite the beacon',
-          summary: '+40 XP and featured completion flair',
-          outcome: 'The summit glows across the world map. This run will be remembered.',
-          rewards: { bonusXp: 40, featuredCompletion: true, reputationDelta: 4 }
-        },
-        {
-          id: 'hide',
-          label: 'Keep a low profile',
-          summary: 'Safer run with fewer spotlight bonuses',
-          outcome: 'You move quietly through the ascent, trading fame for steadiness.',
-          rewards: { encounterAssist: true, bonusXp: 10, reputationDelta: 1 }
-        },
-        {
-          id: 'chart',
-          label: 'Chart a new route',
-          summary: '+2 stars and remix energy',
-          outcome: 'The summit route shifts. Future explorers will notice the path you opened.',
-          rewards: { bonusStars: 2, creatorBoost: 2, bonusTrend: 2 }
-        }
-      ]
-    }
-  },
-  {
-    key: 'map4',
-    theme: 'Garden of Makers',
-    biome: 'Settlement',
-    difficulty: 'Adaptive',
-    estimatedMinutes: 10,
-    learningGoal: 'Practice using terms correctly in day-to-day chat, captions, and casual interactions.',
-    creatorName: 'Prototype Guild',
-    creatorBadge: 'Lab',
-    featured: false,
-    seasonalTag: 'Remix Lab',
-    unlockLevel: 2,
-    recommendedTopic: 'Creation',
-    event: {
-      id: 'maker_compass',
-      title: 'Maker Compass',
-      intro: 'A brass compass points toward what this map wants to become.',
-      options: [
-        {
-          id: 'community',
-          label: 'Follow the crowd',
-          summary: 'Boost popularity and likes',
-          outcome: 'You align with the most traveled route and lift the map higher in discovery.',
-          rewards: { bonusLikes: 2, bonusTrend: 2, reputationDelta: 2 }
-        },
-        {
-          id: 'experiment',
-          label: 'Try the unstable path',
-          summary: '+30 XP and remix score',
-          outcome: 'The compass spins wildly, then locks onto a risky shortcut packed with lessons.',
-          rewards: { bonusXp: 30, creatorBoost: 2, bonusStars: 1 }
-        },
-        {
-          id: 'document',
-          label: 'Document the route',
-          summary: 'Unlock more map intel',
-          outcome: 'You leave detailed notes behind. Future recommendations become more precise.',
-          rewards: { unlockLore: true, bonusTrend: 1, reputationDelta: 1 }
-        }
-      ]
-    }
-  }
-];
-
 function loadState() {
   return loadJsonFromStorage(STORAGE_KEY, {}, 'map discovery state');
 }
@@ -192,6 +21,36 @@ function clamp(value, min, max) {
 
 function hasValue(value) {
   return value !== null && value !== undefined;
+}
+
+function asText(value, fallback = '') {
+  const normalized = String(value ?? '').trim();
+  return normalized || fallback;
+}
+
+function pickFirstDefined(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null) return value;
+  }
+  return null;
+}
+
+function pickFirstText(...values) {
+  for (const value of values) {
+    const text = asText(value, '');
+    if (text) return text;
+  }
+  return '';
+}
+
+function getMapData(map) {
+  const data = map?.mapData;
+  return data && typeof data === 'object' ? data : null;
+}
+
+function getEventId(event) {
+  const raw = asText(event?.id, '');
+  return raw || null;
 }
 
 class MapDiscoveryService {
@@ -214,23 +73,18 @@ class MapDiscoveryService {
     return null;
   }
 
-  getThemeDefaults(map) {
-    const key = this.resolveMapKey(map);
-    return DEFAULT_THEMES.find((entry) => entry.key === key) || DEFAULT_THEMES[0];
-  }
-
   ensureMapState(map) {
     const id = this.getMapId(map);
     if (!this.state[id]) {
-      const defaults = this.getThemeDefaults(map);
-      const seed = id.length + defaults.unlockLevel * 13;
+      const unlockLevel = Math.max(1, toNumber(map?.unlockLevel, 1));
+      const seed = id.length + unlockLevel * 13;
       this.state[id] = {
         rating: clamp(4 + (seed % 7) * 0.08, 3.8, 4.8),
         ratingCount: 18 + seed * 3,
         likes: 40 + seed * 5,
         completions: 90 + seed * 7,
         visits: 0,
-        featured: Boolean(defaults.featured),
+        featured: Boolean(map?.featured),
         trendScore: 8 + (seed % 6) * 4,
         creatorRep: 70 + seed,
         remixCount: 1 + (seed % 5),
@@ -256,9 +110,14 @@ class MapDiscoveryService {
   }
 
   buildMapRecord(map, learner) {
-    const defaults = this.getThemeDefaults(map);
     const state = this.ensureMapState(map);
-    const unlockLevel = defaults.unlockLevel || 1;
+    const mapData = getMapData(map);
+
+    const unlockLevel = Math.max(1, toNumber(
+      pickFirstDefined(map?.unlockLevel, mapData?.unlockLevel),
+      1
+    ));
+
     const playerLevel = this.getPlayerLevel(learner);
     const isUnlocked = playerLevel >= unlockLevel || state.playerCompletions > 0;
     const rawRatingCount = hasValue(map?.ratingCount) ? toNumber(map.ratingCount, 0) : state.ratingCount;
@@ -268,20 +127,28 @@ class MapDiscoveryService {
     const rawCurrentUserLiked = hasValue(map?.currentUserLiked) ? Boolean(map.currentUserLiked) : Boolean(state.playerLiked);
     const crowdRating = rawRatingCount > 0 ? Number(rawAverageRating.toFixed(1)) : 0;
 
+    const event = map?.event && typeof map.event === 'object'
+      ? map.event
+      : (mapData?.event && typeof mapData.event === 'object' ? mapData.event : null);
+    const eventId = getEventId(event);
+
     return {
       ...map,
       mapId: map?.mapId || map?.id || this.getMapId(map),
       mapKey: map?.mapKey || this.resolveMapKey(map) || null,
-      theme: defaults.theme,
-      biome: defaults.biome,
-      difficulty: defaults.difficulty,
-      estimatedMinutes: defaults.estimatedMinutes,
-      learningGoal: String(map?.description || '').trim() || 'No map description available.',
-      creatorName: defaults.creatorName,
-      creatorBadge: defaults.creatorBadge,
-      featured: Boolean(defaults.featured || state.featured),
-      seasonalTag: defaults.seasonalTag,
-      recommendedTopic: defaults.recommendedTopic,
+      theme: pickFirstText(map?.theme, map?.mapTheme, mapData?.theme, mapData?.mapTheme, 'Unknown'),
+      biome: pickFirstText(map?.biome, mapData?.biome, 'Unknown'),
+      difficulty: pickFirstText(map?.difficulty, mapData?.difficulty, 'Unknown'),
+      estimatedMinutes: Math.max(1, toNumber(
+        pickFirstDefined(map?.estimatedMinutes, mapData?.estimatedMinutes, mapData?.estimatedDurationMinutes),
+        10
+      )),
+      learningGoal: pickFirstText(map?.learningGoal, map?.description, mapData?.learningGoal, mapData?.description, 'No map description available.'),
+      creatorName: pickFirstText(map?.creatorName, map?.submittedByContributorName, map?.authorName, mapData?.creatorName, 'admin'),
+      creatorBadge: pickFirstText(map?.creatorBadge, mapData?.creatorBadge, 'Admin'),
+      featured: Boolean(pickFirstDefined(map?.featured, state.featured, false)),
+      seasonalTag: pickFirstText(map?.seasonalTag, mapData?.seasonalTag, 'Route'),
+      recommendedTopic: pickFirstText(map?.recommendedTopic, map?.topicName, mapData?.recommendedTopic, mapData?.topicName, 'Unassigned'),
       unlockLevel,
       unlocked: isUnlocked,
       unlockText: isUnlocked ? 'Unlocked' : `Reach level ${unlockLevel} to access`,
@@ -302,9 +169,9 @@ class MapDiscoveryService {
         completions: state.playerCompletions,
         loreUnlocked: Boolean(state.unlockedLore),
         assistCharges: toNumber(state.assistCharges, 0),
-        lastChoice: state.choiceHistory?.[defaults.event?.id] || null
+        lastChoice: eventId ? state.choiceHistory?.[eventId] || null : null
       },
-      event: defaults.event
+      event
     };
   }
 
@@ -324,11 +191,18 @@ class MapDiscoveryService {
     const nextLocked = catalog.find((map) => !map.unlocked);
     const trending = [...catalog].sort((a, b) => b.socialProof.trendScore - a.socialProof.trendScore)[0];
     const underrated = [...unlocked].sort((a, b) => a.socialProof.completions - b.socialProof.completions)[0];
+    const unlockedCount = unlocked.length;
+    const totalCount = catalog.length;
+    const levelsToNextUnlock = nextLocked ? Math.max(0, nextLocked.unlockLevel - level) : 0;
+
+    const progressionHeadline = totalCount === 0
+      ? 'Your route feed will update once map data is available.'
+      : (nextLocked && levelsToNextUnlock > 0
+          ? `You have ${unlockedCount}/${totalCount} routes unlocked. ${nextLocked.name} opens at level ${nextLocked.unlockLevel}.`
+          : `All ${totalCount} routes are unlocked. Keep momentum and sharpen mastery.`);
 
     return [
-      level < 3
-        ? 'Start with lower-difficulty gates and build fast completions.'
-        : 'Push a harder route to accelerate mastery and unlock richer events.',
+      progressionHeadline,
       trending ? `${trending.name} is trending with ${trending.socialProof.likes} likes.` : 'A new featured map will appear once catalog data loads.',
       nextLocked ? `Next unlock: ${nextLocked.name} at level ${nextLocked.unlockLevel}.` : 'All current gates are unlocked.',
       underrated ? `${underrated.name} is underplayed and worth a fresh run.` : 'Every unlocked gate is seeing healthy traffic.'
@@ -375,6 +249,7 @@ class MapDiscoveryService {
 
   recordChoice(map, eventId, option) {
     const state = this.ensureMapState(map);
+    if (!eventId) return option?.rewards || {};
     if (!state.choiceHistory) state.choiceHistory = {};
     state.choiceHistory[eventId] = {
       optionId: option?.id || null,

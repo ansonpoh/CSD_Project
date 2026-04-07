@@ -451,7 +451,7 @@ export const worldMapCommunityPanelMethods = {
     }));
     y += 28;
 
-    c.add(this.add.text(pad, y, `${this.formatCompact(map.socialProof.likes)} likes  |  ${this.formatCompact(map.socialProof.completions)} completions  |  ${map.socialProof.remixCount} remixes`, {
+    c.add(this.add.text(pad, y, `${this.formatCompact(map.socialProof.likes)} likes`, {
       fontSize: '13px',
       color: P.textMain,
       stroke: '#060814',
@@ -459,13 +459,7 @@ export const worldMapCommunityPanelMethods = {
     }));
     y += 26;
 
-    c.add(this.add.text(pad, y, `Creator rep ${this.formatCompact(map.socialProof.creatorRep)}  |  trend ${this.formatCompact(map.socialProof.trendScore)}  |  your clears ${map.playerState.completions}`, {
-      fontSize: '13px',
-      color: P.textDesc,
-      stroke: '#060814',
-      strokeThickness: 3
-    }));
-    y += 36;
+    y += 10;
 
     const likeButtonWidth = 160;
     const enterButtonWidth = 220;
@@ -513,19 +507,12 @@ export const worldMapCommunityPanelMethods = {
         stroke: '#060814',
         strokeThickness: 3
       }));
-
-      c.add(this.add.text(panel.width - pad, y, `${this.formatCompact(entry.socialProof.creatorRep)} rep`, {
-        fontSize: '13px',
-        color: P.gold,
-        stroke: '#060814',
-        strokeThickness: 3
-      }).setOrigin(1, 0));
       y += 26;
     });
 
     if (trendLeader) {
       y += 8;
-      c.add(this.add.text(pad, y, 'Trending now', {
+      c.add(this.add.text(pad, y, 'Community highlight', {
         fontSize: '15px',
         color: P.warn,
         fontStyle: 'bold',
@@ -534,7 +521,7 @@ export const worldMapCommunityPanelMethods = {
       }));
       y += 24;
 
-      const trendText = this.add.text(pad, y, `${trendLeader.name} is leading discovery this week with ${trendLeader.socialProof.likes} likes and ${trendLeader.socialProof.completions} clears.`, {
+      const trendText = this.add.text(pad, y, `${trendLeader.name} is a popular discovery this week with ${trendLeader.socialProof.likes} likes.`, {
         fontSize: '13px',
         color: P.textMain,
         stroke: '#060814',

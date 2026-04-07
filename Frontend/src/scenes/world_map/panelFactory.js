@@ -183,22 +183,27 @@ export const worldMapPanelFactoryMethods = {
   createMapCard(x, y, width, height, map, isSelected, onClick, clickGuard = null) {
     const card = this.add.container(x, y);
     const bg = this.add.graphics();
+    const leftAccent = this.add.graphics();
 
     const draw = (fill, border, alpha = 1) => {
       bg.clear();
+      leftAccent.clear();
       bg.fillStyle(fill, alpha);
       bg.fillRoundedRect(0, 0, width, height, 6);
       bg.lineStyle(2, border, 1);
       bg.strokeRoundedRect(0, 0, width, height, 6);
       bg.fillStyle(0xffffff, 0.05);
-      bg.fillRoundedRect(2, 2, width - 4, height * 0.42, { tl: 4, tr: 4, bl: 0, br: 0 });
+      bg.fillRoundedRect(2, 2, width - 4, height * 0.36, { tl: 4, tr: 4, bl: 0, br: 0 });
+      leftAccent.fillStyle(isSelected ? P.borderGlow : P.borderGold, map.unlocked ? 0.95 : 0.5);
+      leftAccent.fillRoundedRect(8, 8, 3, height - 16, 2);
     };
 
     draw(isSelected ? 0x20386a : 0x1a1736, isSelected ? P.borderGlow : P.borderGold, map.unlocked ? 1 : 0.88);
     card.add(bg);
+    card.add(leftAccent);
 
     const textColor = map.unlocked ? P.textMain : P.textDisabled;
-    card.add(this.add.text(16, 12, map.name || 'Unnamed Map', {
+    card.add(this.add.text(20, 12, this.truncate(map.name || 'Unnamed Map', 30), {
       fontSize: '20px',
       fontStyle: 'bold',
       color: textColor,
@@ -206,18 +211,13 @@ export const worldMapPanelFactoryMethods = {
       strokeThickness: 5
     }));
 
-    card.add(this.add.text(16, 40, `${map.theme}  |  ${map.difficulty}  |  ${map.estimatedMinutes} min`, {
-      fontSize: '13px',
-      color: map.unlocked ? P.gold : P.textDisabled,
-      stroke: '#060814',
-      strokeThickness: 3
-    }));
-
-    card.add(this.add.text(16, 60, this.truncate(map.learningGoal, 58), {
+    card.add(this.add.text(20, 42, this.truncate(map.learningGoal, 88), {
       fontSize: '13px',
       color: map.unlocked ? P.textDesc : P.textDisabled,
       stroke: '#060814',
-      strokeThickness: 3
+      strokeThickness: 3,
+      wordWrap: { width: width - 40, useAdvancedWrap: true },
+      lineSpacing: 3
     }));
 
     const badge = this.add.text(width - 12, 12, map.featured ? 'FEATURED' : map.seasonalTag.toUpperCase(), {
@@ -229,8 +229,16 @@ export const worldMapPanelFactoryMethods = {
     }).setOrigin(1, 0);
     card.add(badge);
 
-    const social = `${map.socialProof.rating.toFixed(1)}\u2605  ${this.formatCompact(map.socialProof.likes)} likes  ${this.formatCompact(map.socialProof.completions)} clears`;
-    card.add(this.add.text(width - 12, 72, social, {
+    const creator = `By ${this.truncate(map.creatorName || 'admin', 20)}`;
+    card.add(this.add.text(20, height - 22, creator, {
+      fontSize: '11px',
+      color: map.unlocked ? P.textDesc : P.textDisabled,
+      stroke: '#060814',
+      strokeThickness: 3
+    }));
+
+    const social = `${map.socialProof.rating.toFixed(1)}\u2605  ${this.formatCompact(map.socialProof.likes)} likes`;
+    card.add(this.add.text(width - 12, height - 22, social, {
       fontSize: '11px',
       color: textColor,
       stroke: '#060814',

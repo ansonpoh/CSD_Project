@@ -83,11 +83,20 @@ export class WorldMapScene extends Phaser.Scene {
 
   async loadMapCatalog() {
     try {
-      this.rawMaps = await apiService.getAllMaps();
+      const [maps, contributors, topics, learners] = await Promise.all([
+        apiService.getAllMaps(),
+        apiService.getAllContributors().catch(() => []),
+        apiService.getAllTopics().catch(() => []),
+        apiService.getAllLearners().catch(() => [])
+      ]);
+
+      this.rawMaps = Array.isArray(maps) ? maps : [];
       if (!this.rawMaps?.length) await this.createDemoMap();
+      this.rawMaps = this.enrichMapCatalogMaps(this.rawMaps, contributors, topics, learners);
     } catch (error) {
       console.error('Failed to load maps:', error);
       this.rawMaps = this.getMockMaps();
+      this.rawMaps = this.enrichMapCatalogMaps(this.rawMaps, [], [], []);
     } finally {
       this.isMapCatalogLoading = false;
     }

@@ -414,6 +414,28 @@ export function ensureDashboardPortalStyles() {
       gap: 18px;
     }
 
+    .dash-topic-create-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .dash-topic-create-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .dash-topic-create-row .dash-field {
+      flex: 1 1 320px;
+      margin: 0;
+    }
+
+    .dash-topic-create-row .dash-button {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
     .dash-form__grid,
     .dash-split {
       display: grid;
@@ -664,6 +686,14 @@ export function ensureDashboardPortalStyles() {
       .dash-form__grid,
       .dash-split {
         grid-template-columns: 1fr;
+      }
+
+      .dash-topic-create-row {
+        align-items: stretch;
+      }
+
+      .dash-topic-create-row .dash-button {
+        width: 100%;
       }
 
       .dash-main__header,

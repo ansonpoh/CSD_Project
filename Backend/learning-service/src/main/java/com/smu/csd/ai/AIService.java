@@ -106,20 +106,22 @@ public class AIService {
                     "AI response parsing failed - flagged for manual review: " + e.getMessage());
         }
 
+        ModerationResponse normalized = normalizeModerationDecision(parsed);
+
         moderationRepository.save(AIModerationResult.builder()
                 .content(content)
-                .qualityScore(normalizeQualityScore(parsed.qualityScore()))
-                .isRelevant(parsed.isRelevant())
-                .isAppropriate(parsed.isAppropriate())
-                .aiVerdict(parsed.aiVerdict())
-                .reasoning(parsed.reasoning())
+                .qualityScore(normalizeQualityScore(normalized.qualityScore()))
+                .isRelevant(normalized.isRelevant())
+                .isAppropriate(normalized.isAppropriate())
+                .aiVerdict(normalized.aiVerdict())
+                .reasoning(normalized.reasoning())
                 .build());
 
         // Only update status for decisive verdicts - NEEDS_REVIEW stays PENDING_REVIEW
-        if (parsed.aiVerdict() == AIModerationResult.Verdict.APPROVED) {
+        if (normalized.aiVerdict() == AIModerationResult.Verdict.APPROVED) {
             content.setStatus(Content.Status.APPROVED);
             contentRepository.save(content);
-        } else if (parsed.aiVerdict() == AIModerationResult.Verdict.REJECTED) {
+        } else if (normalized.aiVerdict() == AIModerationResult.Verdict.REJECTED) {
             content.setStatus(Content.Status.REJECTED);
             contentRepository.save(content);
         }
@@ -145,7 +147,9 @@ public class AIService {
         return """
                 You are moderating NPC narration content for a Gen Alpha culture learning game.
                 Topic: %s
+                Topic description: %s
                 Title: %s
+                Submission description: %s
                 Narration (JSON array of strings): %s
 
                 The content is a series of NPC lines designed to teach Gen Alpha concepts one sentence at a time.
@@ -158,15 +162,45 @@ public class AIService {
                   "reasoning": "<brief explanation>"
                 }
 
+                Relevance policy:
+                - is_relevant = true only when the narration clearly teaches the selected topic or closely related sub-concepts.
+                - is_relevant = false when the narration is mostly about a different topic, generic filler, or only mentions the topic name without teaching it.
+
                 Rules:
                 - APPROVED: quality_score >= 8 AND is_relevant = true AND is_appropriate = true
+                - REJECTED: is_relevant = false
                 - REJECTED: quality_score < 4 OR is_appropriate = false
                 - NEEDS_REVIEW: everything else (borderline quality or relevance)
                 """.formatted(
                         content.getTopic().getTopicName(),
+                        content.getTopic().getDescription(),
                         content.getTitle(),
+                        content.getDescription(),
                         content.getBody()
                 );
+    }
+
+    private ModerationResponse normalizeModerationDecision(ModerationResponse parsed) {
+        int score = normalizeQualityScore(parsed.qualityScore());
+        boolean relevant = parsed.isRelevant();
+        boolean appropriate = parsed.isAppropriate();
+
+        AIModerationResult.Verdict normalizedVerdict;
+        if (!appropriate || !relevant || score < 4) {
+            normalizedVerdict = AIModerationResult.Verdict.REJECTED;
+        } else if (score >= 8) {
+            normalizedVerdict = AIModerationResult.Verdict.APPROVED;
+        } else {
+            normalizedVerdict = AIModerationResult.Verdict.NEEDS_REVIEW;
+        }
+
+        return new ModerationResponse(
+                score,
+                relevant,
+                appropriate,
+                normalizedVerdict,
+                parsed.reasoning()
+        );
     }
 
     /**

@@ -3,6 +3,7 @@ import { P } from '../constants.js';
 
 export const combatSceneUiLayoutMethods = {
   drawBackdrop(width, height, layout = {}) {
+    const topHudInset = Number.isFinite(layout.topHudInset) ? layout.topHudInset : 62;
     const playerAuraX = Number.isFinite(layout.playerX) ? layout.playerX : width * 0.22;
     const playerAuraY = Number.isFinite(layout.playerY) ? layout.playerY : 180;
     const monsterAuraX = Number.isFinite(layout.monsterX) ? layout.monsterX : width * 0.82;
@@ -18,11 +19,11 @@ export const combatSceneUiLayoutMethods = {
 
     const titleBg = this.add.graphics();
     titleBg.fillStyle(0x1a0510, 1);
-    titleBg.fillRect(0, 0, width, 62);
+    titleBg.fillRect(0, topHudInset, width, 62);
     titleBg.lineStyle(1, P.borderRed, 0.7);
     titleBg.beginPath();
-    titleBg.moveTo(0, 61);
-    titleBg.lineTo(width, 61);
+    titleBg.moveTo(0, topHudInset + 61);
+    titleBg.lineTo(width, topHudInset + 61);
     titleBg.strokePath();
   },
 

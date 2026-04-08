@@ -49,7 +49,7 @@ export const combatSceneQuizFlowMethods = {
     this.questionMetaText?.setText(`Question ${current}/${Math.max(1, this.totalQuestions || 1)}  |  Answered ${this.currentQuestionIndex}`);
 
     if (this.usingMapQuiz) {
-      this.questionTargetText?.setText(`Pass mark: ${this.requiredCorrectAnswers}/${this.totalQuestions} correct`);
+      this.questionTargetText?.setText('');
     } else {
       this.questionTargetText?.setText('No target score. Keep answering until the monster falls.');
     }
@@ -366,7 +366,7 @@ export const combatSceneQuizFlowMethods = {
         this.updateHealthBars();
         this.victory();
       } else {
-        this.defeat(`Quiz failed. Score: ${this.correctAnswers}/${totalQuestions}. Need ${this.requiredCorrectAnswers}.`);
+        this.defeat(`Quiz failed. Score: ${this.correctAnswers}/${totalQuestions}.`);
       }
     } catch (err) {
       console.warn('Failed to submit map quiz:', err);

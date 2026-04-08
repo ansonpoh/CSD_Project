@@ -133,6 +133,7 @@ export class CombatScene extends Phaser.Scene {
   async create() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const topHudInset = 62;
     const playerBattleY = 180;
     const playerBarStartX = 50;
     const playerBarWidth = 260;
@@ -142,6 +143,7 @@ export class CombatScene extends Phaser.Scene {
     const monsterBattleY = 180;
 
     this.drawBackdrop(width, height, {
+      topHudInset,
       playerX: playerBattleX,
       playerY: playerBattleY,
       monsterX: monsterBattleX,
@@ -150,7 +152,7 @@ export class CombatScene extends Phaser.Scene {
 
     const titleMonsterName = this.monsterData?.name || this.monsterName;
     const titleSuffix = this.bossEncounter ? ' [BOSS]' : '';
-    this.add.text(width / 2, 31, `BATTLE: ${String(titleMonsterName).toUpperCase()}${titleSuffix}`, {
+    this.add.text(width / 2, topHudInset + 31, `BATTLE: ${String(titleMonsterName).toUpperCase()}${titleSuffix}`, {
       fontFamily: UI_FONT,
       fontSize: '34px',
       fontStyle: 'bold',

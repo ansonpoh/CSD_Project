@@ -1,8 +1,6 @@
 import { apiService } from "../services/api.js";
 import { supabase } from "../config/supabaseClient.js";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function showTableError(message) {
   const el = document.getElementById("error-message");
   el.textContent = message;
@@ -18,12 +16,24 @@ function renderRow(content) {
   const submittedDate = new Date(content.submittedAt).toLocaleString();
 
   const row = document.createElement("tr");
-  row.innerHTML = `
-    <td class="fw-bold">${content.title}</td>
-    <td>${content.topic ? content.topic.topicName : "N/A"}</td>
-    <td><span class="badge ${badgeClass}">${content.status}</span></td>
-    <td>${submittedDate}</td>
-  `;
+
+  const titleCell = document.createElement("td");
+  titleCell.className = "fw-bold";
+  titleCell.textContent = content.title || "";
+
+  const topicCell = document.createElement("td");
+  topicCell.textContent = content.topic ? (content.topic.topicName || "N/A") : "N/A";
+
+  const statusCell = document.createElement("td");
+  const badge = document.createElement("span");
+  badge.className = `badge ${badgeClass}`;
+  badge.textContent = content.status || "";
+  statusCell.appendChild(badge);
+
+  const dateCell = document.createElement("td");
+  dateCell.textContent = submittedDate;
+
+  row.append(titleCell, topicCell, statusCell, dateCell);
   return row;
 }
 
@@ -45,8 +55,6 @@ async function resolveContributorId() {
   return profile.contributorId;
 }
 
-// ── Load table ────────────────────────────────────────────────────────────────
-
 async function loadContents() {
   const tableBody = document.getElementById("content-table-body");
   const contributorId = await resolveContributorId();
@@ -63,27 +71,35 @@ async function loadContents() {
   contents.forEach((c) => tableBody.appendChild(renderRow(c)));
 }
 
-// ── Load topic dropdown ───────────────────────────────────────────────────────
-
 async function loadTopics() {
   const select = document.getElementById("content-topic");
   const topics = await apiService.getAllTopics();
-  select.innerHTML = `<option value="">Select a topic…</option>` +
-    topics.map((t) => `<option value="${t.topicId}">${t.topicName}</option>`).join("");
+
+  select.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select a topic...";
+  select.appendChild(placeholder);
+
+  topics.forEach((topic) => {
+    const option = document.createElement("option");
+    option.value = String(topic?.topicId || "");
+    option.textContent = topic?.topicName || "Untitled Topic";
+    select.appendChild(option);
+  });
 }
 
-// ── Submit content ────────────────────────────────────────────────────────────
-
 async function handleSubmit() {
-  const submitError   = document.getElementById("submit-error");
+  const submitError = document.getElementById("submit-error");
   const submitSuccess = document.getElementById("submit-success");
-  const submitBtn     = document.getElementById("submit-btn");
+  const submitBtn = document.getElementById("submit-btn");
 
   submitError.classList.add("d-none");
   submitSuccess.classList.add("d-none");
 
-  const title       = document.getElementById("content-title").value.trim();
-  const topicId     = document.getElementById("content-topic").value;
+  const title = document.getElementById("content-title").value.trim();
+  const topicId = document.getElementById("content-topic").value;
   const description = document.getElementById("content-description").value.trim();
 
   if (!title || !topicId || !description) {
@@ -93,7 +109,7 @@ async function handleSubmit() {
   }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = "Submitting…";
+  submitBtn.textContent = "Submitting...";
 
   try {
     const contributorId = await resolveContributorId();
@@ -102,12 +118,10 @@ async function handleSubmit() {
     submitSuccess.textContent = "Content submitted successfully!";
     submitSuccess.classList.remove("d-none");
 
-    // Reset form
     document.getElementById("content-title").value = "";
     document.getElementById("content-topic").value = "";
     document.getElementById("content-description").value = "";
 
-    // Refresh table
     await loadContents();
   } catch (error) {
     submitError.textContent = error.message || "Submission failed.";
@@ -118,8 +132,6 @@ async function handleSubmit() {
   }
 }
 
-// ── Logout ────────────────────────────────────────────────────────────────────
-
 async function handleLogout() {
   await supabase.auth.signOut();
   localStorage.removeItem("contributorId");
@@ -127,22 +139,17 @@ async function handleLogout() {
   window.location.href = "/";
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-
 document.addEventListener("DOMContentLoaded", async () => {
   const tableBody = document.getElementById("content-table-body");
 
-  // Load topics for modal dropdown
   loadTopics().catch(() => {
     document.getElementById("content-topic").innerHTML =
       `<option value="">Failed to load topics</option>`;
   });
 
-  // Wire up buttons
   document.getElementById("logout-btn").addEventListener("click", handleLogout);
   document.getElementById("submit-btn").addEventListener("click", handleSubmit);
 
-  // Load contents table
   try {
     await loadContents();
   } catch (error) {

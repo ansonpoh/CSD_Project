@@ -1,6 +1,20 @@
 import { apiService } from '../../services/api.js';
 import { gameState } from '../../services/gameState.js';
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function normalizeQuestType(value) {
+  const type = String(value || 'OBSERVATION').toLowerCase();
+  return type === 'interaction' ? 'interaction' : 'observation';
+}
+
 const STYLES = `
   .quest-overlay {
     position: fixed;
@@ -235,29 +249,29 @@ export function showQuests(scene) {
 
     setPanelState('success', `${missions.length} mission${missions.length === 1 ? '' : 's'} ready.`);
     body.innerHTML = missions.map((m) => {
-      const id = m.mission?.missionId || m.missionId;
+      const id = String(m.mission?.missionId || m.missionId || '');
       const title = m.mission?.title || m.title || 'Mission';
       const desc = m.mission?.description || m.description || '';
-      const type = (m.mission?.type || m.type || 'OBSERVATION').toLowerCase();
+      const type = normalizeQuestType(m.mission?.type || m.type || 'OBSERVATION');
       const xp = m.mission?.rewardXp ?? m.rewardXp ?? 50;
       const gold = m.mission?.rewardGold ?? m.rewardGold ?? 20;
 
       return `
-        <div class="quest-card" data-mission-id="${id}">
+        <div class="quest-card" data-mission-id="${escapeHtml(id)}">
           <div class="quest-card-header">
-            <div class="quest-card-title">${title}</div>
+            <div class="quest-card-title">${escapeHtml(title)}</div>
             <span class="quest-type-badge quest-type-${type}">${type.toUpperCase()}</span>
           </div>
-          <div class="quest-card-desc">${desc}</div>
-          <div class="quest-reward">Reward: +${xp} XP &nbsp;-&nbsp; +${gold} Gold</div>
-          <button class="quest-reflect-btn" data-action="open-reflect" data-mission-id="${id}">
+          <div class="quest-card-desc">${escapeHtml(desc)}</div>
+          <div class="quest-reward">Reward: +${Number(xp) || 0} XP &nbsp;-&nbsp; +${Number(gold) || 0} Gold</div>
+          <button class="quest-reflect-btn" data-action="open-reflect" data-mission-id="${escapeHtml(id)}">
             Write Reflection
           </button>
-          <div class="quest-reflect-form" data-reflect-form="${id}" style="display:none;">
-            <textarea class="quest-textarea" data-textarea="${id}" placeholder="Describe what you observed or experienced..."></textarea>
-            <button class="quest-submit-btn" data-action="submit-reflect" data-mission-id="${id}">Submit</button>
+          <div class="quest-reflect-form" data-reflect-form="${escapeHtml(id)}" style="display:none;">
+            <textarea class="quest-textarea" data-textarea="${escapeHtml(id)}" placeholder="Describe what you observed or experienced..."></textarea>
+            <button class="quest-submit-btn" data-action="submit-reflect" data-mission-id="${escapeHtml(id)}">Submit</button>
           </div>
-          <div class="quest-result" data-result="${id}" style="display:none;"></div>
+          <div class="quest-result" data-result="${escapeHtml(id)}" style="display:none;"></div>
         </div>
       `;
     }).join('');

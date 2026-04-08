@@ -5,7 +5,7 @@
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - **Docker & Docker Compose**
@@ -16,7 +16,7 @@ Recommended local runtime alignment:
 - Use `nvm use` from the repo root to pick up [`.nvmrc`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.nvmrc)
 - Use a Java 21 runtime that matches [`.java-version`](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/.java-version)
 
-### 🔐 Environment Configuration
+### Environment Configuration
 
 This project relies on environment variables for security and portability. 
 
@@ -46,7 +46,7 @@ Production environments (e.g., Render, Railway, AWS) do **NOT** use `.env` files
 
 ---
 
-## 🏗️ Running the System
+## Running the System
 
 ### Backend
 1. Navigate to the backend folder:
@@ -93,3 +93,4 @@ For the deploy workflow:
 - `PROD_FRONTEND_URL`
 
 Platform runtime variables are documented in [render-vercel.md](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/docs/deployment/render-vercel.md).
+

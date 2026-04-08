@@ -30,7 +30,7 @@ export class BootScene extends Phaser.Scene {
     const height = this.cameras.main.height;
     const htmlProgressBar = document.getElementById('loader-progress-bar');
 
-    // ── Background ──────────────────────────────────────────────────────────
+    // Background
     this.add.rectangle(width / 2, height / 2, width, height, P.bgDeep);
 
     // Subtle ambient circles
@@ -48,7 +48,7 @@ export class BootScene extends Phaser.Scene {
       );
     }
 
-    // ── Title ───────────────────────────────────────────────────────────────
+    // Title
     this.add.text(width / 2, height / 2 - 120, 'LOADING', {
       fontSize:        '28px',
       fontStyle:       'bold',
@@ -58,7 +58,7 @@ export class BootScene extends Phaser.Scene {
       letterSpacing:   8
     }).setOrigin(0.5);
 
-    // ── Progress track ──────────────────────────────────────────────────────
+    // Progress track
     const barW = 360;
     const barH = 18;
     const barX = width / 2 - barW / 2;
@@ -82,7 +82,7 @@ export class BootScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0.5);
 
-    // ── Progress callbacks ──────────────────────────────────────────────────
+    // Progress callbacks
     this.load.on('progress', (value) => {
       percentText.setText(`${Math.floor(value * 100)}%`);
       fill.clear();
@@ -111,7 +111,7 @@ export class BootScene extends Phaser.Scene {
         }
     });
 
-    // ── Asset loads (unchanged) ─────────────────────────────────────────────
+    // Asset loads
     this.load.image('logo', 'assets/logo.png');
 
     this.load.spritesheet(soldier.sheetKey, soldier.file, {
@@ -150,7 +150,6 @@ export class BootScene extends Phaser.Scene {
     
     this.load.image('1_Terrains_and_Fences_32x32', 'assets/map4/1_Terrains_and_Fences_32x32.png');
     this.load.image('7_Villas_32x32', 'assets/map4/7_Villas_32x32.png');
-    this.load.image('17_Garden_32x32', 'assets/map4/17_Garden_32x32.png');
 
     this.load.video('test_video', 'assets/videos/test_video.mp4', 'loadeddata', false, true);
     loadSharedUiAssets(this, {
@@ -160,7 +159,7 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  // ── Tilemap sanity (unchanged) ────────────────────────────────────────────
+  // Tilemap sanity
   sanitizeTilemapCache() {
     ['map1', 'map2', 'map3'].forEach((key) => {
       const data = this.cache.tilemap.get(key)?.data;
@@ -269,3 +268,4 @@ export class BootScene extends Phaser.Scene {
     }
   }
 }
+

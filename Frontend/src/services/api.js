@@ -676,7 +676,7 @@ class ApiService {
         adminComments
     });
     return data;
-``}
+  }
 
   async getContentModeration(id) {
     const { data } = await this.api.get(`/contents/${id}/moderation`);

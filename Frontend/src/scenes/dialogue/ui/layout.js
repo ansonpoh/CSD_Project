@@ -33,15 +33,12 @@ export const dialogueSceneLayoutMethods = {
     this.createPageIndicator(width, layout.lessonY, layout.lessonH);
     this.createNavigationHint(width, layout.lessonY, layout.lessonW, layout.lessonH);
     this.createPortraitSection(height);
-    this.createDialogueSection(width, height, layout.lessonY, layout.lessonW, layout.lessonH);
     this.renderPage();
   },
 
   getLessonLayout(width, height) {
-    const narrationY = height - 150;
-    const narrationTop = narrationY - 100;
     const lessonH = Math.min(520, height * 0.5);
-    const lessonY = (narrationTop - 50) - lessonH / 2;
+    const lessonY = height / 2 - 20;
     const lessonW = Math.min(1100, width - 240);
     return { lessonH, lessonW, lessonY };
   },
@@ -185,41 +182,6 @@ export const dialogueSceneLayoutMethods = {
       stroke: '#060814',
       strokeThickness: 4
     }).setOrigin(0.5);
-  },
-
-  createDialogueSection(width, height, lessonY, lessonW, lessonH) {
-    const dialogueWidth = width - 300;
-    const dialogueX = width / 2 + 50;
-    const dialogueY = height - 150;
-    const dialoguePanel = this.add.graphics();
-    dialoguePanel.fillStyle(P.bgDialogue, 0.96);
-    dialoguePanel.fillRoundedRect(dialogueX - dialogueWidth / 2, dialogueY - 100, dialogueWidth, 200, 6);
-    dialoguePanel.lineStyle(2, P.borderGold, 0.75);
-    dialoguePanel.strokeRoundedRect(dialogueX - dialogueWidth / 2, dialogueY - 100, dialogueWidth, 200, 6);
-    dialoguePanel.lineStyle(1, P.accentGlow, 0.2);
-    dialoguePanel.beginPath();
-    dialoguePanel.moveTo(dialogueX - dialogueWidth / 2 + 12, dialogueY - 98);
-    dialoguePanel.lineTo(dialogueX + dialogueWidth / 2 - 12, dialogueY - 98);
-    dialoguePanel.strokePath();
-
-    this.dialogueText = this.add.text(230, height - 230, '', {
-      fontSize: '19px',
-      color: P.textMain,
-      stroke: '#060814',
-      strokeThickness: 4,
-      wordWrap: { width: width - 350 }
-    });
-
-    this.add.text(width - 330, height - 72, 'Press SPACE to close', {
-      fontSize: '13px',
-      color: P.textDim,
-      fontStyle: 'italic',
-      stroke: '#060814',
-      strokeThickness: 3
-    });
-
-    this._makeDlgNavBtn(width / 2 - lessonW / 2 + lessonW - 100, lessonY + lessonH / 2 - 36, '<', () => this.prevPage());
-    this._makeDlgNavBtn(width / 2 - lessonW / 2 + lessonW - 54, lessonY + lessonH / 2 - 36, '>', () => this.nextPage());
   },
 
   createNPCIcon(x, y) {

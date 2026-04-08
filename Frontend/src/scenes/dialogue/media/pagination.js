@@ -11,6 +11,8 @@ export const dialogueScenePaginationMethods = {
   },
 
   typeText(text) {
+    if (!this.dialogueText) return;
+
     if (this.typingTimer) {
       this.typingTimer.remove();
       this.typingTimer = null;
@@ -43,7 +45,7 @@ export const dialogueScenePaginationMethods = {
 
     const dialogue = page.narration || '';
     this.fullCurrentText = dialogue;
-    this.dialogueText.setText('');
+    this.dialogueText?.setText('');
     this.typeText(dialogue);
     this.lessonTitleText.setText(this.buildSyncedLessonTitle(page.lessonTitle));
     this.lessonBodyText.setText(page.lessonBody);
@@ -65,7 +67,7 @@ export const dialogueScenePaginationMethods = {
     if (this.isTyping) {
       this.typingTimer?.remove();
       this.typingTimer = null;
-      this.dialogueText.setText(this.fullCurrentText);
+      this.dialogueText?.setText(this.fullCurrentText);
       this.isTyping = false;
       return;
     }
@@ -79,7 +81,7 @@ export const dialogueScenePaginationMethods = {
     if (this.isTyping) {
       this.typingTimer?.remove();
       this.typingTimer = null;
-      this.dialogueText.setText(this.fullCurrentText);
+      this.dialogueText?.setText(this.fullCurrentText);
       this.isTyping = false;
       return;
     }

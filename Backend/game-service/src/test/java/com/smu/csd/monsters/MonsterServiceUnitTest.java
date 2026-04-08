@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import com.smu.csd.monsters.monster_map.MonsterMap;
 import com.smu.csd.monsters.monster_map.MonsterMapRepository;
@@ -30,12 +32,12 @@ public class MonsterServiceUnitTest {
     @Test
     public void testGetAllMonsters() {
         List<Monster> monsters = Arrays.asList(new Monster(), new Monster());
-        when(repository.findAll()).thenReturn(monsters);
+        when(repository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(monsters));
 
         List<Monster> result = service.getAllMonsters();
 
         assertEquals(2, result.size());
-        verify(repository).findAll();
+        verify(repository).findAll(any(Pageable.class));
     }
 
     @Test

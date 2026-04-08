@@ -33,7 +33,6 @@ export const encounterStateMethods = {
 
   buildLessonPages(npc) {
     const title = npc.contentTitle || 'Lesson';
-    const topic = npc.topicName || 'Topic';
     const rawBody = (npc.contentBody || '').trim();
     const videoUrl = npc.videoUrl || null;
     const pages = [];
@@ -61,7 +60,6 @@ export const encounterStateMethods = {
       pages.push({
         lessonTitle: title,
         lessonBody: 'No lesson content yet.',
-        narration: `Today we learn: ${topic}`,
         mediaType: 'text'
       });
     } else {
@@ -69,7 +67,6 @@ export const encounterStateMethods = {
         pages.push({
           lessonTitle: `${title} (${index + 1}/${lines.length})`,
           lessonBody: line,
-          narration: `Today we learn: ${topic}`,
           mediaType: 'text'
         });
       });
@@ -79,7 +76,6 @@ export const encounterStateMethods = {
       pages.splice(Math.max(0, pages.length), 0, {
         lessonTitle: `${title} (Video)`,
         lessonBody: '',
-        narration: 'Watch this short lesson clip.',
         mediaType: 'video',
         videoUrl
       });

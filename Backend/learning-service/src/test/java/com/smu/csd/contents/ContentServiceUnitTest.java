@@ -112,8 +112,16 @@ public class ContentServiceUnitTest {
         doReturn(topic).when(topicService).getById(topicId);
         when(contentRepository.findFirstByContentFingerprintAndTopicAndStatusIn(anyString(), eq(topic), anyList()))
                 .thenReturn(Optional.empty());
+        UUID existingContentId = UUID.randomUUID();
         when(vectorStore.similaritySearch(any(SearchRequest.class)))
-                .thenReturn(List.of(new Document("text", Map.of("contentId", UUID.randomUUID().toString()))));
+                .thenReturn(List.of(new Document("text", Map.of("contentId", existingContentId.toString()))));
+        when(contentRepository.findById(existingContentId))
+                .thenReturn(Optional.of(
+                        Content.builder()
+                                .contentId(existingContentId)
+                                .status(Content.Status.APPROVED)
+                                .build()
+                ));
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,

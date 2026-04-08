@@ -1,8 +1,12 @@
 package com.smu.csd.quiz.map_quiz;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -169,14 +173,27 @@ public class MapQuizService {
     public MapQuizSubmitResponse submitAttempt(UUID supabaseUserId, MapQuizSubmitRequest request) {
         LearnerDto learner = requireLearner(supabaseUserId);
         MapQuiz quiz = requireQuiz(request.quizId());
+        List<MapQuizAnswerRequest> answers = request.answers() == null ? List.of() : request.answers();
+        Set<UUID> submittedQuestionIds = answers.stream()
+            .map(MapQuizAnswerRequest::questionId)
+            .filter(id -> id != null)
+            .collect(Collectors.toSet());
+        Set<UUID> quizQuestionIds = new HashSet<>(
+            java.util.Optional.ofNullable(questionRepository.findQuestionIdsByQuizId(quiz.getQuizId())).orElse(List.of())
+        );
+        Map<UUID, Set<UUID>> correctOptionIdsByQuestionId = loadCorrectOptionIdsByQuestionIds(submittedQuestionIds);
 
         // Score only against the questions that were actually submitted (frontend may
         // send a subset of the full quiz due to per-monster question splitting).
-        int total = request.answers().size();
+        int total = answers.size();
         int correct = 0;
 
-        for (MapQuizAnswerRequest answer : request.answers()) {
-            if (isAnswerCorrect(quiz, answer.questionId(), answer.selectedOptionIds())) {
+        for (MapQuizAnswerRequest answer : answers) {
+            if (isAnswerCorrect(
+                    answer.questionId(),
+                    answer.selectedOptionIds(),
+                    quizQuestionIds,
+                    correctOptionIdsByQuestionId)) {
                 correct++;
             }
         }
@@ -203,7 +220,15 @@ public class MapQuizService {
             throw new IllegalArgumentException("quizId and questionId are required.");
         }
         MapQuiz quiz = requireQuiz(request.quizId());
-        boolean correct = isAnswerCorrect(quiz, request.questionId(), request.selectedOptionIds());
+        Set<UUID> quizQuestionIds = new HashSet<>(
+            java.util.Optional.ofNullable(questionRepository.findQuestionIdsByQuizId(quiz.getQuizId())).orElse(List.of())
+        );
+        Map<UUID, Set<UUID>> correctOptionIdsByQuestionId = loadCorrectOptionIdsByQuestionIds(List.of(request.questionId()));
+        boolean correct = isAnswerCorrect(
+                request.questionId(),
+                request.selectedOptionIds(),
+                quizQuestionIds,
+                correctOptionIdsByQuestionId);
         return new MapQuizEvaluateResponse(correct);
     }
 
@@ -264,17 +289,20 @@ public class MapQuizService {
         return learner;
     }
 
-    private boolean isAnswerCorrect(MapQuiz quiz, UUID questionId, List<UUID> selectedOptionIds) {
-        if (quiz == null || questionId == null) return false;
-
-        boolean questionBelongsToQuiz = questionRepository.existsByQuiz_QuizIdAndQuestionId(quiz.getQuizId(), questionId);
-        if (!questionBelongsToQuiz) {
+    private boolean isAnswerCorrect(
+            UUID questionId,
+            List<UUID> selectedOptionIds,
+            Set<UUID> quizQuestionIds,
+            Map<UUID, Set<UUID>> correctOptionIdsByQuestionId
+    ) {
+        if (questionId == null) {
+            return false;
+        }
+        if (!quizQuestionIds.contains(questionId)) {
             throw new IllegalArgumentException("Question does not belong to this quiz.");
         }
 
-        Set<UUID> correctIds = optionRepository.findCorrectOptionIdsByQuestionId(questionId).stream()
-            .filter(id -> id != null)
-            .collect(Collectors.toSet());
+        Set<UUID> correctIds = correctOptionIdsByQuestionId.getOrDefault(questionId, Collections.emptySet());
         Set<UUID> selectedIds = selectedOptionIds == null
             ? Set.of()
             : selectedOptionIds.stream().filter(id -> id != null).collect(Collectors.toCollection(HashSet::new));
@@ -283,9 +311,14 @@ public class MapQuizService {
 
     private MapQuizResponse toResponse(MapQuiz quiz, boolean includeAnswers) {
         List<MapQuizQuestion> questions = questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quiz.getQuizId());
+        List<UUID> questionIds = questions.stream()
+            .map(MapQuizQuestion::getQuestionId)
+            .toList();
+        Map<UUID, List<MapQuizOption>> optionsByQuestionId = loadOptionsByQuestionIds(questionIds);
+
         List<MapQuizQuestionResponse> questionResponses = questions.stream()
             .map(q -> {
-                List<MapQuizOption> options = optionRepository.findByQuestion_QuestionId(q.getQuestionId());
+                List<MapQuizOption> options = optionsByQuestionId.getOrDefault(q.getQuestionId(), List.of());
                 List<MapQuizOptionResponse> optionResponses = options.stream()
                     .map(o -> new MapQuizOptionResponse(
                         o.getOptionId(),
@@ -305,5 +338,46 @@ public class MapQuizService {
             quiz.isPublished(),
             questionResponses
         );
+    }
+
+    private Map<UUID, List<MapQuizOption>> loadOptionsByQuestionIds(Collection<UUID> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Map.of();
+        }
+        List<MapQuizOption> options = java.util.Optional.ofNullable(optionRepository.findByQuestion_QuestionIdIn(questionIds))
+            .orElse(List.of());
+        boolean hasUnmappedOption = options.stream()
+            .anyMatch(o -> o == null || o.getQuestion() == null || o.getQuestion().getQuestionId() == null);
+        if (hasUnmappedOption) {
+            Map<UUID, List<MapQuizOption>> byQuestion = new HashMap<>();
+            for (UUID questionId : questionIds) {
+                if (questionId == null) {
+                    continue;
+                }
+                List<MapQuizOption> perQuestion = java.util.Optional
+                    .ofNullable(optionRepository.findByQuestion_QuestionId(questionId))
+                    .orElse(List.of());
+                byQuestion.put(questionId, perQuestion);
+            }
+            return byQuestion;
+        }
+        return options.stream()
+            .collect(Collectors.groupingBy(o -> o.getQuestion().getQuestionId()));
+    }
+
+    private Map<UUID, Set<UUID>> loadCorrectOptionIdsByQuestionIds(Collection<UUID> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Set<UUID>> byQuestion = new HashMap<>();
+        loadOptionsByQuestionIds(questionIds).forEach((questionId, options) -> {
+            Set<UUID> correctIds = options.stream()
+                .filter(MapQuizOption::isCorrect)
+                .map(MapQuizOption::getOptionId)
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(HashSet::new));
+            byQuestion.put(questionId, correctIds);
+        });
+        return byQuestion;
     }
 }

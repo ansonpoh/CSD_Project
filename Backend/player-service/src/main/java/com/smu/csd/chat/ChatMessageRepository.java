@@ -32,12 +32,16 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
         from ChatMessage m
         where m.chatConversationId = :conversationId
           and m.deletedAt is null
-          and m.createdAt < :beforeCreatedAt
+          and (
+                m.createdAt < :beforeCreatedAt
+                or (m.createdAt = :beforeCreatedAt and m.chatMessageId < :beforeMessageId)
+              )
         order by m.createdAt desc, m.chatMessageId desc
     """)
     List<ChatMessage> findPageBefore(
             @Param("conversationId") UUID conversationId,
             @Param("beforeCreatedAt") LocalDateTime beforeCreatedAt,
+            @Param("beforeMessageId") UUID beforeMessageId,
             Pageable pageable
     );
 

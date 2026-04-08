@@ -30,6 +30,8 @@ public class MapQuizServiceUnitTest {
         attemptRepository = mock(LearnerMapQuizAttemptRepository.class);
         restTemplate = mock(RestTemplate.class);
         service = new MapQuizService(quizRepository, questionRepository, optionRepository, attemptRepository, restTemplate);
+        when(questionRepository.findQuestionIdsByQuizId(any(UUID.class))).thenReturn(List.of());
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of());
     }
 
     @Test
@@ -263,7 +265,9 @@ public class MapQuizServiceUnitTest {
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
         when(restTemplate.getForObject(anyString(), eq(Boolean.class))).thenReturn(true);
         when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(Arrays.asList(question));
-        when(optionRepository.findByQuestion_QuestionId(question.getQuestionId())).thenReturn(Arrays.asList(correctOption));
+        when(questionRepository.findQuestionIdsByQuizId(quizId)).thenReturn(List.of(question.getQuestionId()));
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of(correctOption));
+        when(optionRepository.findByQuestion_QuestionId(question.getQuestionId())).thenReturn(List.of(correctOption));
         when(attemptRepository.save(any(LearnerMapQuizAttempt.class))).thenAnswer(i -> i.getArguments()[0]);
 
         MapQuizSubmitResponse result = service.submitAttempt(userId, request);
@@ -292,7 +296,9 @@ public class MapQuizServiceUnitTest {
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
         when(restTemplate.getForObject(anyString(), eq(Boolean.class))).thenReturn(true);
         when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(Arrays.asList(question));
-        when(optionRepository.findByQuestion_QuestionId(question.getQuestionId())).thenReturn(Arrays.asList(correctOption, wrongOption));
+        when(questionRepository.findQuestionIdsByQuizId(quizId)).thenReturn(List.of(question.getQuestionId()));
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of(correctOption, wrongOption));
+        when(optionRepository.findByQuestion_QuestionId(question.getQuestionId())).thenReturn(List.of(correctOption, wrongOption));
         when(attemptRepository.save(any(LearnerMapQuizAttempt.class))).thenAnswer(i -> i.getArguments()[0]);
 
         MapQuizSubmitResponse result = service.submitAttempt(userId, request);
@@ -322,6 +328,8 @@ public class MapQuizServiceUnitTest {
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
         when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question));
+        when(questionRepository.findQuestionIdsByQuizId(quizId)).thenReturn(List.of(questionId));
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of(correctOption, wrongOption));
         when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctOption, wrongOption));
 
         MapQuizEvaluateResponse response = service.evaluateAnswer(userId, request);
@@ -350,6 +358,8 @@ public class MapQuizServiceUnitTest {
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
         when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question));
+        when(questionRepository.findQuestionIdsByQuizId(quizId)).thenReturn(List.of(questionId));
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of(correctOption, wrongOption));
         when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctOption, wrongOption));
 
         MapQuizEvaluateResponse response = service.evaluateAnswer(userId, request);
@@ -383,6 +393,8 @@ public class MapQuizServiceUnitTest {
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
         when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question));
+        when(questionRepository.findQuestionIdsByQuizId(quizId)).thenReturn(List.of(questionId));
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of(correctA, correctB, wrong));
         when(optionRepository.findByQuestion_QuestionId(questionId)).thenReturn(List.of(correctA, correctB, wrong));
         when(attemptRepository.save(any(LearnerMapQuizAttempt.class))).thenAnswer(i -> i.getArguments()[0]);
 
@@ -435,6 +447,8 @@ public class MapQuizServiceUnitTest {
         when(restTemplate.getForObject(anyString(), eq(LearnerDto.class))).thenReturn(learner);
         when(quizRepository.findById(quizId)).thenReturn(java.util.Optional.of(quiz));
         when(questionRepository.findByQuiz_QuizIdOrderByQuestionOrder(quizId)).thenReturn(List.of(question1, question2, question3));
+        when(questionRepository.findQuestionIdsByQuizId(quizId)).thenReturn(List.of(q1, q2, q3));
+        when(optionRepository.findByQuestion_QuestionIdIn(anyCollection())).thenReturn(List.of(q1Correct, q2Correct, q2Wrong, q3Correct, q3Wrong));
         when(optionRepository.findByQuestion_QuestionId(q1)).thenReturn(List.of(q1Correct));
         when(optionRepository.findByQuestion_QuestionId(q2)).thenReturn(List.of(q2Correct, q2Wrong));
         when(optionRepository.findByQuestion_QuestionId(q3)).thenReturn(List.of(q3Correct, q3Wrong));

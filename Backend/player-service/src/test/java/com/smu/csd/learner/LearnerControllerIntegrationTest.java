@@ -104,6 +104,16 @@ public class LearnerControllerIntegrationTest {
     }
 
     @Test
+    void internalCheckLearnerExists_ShouldAllowWithoutAuthentication() throws Exception {
+        UUID supabaseUserId = UUID.randomUUID();
+        when(learnerService.existsBySupabaseUserId(supabaseUserId)).thenReturn(true);
+
+        mockMvc.perform(get("/api/learner/internal/learner/check/" + supabaseUserId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").value(true));
+    }
+
+    @Test
     void addLearner_WithValidData_ShouldReturnCreated() throws Exception {
         UUID supabaseUserId = UUID.randomUUID();
         sampleLearner.setSupabaseUserId(supabaseUserId);

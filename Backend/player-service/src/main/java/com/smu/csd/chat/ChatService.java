@@ -129,6 +129,7 @@ public class ChatService {
         int pageSize = normalizeLimit(limit);
 
         LocalDateTime beforeCreatedAt = null;
+        UUID beforeMessageId = null;
         if (beforeCursor != null) {
             ChatMessage cursor = chatMessageRepository.findById(beforeCursor)
                     .orElseThrow(() -> new ResourceNotFoundException("ChatMessage", "id", beforeCursor));
@@ -136,6 +137,7 @@ public class ChatService {
                 throw new IllegalArgumentException("Cursor does not belong to this conversation.");
             }
             beforeCreatedAt = cursor.getCreatedAt();
+            beforeMessageId = cursor.getChatMessageId();
         }
 
         List<ChatMessage> records = beforeCreatedAt == null
@@ -146,6 +148,7 @@ public class ChatService {
                 : chatMessageRepository.findPageBefore(
                         chatConversationId,
                         beforeCreatedAt,
+                        beforeMessageId,
                         PageRequest.of(0, pageSize + 1)
                 );
 

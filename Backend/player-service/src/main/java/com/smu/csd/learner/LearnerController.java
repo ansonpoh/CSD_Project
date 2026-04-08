@@ -61,6 +61,11 @@ public class LearnerController {
         return ResponseEntity.ok(service.existsBySupabaseUserId(supabaseUserId));
     }
 
+    @GetMapping("/internal/learner/check/{supabaseUserId}")
+    public ResponseEntity<Boolean> internalCheckLearnerExists(@PathVariable UUID supabaseUserId) {
+        return ResponseEntity.ok(service.existsBySupabaseUserId(supabaseUserId));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<Learner> addLearner(
             @Valid @RequestBody Learner learner,

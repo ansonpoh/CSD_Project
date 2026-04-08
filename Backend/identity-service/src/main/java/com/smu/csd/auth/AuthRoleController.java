@@ -104,7 +104,7 @@ public class AuthRoleController {
 
     private boolean checkLearnerExists(String supabaseUserId) {
         try {
-            String url = playerServiceUrl + "/api/learner/check/" + supabaseUserId;
+            String url = playerServiceUrl + "/api/learner/internal/learner/check/" + supabaseUserId;
             ResponseEntity<Boolean> response = restTemplate.getForEntity(url, Boolean.class);
             return Boolean.TRUE.equals(response.getBody());
         } catch (HttpClientErrorException.NotFound e) {

@@ -261,13 +261,6 @@ export class CombatScene extends Phaser.Scene {
       this.addLog('Return to the map and claim your quest reward.');
       dailyQuestService.recordEvent('monster_defeated');
     }
-    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'VICTORY!', {
-      fontSize: '72px',
-      fontStyle: 'bold',
-      color: P.textGreen,
-      stroke: '#060814',
-      strokeThickness: 10
-    }).setOrigin(0.5);
     this.renderOutcomeSummary(true);
     this.showExitButton();
   }
@@ -283,13 +276,6 @@ export class CombatScene extends Phaser.Scene {
 
     if (this.playerSprite && this.canPlayAnim('dead')) this.playerSprite.play('dead', true);
 
-    this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'DEFEAT', {
-      fontSize: '72px',
-      fontStyle: 'bold',
-      color: P.textRed,
-      stroke: '#060814',
-      strokeThickness: 10
-    }).setOrigin(0.5);
     this.renderOutcomeSummary(false, reason);
     this.showExitButton();
   }
@@ -299,6 +285,11 @@ export class CombatScene extends Phaser.Scene {
     this.runBtn?.setEnabled(false);
     this.exitBtn?.container?.setVisible(true);
     this.exitBtn?.setEnabled(true);
+    this.exitBtn?.container?.setDepth(9800);
+    this.exitBtn?.container?.setPosition(
+      Math.round((this.cameras.main.width - this.exitBtn.width) / 2),
+      this.cameras.main.height - 92
+    );
   }
 
   exitBattle() {

@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface SideChallengeProgressRepository extends JpaRepository<SideChallenge, UUID> {
+public interface SideChallengeProgressRepository extends JpaRepository<SideChallengeProgress, SideChallengeProgressId> {
 
     interface ProgressRow {
         Integer getAttempts();

@@ -2,6 +2,7 @@ package com.smu.csd.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
@@ -80,6 +81,10 @@ public class AuthRoleControllerDownstreamUnitTest {
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(false, body.get("hasRole"));
+        verify(restTemplate).getForEntity(
+                org.mockito.ArgumentMatchers.contains("/api/learner/internal/learner/check/" + userId),
+                org.mockito.ArgumentMatchers.eq(Boolean.class)
+        );
     }
 
     @Test

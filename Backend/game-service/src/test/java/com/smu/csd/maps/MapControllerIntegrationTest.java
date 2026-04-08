@@ -60,6 +60,8 @@ class MapControllerIntegrationTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 0.0,
                 0L,
                 0L,
@@ -94,7 +96,7 @@ class MapControllerIntegrationTest {
     void updateLike_TreatsNullRequestBodyAsFalse() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID mapId = UUID.randomUUID();
-        MapCatalogResponse response = new MapCatalogResponse(mapId, "Map", null, null, null, null, false, null, null, null, null, null, null, null, 0.0, 0L, 0L, null, false);
+        MapCatalogResponse response = new MapCatalogResponse(mapId, "Map", null, null, null, null, false, null, null, null, null, null, null, null, null, null, 0.0, 0L, 0L, null, false);
         when(mapService.updateMapLike(eq(mapId), eq(userId), eq(false))).thenReturn(response);
 
         mockMvc.perform(put("/api/maps/{mapId}/like", mapId)

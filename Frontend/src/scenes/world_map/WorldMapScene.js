@@ -85,7 +85,9 @@ export class WorldMapScene extends Phaser.Scene {
     try {
       const [maps, contributors, topics, learners] = await Promise.all([
         apiService.getAllMaps(),
-        apiService.getAllContributors().catch(() => []),
+        gameState.getRole() === 'admin'
+          ? apiService.getAllContributors().catch(() => [])
+          : Promise.resolve([]),
         apiService.getAllTopics().catch(() => []),
         apiService.getAllLearners().catch(() => [])
       ]);

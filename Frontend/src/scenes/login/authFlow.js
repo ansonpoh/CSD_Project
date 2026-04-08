@@ -49,14 +49,14 @@ function getPersistedOAuthIntent() {
     const intent = JSON.parse(raw);
     if (!intent || typeof intent !== 'object') return null;
 
-    if (intent.kind === 'continue') {
+    if (intent.kind === 'continue' || intent.kind === 'login' || intent.kind === 'register') {
       return intent;
     }
 
-    // Backward compatibility for old stored intents.
-    if (intent.kind === 'login' || intent.kind === 'register') {
+    // Backward compatibility for old stored intents that missed kind.
+    if (!intent.kind) {
       return {
-        kind: 'continue',
+        kind: 'register',
         role: intent.role,
         username: intent.username,
         fullname: intent.fullname,
@@ -155,6 +155,15 @@ function normalizeRegistrationConflictMessage(message = '') {
   return null;
 }
 
+function isRegistrationConflictError(error) {
+  const backendMessage = error?.response?.data?.message;
+  const directMessage = error?.message;
+  return Boolean(
+    normalizeRegistrationConflictMessage(backendMessage) ||
+    normalizeRegistrationConflictMessage(directMessage)
+  );
+}
+
 function extractErrorMessage(error, fallbackMessage = 'Registration failed. Please try again.') {
   const backendMessage = error?.response?.data?.message;
   const normalizedBackendMessage = normalizeRegistrationConflictMessage(backendMessage);
@@ -167,6 +176,56 @@ function extractErrorMessage(error, fallbackMessage = 'Registration failed. Plea
   if (typeof directMessage === 'string' && directMessage.trim()) return directMessage;
 
   return fallbackMessage;
+}
+
+function withUsernameSuffix(base, suffix) {
+  const safeBase = (base || 'player').replace(/[^a-zA-Z0-9._-]/g, '') || 'player';
+  const maxBaseLength = Math.max(1, 30 - suffix.length);
+  return `${safeBase.slice(0, maxBaseLength)}${suffix}`;
+}
+
+async function createLearnerAccountWithRetries({ userId, username, email, fullname, avatarPreset }) {
+  const baseUsername = (username || '').trim() || deriveUsernameFromEmail(email);
+  const candidates = [
+    baseUsername,
+    withUsernameSuffix(baseUsername, '_1'),
+    withUsernameSuffix(baseUsername, '_2'),
+    withUsernameSuffix(baseUsername, '_3'),
+    withUsernameSuffix(baseUsername, '_4')
+  ];
+
+  let lastConflictError = null;
+  for (const candidate of candidates) {
+    try {
+      await createLearnerAccount({
+        userId,
+        username: candidate,
+        email,
+        fullname,
+        avatarPreset
+      });
+      return;
+    } catch (error) {
+      if (!isRegistrationConflictError(error)) {
+        throw error;
+      }
+      lastConflictError = error;
+    }
+  }
+
+  throw new Error(extractErrorMessage(lastConflictError));
+}
+
+async function tryHydrateExistingLearnerSession() {
+  try {
+    await hydrateLearnerSession();
+    return true;
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 async function resolveContributorBanMessage(userId) {
@@ -285,9 +344,9 @@ export async function registerWithRole({ role, username, fullname, bio, avatarPr
   return buildMessageResult('Unsupported role');
 }
 
-export async function continueWithGoogle({ role, username, fullname, bio, avatarPreset }) {
+async function beginGoogleOAuth({ kind, role, username, fullname, bio, avatarPreset }) {
   persistOAuthIntent({
-    kind: 'continue',
+    kind,
     role,
     username,
     fullname,
@@ -308,12 +367,17 @@ export async function continueWithGoogle({ role, username, fullname, bio, avatar
   }
 }
 
+export async function continueWithGoogle({ role, username, fullname, bio, avatarPreset }) {
+  // Legacy path; keep behavior compatible for in-flight sessions.
+  return beginGoogleOAuth({ kind: 'continue', role, username, fullname, bio, avatarPreset });
+}
+
 export async function loginWithGoogle({ role }) {
-  return continueWithGoogle({ role });
+  return beginGoogleOAuth({ kind: 'login', role });
 }
 
 export async function registerWithGoogle({ role, username, fullname, bio, avatarPreset }) {
-  return continueWithGoogle({ role, username, fullname, bio, avatarPreset });
+  return beginGoogleOAuth({ kind: 'register', role, username, fullname, bio, avatarPreset });
 }
 
 export async function resumeGoogleOAuthIntent() {
@@ -344,11 +408,64 @@ export async function resumeGoogleOAuthIntent() {
     if (!isNotFoundError(error)) throw error;
   }
 
-  if (intent.kind !== 'continue') {
+  const intentKind = intent.kind || 'continue';
+
+  if (intentKind === 'login') {
     clearOAuthIntent();
-    return buildRerenderResult('Unsupported OAuth flow.');
+    if (!roleInfo?.role) {
+      await supabase.auth.signOut();
+      return buildRerenderResult('No account found. Please register first.', 'register');
+    }
+    if (intent.role && roleInfo.role !== intent.role) {
+      await supabase.auth.signOut();
+      return buildMessageResult('Invalid Credentials');
+    }
+    if (roleInfo.role === 'learner') {
+      await hydrateLearnerSession();
+    }
+    return buildRouteResultFromRole(roleInfo.role);
   }
 
+  if (intentKind === 'register') {
+    if (roleInfo?.role) {
+      clearOAuthIntent();
+      await supabase.auth.signOut();
+      return buildRerenderResult('Account already exists. Please login instead.', 'login');
+    }
+
+    const role = intent.role || 'learner';
+    const resolvedFullName = (intent.fullname || '').trim() || deriveFullName(user, email);
+
+    if (role === 'learner') {
+      await createLearnerAccountWithRetries({
+        userId,
+        username: intent.username,
+        email,
+        fullname: resolvedFullName,
+        avatarPreset: intent.avatarPreset
+      });
+      clearOAuthIntent();
+      return buildStartGameResult();
+    }
+
+    if (role === 'contributor') {
+      await apiService.createContributor({
+        email,
+        fullName: resolvedFullName,
+        bio: intent.bio || ''
+      }).catch((error) => {
+        throw new Error(extractErrorMessage(error));
+      });
+      clearOAuthIntent();
+      return buildSceneResult('ContributorScene');
+    }
+
+    clearOAuthIntent();
+    await supabase.auth.signOut();
+    return buildRerenderResult('Unsupported role');
+  }
+
+  // Legacy "continue" behavior for users returning with older stored OAuth intent.
   if (roleInfo?.role) {
     clearOAuthIntent();
     if (intent.role && roleInfo.role !== intent.role) {
@@ -365,19 +482,35 @@ export async function resumeGoogleOAuthIntent() {
   const resolvedFullName = (intent.fullname || '').trim() || deriveFullName(user, email);
 
   if (role === 'learner') {
-    const resolvedUsername = (intent.username || '').trim() || deriveUsernameFromEmail(email);
-    await createLearnerAccount({
-      userId,
-      username: resolvedUsername,
-      email,
-      fullname: resolvedFullName,
-      avatarPreset: intent.avatarPreset
-    });
+    const hasExistingLearner = await tryHydrateExistingLearnerSession();
+    if (!hasExistingLearner) {
+      await createLearnerAccountWithRetries({
+        userId,
+        username: intent.username,
+        email,
+        fullname: resolvedFullName,
+        avatarPreset: intent.avatarPreset
+      });
+    }
     clearOAuthIntent();
     return buildStartGameResult();
   }
 
   if (role === 'contributor') {
+    const existingContributor = await apiService.getContributorBySupabaseId(userId).catch((lookupError) => {
+      if (isNotFoundError(lookupError)) return null;
+      throw lookupError;
+    });
+
+    if (existingContributor) {
+      clearOAuthIntent();
+      if (existingContributor.isActive === false) {
+        await supabase.auth.signOut();
+        return buildMessageResult('Your contributor account has been banned.');
+      }
+      return buildSceneResult('ContributorScene');
+    }
+
     await apiService.createContributor({
       email,
       fullName: resolvedFullName,

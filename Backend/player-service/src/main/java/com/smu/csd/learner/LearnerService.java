@@ -53,12 +53,26 @@ public class LearnerService {
     @Transactional
     public Learner createLearner(UUID supabaseUserId, String username, String email, String fullName)
             throws ResourceAlreadyExistsException {
-        if (repository.existsByUsernameIgnoreCase(username)) {
-            throw new ResourceAlreadyExistsException("Username is already in use.");
+        Learner existingBySupabase = repository.findBySupabaseUserId(supabaseUserId);
+        if (existingBySupabase != null && Boolean.TRUE.equals(existingBySupabase.getIs_active())) {
+            return existingBySupabase;
         }
 
-        if (repository.existsByEmail(email)) {
-            throw new ResourceAlreadyExistsException("Learner", "email", email);
+        Learner existingByEmail = repository.findByEmailIgnoreCase(email);
+        if (existingByEmail != null && Boolean.TRUE.equals(existingByEmail.getIs_active())) {
+            UUID existingSupabaseUserId = existingByEmail.getSupabaseUserId();
+            if (!supabaseUserId.equals(existingSupabaseUserId)) {
+                existingByEmail.setSupabaseUserId(supabaseUserId);
+                existingByEmail.setUpdated_at(LocalDateTime.now());
+                Learner relinked = repository.save(existingByEmail);
+                leaderboardService.upsertLearnerScore(relinked);
+                return relinked;
+            }
+            return existingByEmail;
+        }
+
+        if (repository.existsByUsernameIgnoreCase(username)) {
+            throw new ResourceAlreadyExistsException("Username is already in use.");
         }
 
         if (repository.existsBySupabaseUserId(supabaseUserId)) {

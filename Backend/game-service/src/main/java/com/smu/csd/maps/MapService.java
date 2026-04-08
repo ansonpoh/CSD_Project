@@ -79,6 +79,7 @@ public class MapService {
         return repository.findByPublishedTrueOrPublishedIsNull();
     }
 
+    @Transactional(readOnly = true)
     public List<MapCatalogResponse> getMapCatalog(UUID supabaseUserId, boolean includeUnpublished) {
         List<Map> maps = getAllMaps(includeUnpublished);
         if (maps.isEmpty()) return List.of();
@@ -491,6 +492,8 @@ public class MapService {
                 Boolean.TRUE.equals(map.getPublished()),
                 map.getTopic() == null ? null : map.getTopic().getTopicId(),
                 map.getSubmittedByContributor() == null ? null : map.getSubmittedByContributor().getContributorId(),
+                map.getSubmittedByContributor() == null ? null : map.getSubmittedByContributor().getSupabaseUserId(),
+                resolveContributorDisplayName(map.getSubmittedByContributor()),
                 map.getRejectionReason(),
                 map.getApprovedByAdmin() == null ? null : map.getApprovedByAdmin().getAdministratorId(),
                 map.getApprovedAt(),
@@ -803,6 +806,24 @@ public class MapService {
         if (value == null) return fallback;
         String trimmed = value.trim();
         return trimmed.isBlank() ? fallback : trimmed;
+    }
+
+    private String resolveContributorDisplayName(Contributor contributor) {
+        if (contributor == null) return null;
+
+        String fullName = safe(contributor.getFullName(), "");
+        if (!fullName.isBlank()) return fullName;
+
+        String email = safe(contributor.getEmail(), "");
+        if (!email.isBlank()) {
+            int at = email.indexOf('@');
+            if (at > 0) {
+                return email.substring(0, at);
+            }
+            return email;
+        }
+
+        return null;
     }
 
     private record TopicLookupResponse(UUID topicId, String topicName, String description) {}

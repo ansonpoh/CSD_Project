@@ -25,6 +25,12 @@ public class Contributor {
     @Column(name = "supabase_user_id")
     private UUID supabaseUserId;
 
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "full_name")
+    private String fullName;
+
     @Column(name = "is_active")
     private Boolean isActive;
 }

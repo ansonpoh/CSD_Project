@@ -10,7 +10,8 @@ import {
 } from './formState.js';
 import {
   loginWithRole,
-  continueWithGoogle,
+  loginWithGoogle,
+  registerWithGoogle,
   registerWithRole,
   resumeGoogleOAuthIntent
 } from './authFlow.js';
@@ -142,12 +143,12 @@ export class LoginScene extends Phaser.Scene {
     this.setSubmitting(true);
     try {
       if (this.authMode === 'login') {
-        await continueWithGoogle({ role: this.role });
+        await loginWithGoogle({ role: this.role });
         return;
       }
 
       const form = readRegisterForm(this.loginForm);
-      await continueWithGoogle(form);
+      await registerWithGoogle(form);
     } catch (error) {
       this.setMessage(error.message || 'Google authentication failed');
     } finally {

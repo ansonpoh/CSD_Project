@@ -73,13 +73,31 @@ public class LearnerServiceUnitTest {
     }
 
     @Test
-    public void testCreateLearnerDuplicateEmail() {
-        UUID userId = UUID.randomUUID();
-        when(repository.existsByEmail("test@example.com")).thenReturn(true);
+    public void testCreateLearnerDuplicateEmailRelinksSupabaseUser() throws ResourceAlreadyExistsException {
+        UUID oldSupabaseUserId = UUID.randomUUID();
+        UUID newSupabaseUserId = UUID.randomUUID();
+        Learner existingLearner = Learner.builder()
+                .learnerId(UUID.randomUUID())
+                .supabaseUserId(oldSupabaseUserId)
+                .username("existinguser")
+                .email("test@example.com")
+                .full_name("Existing User")
+                .level(2)
+                .total_xp(150)
+                .gold(30)
+                .is_active(true)
+                .build();
 
-        assertThrows(ResourceAlreadyExistsException.class, () ->
-            service.createLearner(userId, "testuser", "test@example.com", "Test User")
-        );
+        when(repository.findBySupabaseUserId(newSupabaseUserId)).thenReturn(null);
+        when(repository.findByEmailIgnoreCase("test@example.com")).thenReturn(existingLearner);
+        when(repository.save(existingLearner)).thenReturn(existingLearner);
+
+        Learner result = service.createLearner(newSupabaseUserId, "testuser", "test@example.com", "Test User");
+
+        assertNotNull(result);
+        assertEquals(newSupabaseUserId, result.getSupabaseUserId());
+        verify(repository).save(existingLearner);
+        verify(leaderboardService).upsertLearnerScore(existingLearner);
     }
 
     @Test

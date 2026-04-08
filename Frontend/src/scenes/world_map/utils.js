@@ -45,10 +45,17 @@ export const worldMapUtilityMethods = {
 
     return safeMaps.map((map) => {
       const contributorId = String(map?.submittedByContributorId || '').trim();
+      const contributorSupabaseUserId = String(map?.submittedByContributorSupabaseUserId || '').trim();
       const topicId = String(map?.topicId || '').trim();
       const isContributorMap = Boolean(contributorId);
       const creatorUsername = isContributorMap
-        ? (contributorUsernameById.get(contributorId) || 'contributor')
+        ? (
+            String(map?.submittedByContributorName || '').trim()
+            || String(map?.creatorName || '').trim()
+            || usernameBySupabaseId.get(contributorSupabaseUserId)
+            || contributorUsernameById.get(contributorId)
+            || 'contributor'
+          )
         : 'admin';
       const topicName = topicNameById.get(topicId) || (topicId ? 'Unknown topic' : 'Unassigned');
 
@@ -106,7 +113,9 @@ export const worldMapUtilityMethods = {
   async reloadMapCatalog() {
     const [maps, contributors, topics, learners] = await Promise.all([
       apiService.getAllMaps(),
-      apiService.getAllContributors().catch(() => []),
+      gameState.getRole() === 'admin'
+        ? apiService.getAllContributors().catch(() => [])
+        : Promise.resolve([]),
       apiService.getAllTopics().catch(() => []),
       apiService.getAllLearners().catch(() => [])
     ]);

@@ -12,6 +12,8 @@ public record MapCatalogResponse(
     Boolean published,
     UUID topicId,
     UUID submittedByContributorId,
+    UUID submittedByContributorSupabaseUserId,
+    String submittedByContributorName,
     String rejectionReason,
     UUID approvedByAdminId,
     java.time.LocalDateTime approvedAt,

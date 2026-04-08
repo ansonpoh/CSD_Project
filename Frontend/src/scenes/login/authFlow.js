@@ -270,7 +270,13 @@ export async function loginWithRole({ role, email, password }) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  const userHasRole = await apiService.hasRole(role);
+  let userHasRole = false;
+  try {
+    userHasRole = await apiService.hasRole(role);
+  } catch {
+    const roleInfo = await apiService.getMyRole().catch(() => null);
+    userHasRole = roleInfo?.role === role;
+  }
   if (!userHasRole) {
     const userId = data.user?.id || data.session?.user?.id;
     if (role === 'contributor') {

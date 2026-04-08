@@ -13,8 +13,6 @@ export const draftMethods = {
         draftId: this.currentDraftId,
         name: this.getFormValue('#me-name') || 'Untitled Draft',
         description: this.getFormValue('#me-desc'),
-        biome: this.getFormValue('#me-bio'),
-        difficulty: this.getFormValue('#me-diff'),
         mapData: this.buildRuntimePayload()
       };
       const saved = await apiService.saveMapDraft(payload);
@@ -22,6 +20,10 @@ export const draftMethods = {
       this.setStatus(`Draft saved: ${this.currentDraftId}`);
       this.refreshStatusMeta();
       this.pushHistory('save');
+      this.showSuccessModal({
+        title: 'Draft Saved',
+        message: `Draft ${this.currentDraftId || 'successfully'} saved. You can continue editing or submit it for review when ready.`
+      });
     } catch (error) {
       this.setStatus(`Save failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
     }
@@ -35,11 +37,15 @@ export const draftMethods = {
       modal.className = 'me-surface me-modal';
 
       const list = (rows || []).map((row) => `
-        <button type="button" class="me-draft-card" data-draft-id="${row.draftId}">
+        <div class="me-draft-card" data-draft-id="${row.draftId}">
           <div class="me-draft-card__title">${this.escapeHtml(row.name || 'Untitled')}</div>
           <div class="me-draft-card__body">${this.escapeHtml(row.description || 'No description yet.')}</div>
           <div class="me-draft-card__meta">Updated: ${this.escapeHtml(String(row.updatedAt || 'unknown'))}</div>
-        </button>
+          <div class="me-chip-row" style="margin-top: 10px;">
+            <button type="button" class="me-action me-action--ghost" data-load-draft-id="${row.draftId}">Load</button>
+            <button type="button" class="me-action me-action--warning" data-delete-draft-id="${row.draftId}">Delete</button>
+          </div>
+        </div>
       `).join('');
 
       modal.innerHTML = `
@@ -68,11 +74,23 @@ export const draftMethods = {
         this.closeLoadDraftModal();
       });
 
-      modal.querySelectorAll('[data-draft-id]').forEach((button) => {
+      modal.querySelectorAll('[data-load-draft-id]').forEach((button) => {
         button.addEventListener('click', async () => {
-          const draftId = button.getAttribute('data-draft-id');
+          const draftId = button.getAttribute('data-load-draft-id');
           await this.loadDraftById(draftId);
           this.closeLoadDraftModal();
+        });
+      });
+
+      modal.querySelectorAll('[data-delete-draft-id]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const draftId = button.getAttribute('data-delete-draft-id');
+          if (!draftId) return;
+          const confirmed = window.confirm('Delete this draft permanently? This action cannot be undone.');
+          if (!confirmed) return;
+          await this.deleteDraftById(draftId);
+          this.closeLoadDraftModal();
+          await this.openLoadDraftModal();
         });
       });
     } catch (error) {
@@ -87,6 +105,38 @@ export const draftMethods = {
       this.modalHostEl.innerHTML = '';
       this.modalHostEl.classList.remove('is-open');
     }
+  },
+
+  showSuccessModal({ title, message }) {
+    if (!this.modalHostEl) return;
+
+    if (this.uiModal?.parentNode) this.uiModal.parentNode.removeChild(this.uiModal);
+    this.uiModal = null;
+
+    const modal = document.createElement('div');
+    modal.className = 'me-surface me-modal';
+    modal.innerHTML = `
+      <div class="me-modal__header">
+        <div>
+          <div class="me-sidebar__title">Success</div>
+          <h3>${this.escapeHtml(title || 'Action complete')}</h3>
+        </div>
+      </div>
+      <div class="me-copy" style="margin-bottom: 18px;">${this.escapeHtml(message || 'Completed successfully.')}</div>
+      <div class="me-chip-row">
+        <button type="button" class="me-action me-action--success" id="me-close-success-modal">Close</button>
+      </div>
+    `;
+
+    this.modalHostEl.classList.add('is-open');
+    this.modalHostEl.innerHTML = '<div class="me-modal-backdrop"></div>';
+    this.modalHostEl.appendChild(modal);
+    this.uiModal = modal;
+
+    modal.querySelector('#me-close-success-modal')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      this.closeLoadDraftModal();
+    });
   },
 
   async loadDraftById(draftId) {
@@ -114,8 +164,6 @@ export const draftMethods = {
       this.refreshToolbarLabel();
       this.setFormValue('#me-name', row.name || '');
       this.setFormValue('#me-desc', row.description || '');
-      this.setFormValue('#me-bio', row.biome || '');
-      this.setFormValue('#me-diff', row.difficulty || '');
       this.setStatus(`Loaded draft: ${row.name || row.draftId}`);
       this.refreshStatusMeta();
       this.pushHistory('load');
@@ -134,10 +182,28 @@ export const draftMethods = {
         name: this.getFormValue('#me-name') || 'Contributor Map',
         description: this.getFormValue('#me-desc')
       });
-      this.setStatus(`Submitted for admin review: ${submitted?.mapId || submitted?.id || 'success'}`);
+      const submitId = submitted?.mapId || submitted?.id || 'success';
+      this.setStatus(`Submitted for admin review: ${submitId}`);
       this.refreshStatusMeta();
+      this.showSuccessModal({
+        title: 'Submitted For Review',
+        message: `Map ${submitId} was submitted to admins successfully.`
+      });
     } catch (error) {
       this.setStatus(`Submission failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
+    }
+  },
+
+  async deleteDraftById(draftId) {
+    try {
+      await apiService.deleteMapDraft(draftId);
+      if (this.currentDraftId === draftId) {
+        this.currentDraftId = null;
+      }
+      this.setStatus('Draft deleted.');
+      this.refreshStatusMeta();
+    } catch (error) {
+      this.setStatus(`Delete failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
     }
   },
 

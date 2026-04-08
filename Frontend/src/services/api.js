@@ -138,6 +138,10 @@ class ApiService {
     return data;
   }
 
+  async deleteMapDraft(draftId) {
+    await this.api.delete(`/maps/editor/drafts/${draftId}`);
+  }
+
   async submitMapDraft(draftId, payload = {}) {
     const { data } = await this.api.post(`/maps/editor/drafts/${draftId}/submit`, payload);
     return data;

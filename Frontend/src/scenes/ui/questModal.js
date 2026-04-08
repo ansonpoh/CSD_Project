@@ -1,5 +1,7 @@
 import { apiService } from '../../services/api.js';
 import { gameState } from '../../services/gameState.js';
+import { wireDomModalA11y } from './domModalA11y.js';
+import { UI_TOKENS } from './uiTokens.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -24,7 +26,7 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     z-index: 9000;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
   }
   .quest-panel {
     background: linear-gradient(160deg, #1a0f06 0%, #2e1a06 60%, #1a0f06 100%);
@@ -82,6 +84,28 @@ const STYLES = `
   .quest-state--success { background: #18331a; border-color: #4b7a2f; color: #8fd45e; }
   .quest-state--error { background: #3a0e0e; border-color: #8b2020; color: #ff9f9f; }
   .quest-body { padding: 20px 24px 24px; }
+  .quest-footer {
+    border-top: 1px solid rgba(200,135,10,0.3);
+    padding: 12px 24px 16px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .quest-close-btn {
+    background: #2e2414;
+    border: 1px solid #7a6440;
+    color: #d3ba93;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: ${UI_TOKENS.fontFamily};
+    letter-spacing: 0.35px;
+  }
+  .quest-close-btn:hover {
+    background: #3a2d18;
+    color: #f4c048;
+    border-color: #c8870a;
+  }
   .quest-card {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(200,135,10,0.35);
@@ -131,7 +155,7 @@ const STYLES = `
     border-radius: 6px;
     font-size: 13px;
     cursor: pointer;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
   }
   .quest-reflect-btn:hover { background: #5c3208; }
   .quest-reflect-form { margin-top: 10px; }
@@ -144,7 +168,7 @@ const STYLES = `
     border-radius: 6px;
     color: #f4e8c0;
     font-size: 13px;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
     resize: vertical;
     box-sizing: border-box;
     margin-bottom: 8px;
@@ -200,17 +224,20 @@ export function showQuests(scene) {
   const overlay = document.createElement('div');
   overlay.className = 'quest-overlay';
   overlay.innerHTML = `
-    <div class="quest-panel">
+    <div class="quest-panel" role="dialog" aria-modal="true" aria-labelledby="quest-title" tabindex="-1">
       <div class="quest-header">
         <div>
-          <h2>Daily Quests</h2>
+          <h2 id="quest-title">Daily Quests</h2>
           <p>Observe and interact - reflect on the world around you</p>
         </div>
-        <button class="quest-close" id="quest-close-btn">&#x2715;</button>
+        <button class="quest-close" id="quest-close-btn" aria-label="Close quest modal">&#x2715;</button>
       </div>
-      <div class="quest-state quest-state--loading" id="quest-state">LOADING: Fetching your missions...</div>
+      <div class="quest-state quest-state--loading" id="quest-state" role="status" aria-live="polite">LOADING: Fetching your missions...</div>
       <div class="quest-body" id="quest-body">
         <div class="quest-loading">Loading your missions...</div>
+      </div>
+      <div class="quest-footer">
+        <button class="quest-close-btn" id="quest-close-footer-btn" aria-label="Close daily quests modal">Close</button>
       </div>
     </div>
   `;
@@ -221,19 +248,28 @@ export function showQuests(scene) {
 
   function setPanelState(status, message) {
     if (!stateEl) return;
+    stateEl.style.display = 'block';
     const normalized = ['loading', 'empty', 'success', 'error'].includes(status) ? status : 'loading';
     stateEl.className = `quest-state quest-state--${normalized}`;
     stateEl.textContent = `${normalized.toUpperCase()}: ${message}`;
   }
 
+  let teardownA11y = () => {};
   function close() {
+    teardownA11y();
     overlay.remove();
     scene.input.enabled = true;
   }
 
   overlay.querySelector('#quest-close-btn').addEventListener('click', close);
+  overlay.querySelector('#quest-close-footer-btn').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   scene.input.enabled = false;
+  teardownA11y = wireDomModalA11y(overlay, {
+    dialogSelector: '.quest-panel',
+    initialFocusSelector: '#quest-close-btn',
+    onClose: close
+  });
 
   function renderMissions(missions) {
     const body = overlay.querySelector('#quest-body');
@@ -247,7 +283,7 @@ export function showQuests(scene) {
       return;
     }
 
-    setPanelState('success', `${missions.length} mission${missions.length === 1 ? '' : 's'} ready.`);
+    if (stateEl) stateEl.style.display = 'none';
     body.innerHTML = missions.map((m) => {
       const id = String(m.mission?.missionId || m.missionId || '');
       const title = m.mission?.title || m.title || 'Mission';
@@ -268,8 +304,8 @@ export function showQuests(scene) {
             Write Reflection
           </button>
           <div class="quest-reflect-form" data-reflect-form="${escapeHtml(id)}" style="display:none;">
-            <textarea class="quest-textarea" data-textarea="${escapeHtml(id)}" placeholder="Describe what you observed or experienced..."></textarea>
-            <button class="quest-submit-btn" data-action="submit-reflect" data-mission-id="${escapeHtml(id)}">Submit</button>
+            <textarea class="quest-textarea" data-textarea="${escapeHtml(id)}" placeholder="Describe what you observed or experienced..." aria-label="Reflection for ${escapeHtml(title)}"></textarea>
+            <button class="quest-submit-btn" data-action="submit-reflect" data-mission-id="${escapeHtml(id)}" aria-label="Submit reflection for ${escapeHtml(title)}">Submit</button>
           </div>
           <div class="quest-result" data-result="${escapeHtml(id)}" style="display:none;"></div>
         </div>

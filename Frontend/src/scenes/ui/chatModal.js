@@ -1,4 +1,6 @@
 import { apiService } from '../../services/api.js';
+import { wireDomModalA11y } from './domModalA11y.js';
+import { UI_TOKENS } from './uiTokens.js';
 
 const STYLES = `
   .chat-overlay {
@@ -9,7 +11,7 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     z-index: 9000;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
   }
   .chat-panel {
     background: linear-gradient(160deg, #060f2a 0%, #0d1e45 60%, #060f2a 100%);
@@ -55,7 +57,7 @@ const STYLES = `
     padding: 4px 10px;
     border-radius: 4px;
     cursor: pointer;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
   }
   .chat-clear-btn:hover { background: #243a60; color: #a0d8ff; }
   .chat-close {
@@ -144,7 +146,7 @@ const STYLES = `
     border-radius: 8px;
     color: #f4e8c0;
     font-size: 13px;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
     padding: 9px 12px;
     resize: none;
     min-height: 40px;
@@ -162,7 +164,7 @@ const STYLES = `
     border-radius: 8px;
     font-size: 13px;
     cursor: pointer;
-    font-family: 'Georgia', serif;
+    font-family: ${UI_TOKENS.fontFamily};
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -195,29 +197,29 @@ export function showChatbot(scene) {
   const overlay = document.createElement('div');
   overlay.className = 'chat-overlay';
   overlay.innerHTML = `
-    <div class="chat-panel">
+    <div class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="chat-title" tabindex="-1">
       <div class="chat-header">
         <div class="chat-header-left">
           <div>
-            <h2>Ask the Oracle</h2>
+            <h2 id="chat-title">Ask the Oracle</h2>
             <p>Powered by RAG — ask anything about Gen Alpha culture</p>
           </div>
         </div>
         <div class="chat-header-actions">
-          <button class="chat-clear-btn" id="chat-clear-btn">Clear history</button>
-          <button class="chat-close" id="chat-close-btn">&#x2715;</button>
+          <button class="chat-clear-btn" id="chat-clear-btn" aria-label="Clear chat history">Clear history</button>
+          <button class="chat-close" id="chat-close-btn" aria-label="Close chat modal">&#x2715;</button>
         </div>
       </div>
-      <div class="chat-state chat-state--empty" id="chat-state">EMPTY: Start a conversation with the Oracle.</div>
-      <div class="chat-messages" id="chat-messages">
+      <div class="chat-state chat-state--empty" id="chat-state" role="status" aria-live="polite">EMPTY: Start a conversation with the Oracle.</div>
+      <div class="chat-messages" id="chat-messages" role="log" aria-live="polite">
         <div class="chat-empty">
           Ask me anything about slang, trends, memes, and Gen Alpha culture.<br>
           I'll do my best to enlighten you, traveller.
         </div>
       </div>
       <div class="chat-footer">
-        <textarea class="chat-input" id="chat-input" placeholder="Type your question..." rows="1"></textarea>
-        <button class="chat-send-btn" id="chat-send-btn">Send</button>
+        <textarea class="chat-input" id="chat-input" placeholder="Type your question..." rows="1" aria-label="Chat prompt input"></textarea>
+        <button class="chat-send-btn" id="chat-send-btn" aria-label="Send chat message">Send</button>
       </div>
     </div>
   `;
@@ -237,7 +239,9 @@ export function showChatbot(scene) {
     stateEl.textContent = `${normalized.toUpperCase()}: ${message}`;
   }
 
+  let teardownA11y = () => {};
   function close() {
+    teardownA11y();
     overlay.remove();
     scene.input.enabled = true;
   }
@@ -245,6 +249,11 @@ export function showChatbot(scene) {
   overlay.querySelector('#chat-close-btn').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   scene.input.enabled = false;
+  teardownA11y = wireDomModalA11y(overlay, {
+    dialogSelector: '.chat-panel',
+    initialFocusSelector: '#chat-input',
+    onClose: close
+  });
 
   // Prevent Phaser from swallowing keystrokes in the input
   inputEl.addEventListener('keydown', (e) => e.stopPropagation());

@@ -11,7 +11,8 @@ import {
   getPrimaryRightStats,
   truncateProfileValue
 } from './profileHelpers.js';
-import { createUiButton, stopPointerPropagation } from './shared.js';
+import { createModalDismissHandlers, createUiButton, stopPointerPropagation } from './shared.js';
+import { UI_TOKENS } from './uiTokens.js';
 
 export async function showUserProfile(scene) {
   const width = scene.cameras.main.width;
@@ -23,6 +24,7 @@ export async function showUserProfile(scene) {
   const panelLeft = Math.floor(width / 2 - (cols * tileSize) / 2);
   const panelTop = Math.floor(height / 2 - (rows * tileSize) / 2);
   const panelWidth = cols * tileSize;
+  const panelHeight = rows * tileSize;
 
   const overlay = stopPointerPropagation(
     scene.add.rectangle(0, 0, width, height, 0x060a14, 0.86)
@@ -52,12 +54,25 @@ export async function showUserProfile(scene) {
     }).setOrigin(0.5).setDepth(depth + 3)
   );
 
+  let teardownDismiss = () => {};
   const cleanup = (pointer, localX, localY, event) => {
     event?.stopPropagation?.();
+    teardownDismiss();
     nodes.forEach((node) => node?.destroy());
     scene.profileTween?.stop();
     scene.profileTween = null;
   };
+  teardownDismiss = createModalDismissHandlers(scene, {
+    overlay,
+    cleanup,
+    shouldCloseOnBackdropPointerUp: (pointer) => {
+      const px = Number(pointer?.x);
+      const py = Number(pointer?.y);
+      if (!Number.isFinite(px) || !Number.isFinite(py)) return true;
+      const insidePanel = px >= panelLeft && px <= (panelLeft + panelWidth) && py >= panelTop && py <= (panelTop + panelHeight);
+      return !insidePanel;
+    }
+  });
 
   const closeButton = scene.add.sprite(panelLeft + panelWidth - 40, panelTop + 32, 'ui-close-btn', 0)
     .setScale(1.8)
@@ -167,10 +182,10 @@ export async function showUserProfile(scene) {
         width: 118,
         height: 26,
         label: 'LOGOUT',
-        fillNormal: 0x3a0e0e,
-        fillHover: 0x601818,
-        borderNormal: 0x8b2020,
-        borderHover: 0xf0b030,
+        fillNormal: UI_TOKENS.colors.danger,
+        fillHover: UI_TOKENS.colors.dangerHover,
+        borderNormal: UI_TOKENS.colors.dangerBorder,
+        borderHover: UI_TOKENS.colors.borderGlow,
         depth: depth + 4,
         onPress: () => {
           cleanup();

@@ -4,6 +4,51 @@ export function stopPointerPropagation(target) {
   return target;
 }
 
+export function createModalDismissHandlers(scene, {
+  overlay,
+  cleanup,
+  shouldCloseOnBackdropPointerUp = null,
+  closeOnBackdrop = true,
+  closeOnEscape = true
+} = {}) {
+  if (!scene || typeof cleanup !== 'function') {
+    return () => {};
+  }
+
+  const canCloseFromBackdrop = typeof shouldCloseOnBackdropPointerUp === 'function'
+    ? shouldCloseOnBackdropPointerUp
+    : () => true;
+
+  const onBackdropPointerUp = (pointer, localX, localY, event) => {
+    event?.stopPropagation?.();
+    if (!canCloseFromBackdrop(pointer, localX, localY, event)) {
+      return;
+    }
+    cleanup(pointer, localX, localY, event);
+  };
+  const onEscape = (event) => {
+    if (event?.key !== 'Escape') return;
+    event?.preventDefault?.();
+    cleanup();
+  };
+
+  if (closeOnBackdrop && overlay?.on) {
+    overlay.on('pointerup', onBackdropPointerUp);
+  }
+  if (closeOnEscape && scene.input?.keyboard) {
+    scene.input.keyboard.on('keydown', onEscape);
+  }
+
+  return () => {
+    if (closeOnBackdrop && overlay?.off) {
+      overlay.off('pointerup', onBackdropPointerUp);
+    }
+    if (closeOnEscape && scene.input?.keyboard) {
+      scene.input.keyboard.off('keydown', onEscape);
+    }
+  };
+}
+
 function fitTextToWidth(textObject, maxWidth, minScale = 0.65) {
   if (!textObject || !(maxWidth > 0)) return;
 

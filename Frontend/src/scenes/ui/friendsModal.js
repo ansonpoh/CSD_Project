@@ -1,5 +1,6 @@
 import { apiService } from '../../services/api.js';
 import { createUiButton, stopPointerPropagation } from './shared.js';
+import { UI_TOKENS } from './uiTokens.js';
 
 const DEPTH = 1100;
 const PANEL_W = 860;
@@ -126,11 +127,25 @@ export function showFriends(scene) {
   };
 
   const overlay = stopPointerPropagation(
-    scene.add.rectangle(0, 0, width, height, 0x000000, 0.8)
+    scene.add.rectangle(0, 0, width, height, UI_TOKENS.colors.overlay, 0.8)
       .setOrigin(0)
       .setInteractive()
       .setDepth(DEPTH)
   );
+  overlay.on('pointerup', (pointer, _localX, _localY, event) => {
+    event?.stopPropagation?.();
+    const px = Number(pointer?.x);
+    const py = Number(pointer?.y);
+    const insidePanel = Number.isFinite(px)
+      && Number.isFinite(py)
+      && px >= panelX
+      && px <= (panelX + PANEL_W)
+      && py >= panelY
+      && py <= (panelY + PANEL_H);
+    if (!insidePanel) {
+      cleanup();
+    }
+  });
   nodes.push(overlay);
 
   const panel = scene.add.graphics().setDepth(DEPTH + 1);
@@ -162,13 +177,13 @@ export function showFriends(scene) {
 
   const statusText = scene.add.text(panelX + 24, panelY + PANEL_H - 28, '', {
     fontSize: '12px',
-    color: '#9eb7d7',
+    color: UI_TOKENS.colors.textInfo,
     stroke: '#060814',
     strokeThickness: 3
   }).setDepth(DEPTH + 4);
   nodes.push(statusText);
 
-  const setStatus = (text, color = '#9eb7d7') => {
+  const setStatus = (text, color = UI_TOKENS.colors.textInfo) => {
     statusText.setColor(color);
     statusText.setText(text || '');
   };
@@ -1357,6 +1372,12 @@ export function showFriends(scene) {
       return;
     }
 
+    if (key === 'Escape' && !state.focused) {
+      if (typeof event?.preventDefault === 'function') event.preventDefault();
+      cleanup();
+      return;
+    }
+
     if (state.chat.active) return;
 
     if (!state.focused) {
@@ -1394,26 +1415,23 @@ export function showFriends(scene) {
       return;
     }
 
-    const clickedInsideModal = currentlyOver.some((obj) => {
+    const pointerX = Number(_pointer?.x);
+    const pointerY = Number(_pointer?.y);
+    const pointerInsidePanel = Number.isFinite(pointerX)
+      && Number.isFinite(pointerY)
+      && pointerX >= panelX
+      && pointerX <= (panelX + PANEL_W)
+      && pointerY >= panelY
+      && pointerY <= (panelY + PANEL_H);
+
+    const clickedInsideModal = pointerInsidePanel || currentlyOver.some((obj) => {
       const depth = Number(obj?.depth ?? obj?.parentContainer?.depth ?? -1);
       return Number.isFinite(depth) && depth >= DEPTH + 1;
     });
-
-    if (state.chat.active && state.chat.focusedInput) {
-      const clickedInput = currentlyOver.some((obj) => obj?.getData?.('chat-input-hit'));
-      if (!clickedInput && !clickedInsideModal) {
-        state.chat.focusedInput = false;
-        draw();
-      }
+    if (!clickedInsideModal) {
+      cleanup();
+      return;
     }
-
-    if (!state.focused) return;
-    if (clickedInsideModal) return;
-    const clickedSearch = currentlyOver.some((obj) =>
-      obj?.getData?.('friend-modal-search-hit') || obj?.getData?.('friend-modal-search-clear'));
-    if (clickedSearch) return;
-    state.focused = false;
-    draw();
   };
 
   const wheelHandler = (pointer, _currentlyOver, _deltaX, deltaY) => {
@@ -1442,10 +1460,10 @@ export function showFriends(scene) {
       width: 122,
       height: 34,
       label: 'CLOSE',
-      fillNormal: 0x3a0e0e,
-      fillHover: 0x601818,
-      borderNormal: 0x8b2020,
-      borderHover: C.borderGlow,
+      fillNormal: UI_TOKENS.colors.danger,
+      fillHover: UI_TOKENS.colors.dangerHover,
+      borderNormal: UI_TOKENS.colors.dangerBorder,
+      borderHover: UI_TOKENS.colors.borderGlow,
       depth: DEPTH + 4,
       onPress: cleanup
     })

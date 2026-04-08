@@ -1,4 +1,6 @@
 import { apiService } from '../../services/api.js';
+import { dailyQuestService } from '../../services/dailyQuests.js';
+import { gameState } from '../../services/gameState.js';
 import { mapDiscoveryService } from '../../services/mapDiscovery.js';
 import { WORLD_MAP_PALETTE as P } from './constants.js';
 
@@ -202,7 +204,7 @@ export const worldMapCommunityPanelMethods = {
 
   refreshCommunityPanel() {
     if (!this.panels?.community) return;
-    this.populateCommunityPanel(this.panels.community);
+    this.populateCommunityPanel(this.panels.community, gameState.getLearner());
   },
 
   createFriendSearchBar(x, y, width) {
@@ -419,7 +421,7 @@ export const worldMapCommunityPanelMethods = {
     return y;
   },
 
-  populateCommunityPanel(panel) {
+  populateCommunityPanel(panel, learner) {
     this.clearPanelBody(panel);
 
     const c = this.createScrollableBody(panel, { left: 0, right: 0, top: 0, bottom: 24 });
@@ -440,57 +442,10 @@ export const worldMapCommunityPanelMethods = {
 
     const spotlight = mapDiscoveryService.getCreatorSpotlight(this.catalog);
     const trendLeader = [...this.catalog].sort((a, b) => b.socialProof.trendScore - a.socialProof.trendScore)[0];
+    const recommendations = mapDiscoveryService.getRecommendations(this.catalog, learner).slice(0, 2);
+    const dailySnapshot = dailyQuestService.getSnapshot();
 
     let y = 18;
-    c.add(this.add.text(pad, y, `${map.socialProof.rating.toFixed(1)}\u2605 average from ${this.formatCompact(map.socialProof.ratingCount)} ratings`, {
-      fontSize: '16px',
-      color: P.gold,
-      fontStyle: 'bold',
-      stroke: '#060814',
-      strokeThickness: 4
-    }));
-    y += 28;
-
-    c.add(this.add.text(pad, y, `${this.formatCompact(map.socialProof.likes)} likes`, {
-      fontSize: '13px',
-      color: P.textMain,
-      stroke: '#060814',
-      strokeThickness: 3
-    }));
-    y += 26;
-
-    y += 10;
-
-    const likeButtonWidth = 160;
-    const enterButtonWidth = 220;
-    const buttonHeight = 42;
-    const enterButtonX = Math.max(pad + likeButtonWidth + 16, panel.width - pad - enterButtonWidth);
-
-    c.add(this.createButton(pad, y, likeButtonWidth, buttonHeight, map.playerState.liked ? 'Unlike Map' : 'Like Map', () => {
-      void this.toggleSelectedMapLike(map);
-    }));
-
-    c.add(this.createButton(enterButtonX, y, enterButtonWidth, buttonHeight, map.unlocked ? 'Enter Highlighted Gate' : map.unlockText, () => {
-      if (map.unlocked) this.enterMap(map);
-    }, !map.unlocked));
-    y += 58;
-
-    c.add(this.add.text(pad, y, `Your rating: ${map.playerState.rating || 0}\u2605`, {
-      fontSize: '14px',
-      color: P.textMain,
-      fontStyle: 'bold',
-      stroke: '#060814',
-      strokeThickness: 4
-    }));
-    y += 28;
-
-    [1, 2, 3, 4, 5].forEach((rating, index) => {
-      c.add(this.createButton(pad + index * 72, y, 64, 38, `${rating}\u2605`, () => {
-        void this.rateSelectedMap(map, rating);
-      }, map.playerState.rating === rating));
-    });
-    y += 56;
-
     c.add(this.add.text(pad, y, 'Creator spotlight', {
       fontSize: '15px',
       color: P.good,
@@ -531,6 +486,52 @@ export const worldMapCommunityPanelMethods = {
       c.add(trendText);
       y += trendText.height + 12;
     }
+
+    if (recommendations.length) {
+      y += 8;
+      c.add(this.add.text(pad, y, 'Run guidance', {
+        fontSize: '15px',
+        color: P.good,
+        fontStyle: 'bold',
+        stroke: '#060814',
+        strokeThickness: 4
+      }));
+      y += 24;
+
+      recommendations.forEach((line, index) => {
+        c.add(this.add.text(pad, y, `${index + 1}. ${this.truncate(line, 62)}`, {
+          fontSize: '13px',
+          color: P.textMain,
+          stroke: '#060814',
+          strokeThickness: 3
+        }));
+        y += 26;
+      });
+    }
+
+    y += 8;
+    c.add(this.add.text(pad, y, 'Daily quest', {
+      fontSize: '15px',
+      color: P.gold,
+      fontStyle: 'bold',
+      stroke: '#060814',
+      strokeThickness: 4
+    }));
+    y += 24;
+
+    const questLines = dailySnapshot.quests.map((quest) => {
+      const marker = quest.completed ? '[x]' : '[ ]';
+      return `${marker} ${quest.label} (${Math.min(quest.progress, quest.goal)}/${quest.goal})`;
+    });
+    const questsText = this.add.text(pad, y, questLines.join('\n'), {
+      fontSize: '12px',
+      color: P.textMain,
+      stroke: '#060814',
+      strokeThickness: 3,
+      wordWrap: { width: textWidth }
+    });
+    c.add(questsText);
+    y += questsText.height + 12;
 
     this.setPanelScrollMetrics(panel, y);
   }

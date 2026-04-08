@@ -29,6 +29,7 @@ export class LoginScene extends Phaser.Scene {
     this.cloudSet = 1;
     this.cloudLayerCount = 4;
     this.role = initialRole;
+    this.isSubmitting = false;
     this.formOptions = {
       roles: ['learner', 'contributor'],
       showRoleSelector: true,
@@ -89,7 +90,10 @@ export class LoginScene extends Phaser.Scene {
       this.loginForm = createAuthFormContainer();
     }
     //user input is a nono to prevent XSS :(
-    this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode, this.role, this.formOptions);
+    this.loginForm.innerHTML = buildAuthFormMarkup(this.authMode, this.role, {
+      ...this.formOptions,
+      isSubmitting: this.isSubmitting
+    });
     wireAuthForm(this);
   }
 
@@ -98,6 +102,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   setAuthMode(mode) {
+    if (this.isSubmitting) return;
     if (!this.formOptions.allowRegister && mode !== 'login') return;
     if (!mode || mode === this.authMode) return;
     this.authMode = mode;
@@ -108,6 +113,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   setRole(role) {
+    if (this.isSubmitting) return;
     if (!role || role === this.role) return;
     if (!this.formOptions.roles.includes(role)) return;
     if (this.authMode === 'register' && role === 'admin') return;
@@ -116,6 +122,8 @@ export class LoginScene extends Phaser.Scene {
   }
 
   async handleSubmit() {
+    if (this.isSubmitting) return;
+    this.setSubmitting(true);
     try {
       const result = this.authMode === 'login'
         ? await this.submitLogin()
@@ -124,10 +132,14 @@ export class LoginScene extends Phaser.Scene {
       this.applyAuthResult(result);
     } catch (error) {
       this.setMessage(error.message || 'Authentication failed');
+    } finally {
+      this.setSubmitting(false);
     }
   }
 
   async handleGoogleAuth() {
+    if (this.isSubmitting) return;
+    this.setSubmitting(true);
     try {
       if (this.authMode === 'login') {
         await continueWithGoogle({ role: this.role });
@@ -138,6 +150,8 @@ export class LoginScene extends Phaser.Scene {
       await continueWithGoogle(form);
     } catch (error) {
       this.setMessage(error.message || 'Google authentication failed');
+    } finally {
+      this.setSubmitting(false);
     }
   }
 
@@ -219,6 +233,28 @@ export class LoginScene extends Phaser.Scene {
   setMessage(message) {
     const messageDiv = this.loginForm?.querySelector('#message');
     if (messageDiv) messageDiv.textContent = message;
+  }
+
+  setSubmitting(nextSubmitting) {
+    this.isSubmitting = Boolean(nextSubmitting);
+    if (!this.loginForm) return;
+
+    const submitBtn = this.loginForm.querySelector('#submitBtn');
+    const googleBtn = this.loginForm.querySelector('#googleAuthBtn');
+    const controls = this.loginForm.querySelectorAll('input, select, button, [data-role-chip], [data-auth-mode]');
+    controls.forEach((control) => {
+      if ('disabled' in control) control.disabled = this.isSubmitting;
+    });
+
+    if (submitBtn) {
+      submitBtn.textContent = this.isSubmitting
+        ? 'Working...'
+        : (this.authMode === 'login' ? 'Login' : 'Register');
+    }
+    if (googleBtn) {
+      googleBtn.textContent = this.isSubmitting ? 'Working...' : 'Continue with Google';
+    }
+    this.loginForm.setAttribute('aria-busy', this.isSubmitting ? 'true' : 'false');
   }
 
   startGame() {

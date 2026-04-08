@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
@@ -102,6 +103,17 @@ public class MapController {
     ) {
         UUID supabaseUserId = currentUser(authentication);
         return service.saveDraft(supabaseUserId, request);
+    }
+
+    @DeleteMapping("/editor/drafts/{draftId}")
+    @PreAuthorize("hasRole('CONTRIBUTOR') or hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteDraft(
+            Authentication authentication,
+            @PathVariable UUID draftId
+    ) throws ResourceNotFoundException {
+        UUID supabaseUserId = currentUser(authentication);
+        service.deleteDraft(supabaseUserId, draftId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/editor/drafts/{draftId}/submit")

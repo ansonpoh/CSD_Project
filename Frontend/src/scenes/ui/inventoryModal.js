@@ -1,5 +1,6 @@
 import { gameState } from '../../services/gameState.js';
-import { createUiButton, stopPointerPropagation } from './shared.js';
+import { createModalDismissHandlers, createUiButton, stopPointerPropagation } from './shared.js';
+import { UI_TOKENS } from './uiTokens.js';
 
 const DEPTH = 1000;
 
@@ -8,8 +9,6 @@ const PALETTE = {
   bgCard: 0x0d1530,
   btnSuccess: 0x0e3020,
   btnSuccessHover: 0x1a5030,
-  btnDanger: 0x3a0e0e,
-  btnDangerHover: 0x601818,
   borderGold: 0xc8870a,
   borderGlow: 0xf0b030,
   accentGlow: 0xffdd60
@@ -143,15 +142,30 @@ export function showInventory(scene) {
   const panelY = height / 2 - panelHeight / 2;
 
   const nodes = [];
-  const cleanup = () => nodes.forEach((node) => node?.destroy());
+  let teardownDismiss = () => {};
+  const cleanup = () => {
+    teardownDismiss();
+    nodes.forEach((node) => node?.destroy());
+  };
 
   const overlay = stopPointerPropagation(
-    scene.add.rectangle(0, 0, width, height, 0x000000, 0.78)
+    scene.add.rectangle(0, 0, width, height, UI_TOKENS.colors.overlay, 0.78)
       .setOrigin(0)
       .setInteractive()
       .setDepth(DEPTH)
   );
   nodes.push(overlay);
+  teardownDismiss = createModalDismissHandlers(scene, {
+    overlay,
+    cleanup,
+    shouldCloseOnBackdropPointerUp: (pointer) => {
+      const px = Number(pointer?.x);
+      const py = Number(pointer?.y);
+      if (!Number.isFinite(px) || !Number.isFinite(py)) return true;
+      const insidePanel = px >= panelX && px <= (panelX + panelWidth) && py >= panelY && py <= (panelY + panelHeight);
+      return !insidePanel;
+    }
+  });
 
   const headerHeight = drawPanel(scene, panelX, panelY, panelWidth, panelHeight, nodes);
 
@@ -203,10 +217,10 @@ export function showInventory(scene) {
       width: 120,
       height: 34,
       label: 'CLOSE',
-      fillNormal: PALETTE.btnDanger,
-      fillHover: PALETTE.btnDangerHover,
-      borderNormal: 0x8b2020,
-      borderHover: PALETTE.borderGlow,
+      fillNormal: UI_TOKENS.colors.danger,
+      fillHover: UI_TOKENS.colors.dangerHover,
+      borderNormal: UI_TOKENS.colors.dangerBorder,
+      borderHover: UI_TOKENS.colors.borderGlow,
       pressFill: 0x100520,
       pressBorder: 0x604008,
       depth: DEPTH + 4,

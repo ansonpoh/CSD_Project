@@ -136,6 +136,11 @@ function ensureAuthFormStyles() {
       margin-bottom: 10px;
     }
 
+    .login-auth-button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
     .login-auth-button--primary {
       padding: 12px;
       background: var(--login-auth-border);
@@ -187,13 +192,16 @@ export function createAuthFormContainer() {
   ensureAuthFormStyles();
   const loginForm = document.createElement('div');
   loginForm.className = 'login-auth-form';
+  loginForm.setAttribute('role', 'dialog');
+  loginForm.setAttribute('aria-modal', 'true');
+  loginForm.setAttribute('aria-label', 'Authentication form');
   document.body.appendChild(loginForm);
   return loginForm;
 }
 
 function preventInputPropagation(container) {
-  container.querySelectorAll('input').forEach((input) => {
-    input.addEventListener('keydown', (event) => event.stopPropagation());
+  container.querySelectorAll('input, select, textarea').forEach((field) => {
+    field.addEventListener('keydown', (event) => event.stopPropagation());
   });
 }
 
@@ -218,8 +226,14 @@ export function wireRoleFieldEvents(container) {
 export function wireAuthForm(scene) {
   const { loginForm } = scene;
 
-  query(loginForm, '#submitBtn')?.addEventListener('click', () => scene.handleSubmit());
-  query(loginForm, '#googleAuthBtn')?.addEventListener('click', () => scene.handleGoogleAuth());
+  query(loginForm, '#submitBtn')?.addEventListener('click', () => {
+    if (scene.isSubmitting) return;
+    scene.handleSubmit();
+  });
+  query(loginForm, '#googleAuthBtn')?.addEventListener('click', () => {
+    if (scene.isSubmitting) return;
+    scene.handleGoogleAuth();
+  });
   loginForm.querySelectorAll('[data-role-chip]').forEach((chip) => {
     chip.addEventListener('click', () => {
       const role = chip.getAttribute('data-role-chip');
@@ -237,8 +251,12 @@ export function wireAuthForm(scene) {
 
   const passwordInput = query(loginForm, '#password');
   passwordInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') scene.handleSubmit();
+    if (event.key === 'Enter' && !scene.isSubmitting) scene.handleSubmit();
   });
 
   bindAvatarPresetHint(loginForm);
+
+  if (!scene.isSubmitting) {
+    query(loginForm, '#email')?.focus();
+  }
 }

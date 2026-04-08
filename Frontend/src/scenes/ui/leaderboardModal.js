@@ -1,5 +1,6 @@
 import { apiService } from '../../services/api.js';
-import { createUiButton, stopPointerPropagation } from './shared.js';
+import { createModalDismissHandlers, createUiButton, stopPointerPropagation } from './shared.js';
+import { UI_TOKENS } from './uiTokens.js';
 
 const DEPTH = 1100;
 
@@ -8,8 +9,6 @@ const PALETTE = {
   bgCard: 0x0d1530,
   bgCardMe: 0x1a1040,
   btnNormal: 0x2a0f42,
-  btnDanger: 0x3a0e0e,
-  btnDangerHover: 0x601818,
   borderGold: 0xc8870a,
   borderGlow: 0xf0b030,
   borderMe: 0xf4c048,
@@ -154,15 +153,30 @@ export async function showLeaderboard(scene) {
   const panelY = height / 2 - panelHeight / 2;
 
   const nodes = [];
-  const cleanup = () => nodes.forEach((node) => node?.destroy());
+  let teardownDismiss = () => {};
+  const cleanup = () => {
+    teardownDismiss();
+    nodes.forEach((node) => node?.destroy());
+  };
 
   const overlay = stopPointerPropagation(
-    scene.add.rectangle(0, 0, width, height, 0x000000, 0.78)
+    scene.add.rectangle(0, 0, width, height, UI_TOKENS.colors.overlay, 0.78)
       .setOrigin(0)
       .setInteractive()
       .setDepth(DEPTH)
   );
   nodes.push(overlay);
+  teardownDismiss = createModalDismissHandlers(scene, {
+    overlay,
+    cleanup,
+    shouldCloseOnBackdropPointerUp: (pointer) => {
+      const px = Number(pointer?.x);
+      const py = Number(pointer?.y);
+      if (!Number.isFinite(px) || !Number.isFinite(py)) return true;
+      const insidePanel = px >= panelX && px <= (panelX + panelWidth) && py >= panelY && py <= (panelY + panelHeight);
+      return !insidePanel;
+    }
+  });
 
   const headerHeight = drawPanel(scene, panelX, panelY, panelWidth, panelHeight, nodes);
 
@@ -231,7 +245,7 @@ export async function showLeaderboard(scene) {
   const stateBadge = scene.add.text(panelX + 24, columnsY + 24, '', {
     fontSize: '11px',
     fontStyle: 'bold',
-    color: '#9eb7d7',
+    color: UI_TOKENS.colors.textInfo,
     stroke: '#060814',
     strokeThickness: 3
   }).setOrigin(0, 0).setDepth(DEPTH + 3);
@@ -239,7 +253,7 @@ export async function showLeaderboard(scene) {
 
   const stateMessage = scene.add.text(panelX + 108, columnsY + 24, '', {
     fontSize: '13px',
-    color: '#9eb7d7',
+    color: UI_TOKENS.colors.textInfo,
     stroke: '#060814',
     strokeThickness: 3
   }).setDepth(DEPTH + 3).setWordWrapWidth(panelWidth - 132, true);
@@ -332,10 +346,10 @@ export async function showLeaderboard(scene) {
       width: 120,
       height: 34,
       label: 'CLOSE',
-      fillNormal: PALETTE.btnDanger,
-      fillHover: PALETTE.btnDangerHover,
-      borderNormal: 0x8b2020,
-      borderHover: PALETTE.borderGlow,
+      fillNormal: UI_TOKENS.colors.danger,
+      fillHover: UI_TOKENS.colors.dangerHover,
+      borderNormal: UI_TOKENS.colors.dangerBorder,
+      borderHover: UI_TOKENS.colors.borderGlow,
       depth: DEPTH + 4,
       onPress: cleanup
     })

@@ -125,8 +125,8 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.panels.profile = this.createWindowPanel(leftX, topY, leftCols, topRows, 'ADVENTURER');
     this.panels.gates = this.createWindowPanel(rightX, topY, rightCols, topRows, 'DISCOVERY GATES');
-    this.panels.intel = this.createWindowPanel(leftX, bottomY, leftCols, bottomRows, 'MAP INTEL');
-    this.panels.community = this.createWindowPanel(rightX, bottomY, rightCols, bottomRows, 'COMMUNITY SIGNALS');
+    this.panels.community = this.createWindowPanel(leftX, bottomY, leftCols, bottomRows, 'COMMUNITY SIGNALS');
+    this.panels.intel = this.createWindowPanel(rightX, bottomY, rightCols, bottomRows, 'MAP INTEL');
   }
 
   renderPanels(learner) {

@@ -33,45 +33,12 @@ export function buildHud(scene, learner) {
   hudBackground.lineTo(width, 57);
   hudBackground.strokePath();
 
-  scene.usernameText = scene.add.text(16, 10, `@ ${learner.username}`, {
+  scene.usernameText = scene.add.text(16, 10, `${learner.username}`, {
     fontSize: '18px',
     color: '#e8f0ff',
     fontStyle: 'bold',
     stroke: '#060d1e',
     strokeThickness: 4
-  });
-
-  scene.usernameText.setInteractive({ useHandCursor: true });
-
-  const tooltipText = scene.add.text(0, 0, 'User profile', {
-    fontSize: '12px',
-    color: '#ffffff',
-    fontStyle: 'bold'
-  });
-
-  const tooltipBackground = scene.add.graphics();
-  tooltipBackground.fillStyle(0x000000, 0.85);
-  tooltipBackground.fillRoundedRect(-6, -4, tooltipText.width + 12, tooltipText.height + 8, 4);
-
-  const tooltip = scene.add.container(
-    scene.usernameText.x + 10,
-    scene.usernameText.y + 26,
-    [tooltipBackground, tooltipText]
-  ).setDepth(100).setVisible(false);
-
-  scene.usernameText.on('pointerover', () => {
-    scene.usernameText.setTint(0xf4c048);
-    tooltip.setVisible(true);
-  });
-
-  scene.usernameText.on('pointerout', () => {
-    scene.usernameText.clearTint();
-    tooltip.setVisible(false);
-  });
-
-  scene.usernameText.on('pointerdown', () => {
-    tooltip.setVisible(false);
-    scene.showUserProfile();
   });
 
   scene.levelText = scene.add.text(16, 32, `Level: ${learner.level}`, {

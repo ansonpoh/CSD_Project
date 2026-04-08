@@ -202,48 +202,60 @@ export const worldMapPanelFactoryMethods = {
     card.add(bg);
     card.add(leftAccent);
 
-    const textColor = map.unlocked ? P.textMain : P.textDisabled;
-    card.add(this.add.text(20, 12, this.truncate(map.name || 'Unnamed Map', 30), {
+    const textColor = map.unlocked ? '#f8fbff' : '#d6d0e6';
+    const descColor = map.unlocked ? '#e7dcff' : '#c8bfdc';
+    const textStroke = '#040712';
+
+    const title = this.add.text(20, 12, this.truncate(map.name || 'Unnamed Map', 30), {
       fontSize: '20px',
       fontStyle: 'bold',
       color: textColor,
-      stroke: '#060814',
-      strokeThickness: 5
-    }));
+      stroke: textStroke,
+      strokeThickness: 6
+    });
+    title.setShadow(0, 2, '#000000', 0.75, true, true);
+    card.add(title);
 
-    card.add(this.add.text(20, 42, this.truncate(map.learningGoal, 88), {
+    const goal = this.add.text(20, 42, this.truncate(map.learningGoal, 88), {
       fontSize: '13px',
-      color: map.unlocked ? P.textDesc : P.textDisabled,
-      stroke: '#060814',
-      strokeThickness: 3,
+      color: descColor,
+      stroke: textStroke,
+      strokeThickness: 4,
       wordWrap: { width: width - 40, useAdvancedWrap: true },
       lineSpacing: 3
-    }));
+    });
+    goal.setShadow(0, 1, '#000000', 0.6, true, true);
+    card.add(goal);
 
     const badge = this.add.text(width - 12, 12, map.featured ? 'FEATURED' : map.seasonalTag.toUpperCase(), {
       fontSize: '12px',
       fontStyle: 'bold',
       color: map.featured ? P.good : P.warn,
-      stroke: '#060814',
-      strokeThickness: 3
+      stroke: textStroke,
+      strokeThickness: 4
     }).setOrigin(1, 0);
+    badge.setShadow(0, 1, '#000000', 0.65, true, true);
     card.add(badge);
 
     const creator = `By ${this.truncate(map.creatorName || 'admin', 20)}`;
-    card.add(this.add.text(20, height - 22, creator, {
+    const creatorText = this.add.text(20, height - 22, creator, {
       fontSize: '11px',
-      color: map.unlocked ? P.textDesc : P.textDisabled,
-      stroke: '#060814',
-      strokeThickness: 3
-    }));
+      color: descColor,
+      stroke: textStroke,
+      strokeThickness: 4
+    });
+    creatorText.setShadow(0, 1, '#000000', 0.6, true, true);
+    card.add(creatorText);
 
     const social = `${map.socialProof.rating.toFixed(1)}\u2605  ${this.formatCompact(map.socialProof.likes)} likes`;
-    card.add(this.add.text(width - 12, height - 22, social, {
+    const socialText = this.add.text(width - 12, height - 22, social, {
       fontSize: '11px',
       color: textColor,
-      stroke: '#060814',
-      strokeThickness: 3
-    }).setOrigin(1, 0));
+      stroke: textStroke,
+      strokeThickness: 4
+    }).setOrigin(1, 0);
+    socialText.setShadow(0, 1, '#000000', 0.6, true, true);
+    card.add(socialText);
 
     const hit = this.add
       .rectangle(width / 2, height / 2, width, height, 0, 0)

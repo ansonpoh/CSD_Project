@@ -713,14 +713,6 @@ export const uiMethods = {
               <input id="me-name" class="me-input" placeholder="Forgotten Orchard" />
             </div>
             <div class="me-field">
-              <label for="me-bio">Biome</label>
-              <input id="me-bio" class="me-input" placeholder="Forest, city, ruins..." />
-            </div>
-            <div class="me-field">
-              <label for="me-diff">Difficulty</label>
-              <input id="me-diff" class="me-input" placeholder="easy / medium / hard" />
-            </div>
-            <div class="me-field">
               <label for="me-desc">Description</label>
               <textarea id="me-desc" class="me-textarea" placeholder="Summarize the learner journey, pacing, and encounter mood."></textarea>
             </div>

@@ -262,6 +262,21 @@ public class MapService {
     }
 
     @Transactional
+    public void deleteDraft(UUID ownerSupabaseUserId, UUID draftId) throws ResourceNotFoundException {
+        UUID contributorId = requireContributorIdBySupabase(ownerSupabaseUserId);
+        MapDraft draft = mapDraftRepository.findById(draftId)
+                .orElseThrow(() -> new ResourceNotFoundException("MapDraft", "draftId", draftId));
+
+        UUID ownerId = draft.getContributor() == null ? null : draft.getContributor().getContributorId();
+        if (!contributorId.equals(ownerId)) {
+            throw new ResourceNotFoundException("MapDraft", "draftId", draftId);
+        }
+
+        mapSubmissionRepository.deleteByMapDraft_MapDraftIdAndContributor_ContributorId(draftId, contributorId);
+        mapDraftRepository.delete(draft);
+    }
+
+    @Transactional
     public Map submitDraft(UUID ownerSupabaseUserId, UUID draftId, MapEditorDraftStore.PublishDraftRequest request)
             throws ResourceNotFoundException {
         UUID contributorId = requireContributorIdBySupabase(ownerSupabaseUserId);

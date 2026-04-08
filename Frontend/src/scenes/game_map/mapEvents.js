@@ -1,6 +1,5 @@
 import { gameState } from '../../services/gameState.js';
 import { mapDiscoveryService } from '../../services/mapDiscovery.js';
-import { getChallengeSnapshot } from '../../services/sideChallenges.js';
 import { HUD } from './constants.js';
 
 export const mapEventMethods = {
@@ -51,26 +50,36 @@ export const mapEventMethods = {
   refreshMapSignalPanel() {
     if (!this.mapBannerText || !this.mapSignalText) return;
 
-    const event = this.mapConfig?.event;
-    const lastChoice = this.mapConfig?.playerState?.lastChoice;
-    const challenge = getChallengeSnapshot(this.mapConfig);
     const mapDescription = String(this.mapConfig?.description || 'No map description available.');
     const compactDescription = mapDescription.length > 92 ? `${mapDescription.slice(0, 89)}...` : mapDescription;
-    const lines = [
-      `${this.mapConfig?.theme || this.mapConfig?.name || 'Map'}  |  ${this.mapConfig?.difficulty || 'Adaptive'}`,
-      `${this.mapConfig?.creatorName || 'Unknown creator'} [${this.mapConfig?.creatorBadge || 'Builder'}]`,
-      compactDescription
-    ];
+    const event = this.mapConfig?.event;
+    const lastChoice = this.mapConfig?.playerState?.lastChoice;
+    const isKnownText = (value) => {
+      const text = String(value || '').trim();
+      if (!text) return false;
+      const normalized = text.toLowerCase();
+      return normalized !== 'unknown' && normalized !== 'n/a' && normalized !== '-';
+    };
+    const lines = [];
 
-    if (lastChoice?.label) {
-      lines.push(`Decision locked in: ${lastChoice.label}`);
-    } else if (event?.title) {
-      lines.push(`Map event ready: ${event.title}`);
-    } else {
-      lines.push('No special event on this route.');
+    const theme = this.mapConfig?.theme;
+    const difficulty = this.mapConfig?.difficulty;
+    const hasTheme = isKnownText(theme);
+    const hasDifficulty = isKnownText(difficulty);
+    if (hasTheme || hasDifficulty) {
+      const metaParts = [];
+      if (hasTheme) metaParts.push(theme);
+      if (hasDifficulty) metaParts.push(difficulty);
+      lines.push(metaParts.join('  |  '));
     }
 
-    lines.push(`Side challenge: ${challenge.challenge.title}${challenge.completed ? ' [CLEARED]' : ' [READY]'}`);
+    const creatorName = this.mapConfig?.creatorName;
+    const creatorBadge = this.mapConfig?.creatorBadge;
+    if (isKnownText(creatorName)) {
+      lines.push(isKnownText(creatorBadge) ? `${creatorName} [${creatorBadge}]` : creatorName);
+    }
+
+    lines.push(compactDescription);
 
     this.mapBannerText.setText(this.mapConfig?.name || 'Current Gate');
     this.mapSignalText.setText(lines.join('\n'));

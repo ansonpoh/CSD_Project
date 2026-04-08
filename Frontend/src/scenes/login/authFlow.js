@@ -169,6 +169,20 @@ function extractErrorMessage(error, fallbackMessage = 'Registration failed. Plea
   return fallbackMessage;
 }
 
+async function resolveContributorBanMessage(userId) {
+  if (!userId) return null;
+  try {
+    const contributor = await apiService.getContributorBySupabaseId(userId);
+    if (contributor?.isActive === false) {
+      return 'Your contributor account has been banned.';
+    }
+    return null;
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    return null;
+  }
+}
+
 async function resolveUserIdForRegistration({ email, password, fullname }) {
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
@@ -199,6 +213,14 @@ export async function loginWithRole({ role, email, password }) {
 
   const userHasRole = await apiService.hasRole(role);
   if (!userHasRole) {
+    const userId = data.user?.id || data.session?.user?.id;
+    if (role === 'contributor') {
+      const banMessage = await resolveContributorBanMessage(userId);
+      if (banMessage) {
+        await supabase.auth.signOut();
+        return buildMessageResult(banMessage);
+      }
+    }
     await supabase.auth.signOut();
     return buildMessageResult('Invalid Credentials');
   }

@@ -11,5 +11,7 @@ public interface MapSubmissionRepository extends JpaRepository<MapSubmission, UU
             UUID mapDraftId,
             UUID contributorId
     );
+
+    void deleteByMapDraft_MapDraftIdAndContributor_ContributorId(UUID mapDraftId, UUID contributorId);
 }
 

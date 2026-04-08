@@ -7,15 +7,15 @@ function buildPresetOptions() {
 function buildLearnerFields() {
   return `
     <div class="login-auth-field">
-      <label class="login-auth-label">Username</label>
-      <input type="text" id="username" class="login-auth-control" />
+      <label class="login-auth-label" for="username">Username</label>
+      <input type="text" id="username" class="login-auth-control" autocomplete="username" />
     </div>
     <div class="login-auth-field">
-      <label class="login-auth-label">Full Name</label>
-      <input type="text" id="fullname" class="login-auth-control" />
+      <label class="login-auth-label" for="fullname">Full Name</label>
+      <input type="text" id="fullname" class="login-auth-control" autocomplete="name" />
     </div>
     <div class="login-auth-field">
-      <label class="login-auth-label">Character Style</label>
+      <label class="login-auth-label" for="avatarPreset">Character Style</label>
       <select id="avatarPreset" class="login-auth-control">
         ${buildPresetOptions()}
       </select>
@@ -29,11 +29,11 @@ function buildLearnerFields() {
 function buildContributorFields() {
   return `
     <div class="login-auth-field">
-      <label class="login-auth-label">Full Name</label>
-      <input type="text" id="fullname" class="login-auth-control" />
+      <label class="login-auth-label" for="fullname">Full Name</label>
+      <input type="text" id="fullname" class="login-auth-control" autocomplete="name" />
     </div>
     <div class="login-auth-field">
-      <label class="login-auth-label">Bio <span class="login-auth-optional">(optional)</span></label>
+      <label class="login-auth-label" for="bio">Bio <span class="login-auth-optional">(optional)</span></label>
       <input type="text" id="bio" class="login-auth-control" />
     </div>
   `;
@@ -66,6 +66,7 @@ function buildRoleChips(activeRole, authMode, roles) {
         type="button"
         class="login-auth-chip ${isActive ? 'is-active' : ''}"
         data-role-chip="${value}"
+        aria-pressed="${isActive ? 'true' : 'false'}"
         ${isDisabled ? 'disabled' : ''}
       >
         ${label}
@@ -80,6 +81,7 @@ function buildModeChips(authMode) {
       type="button"
       class="login-auth-chip ${authMode === 'login' ? 'is-active' : ''}"
       data-auth-mode="login"
+      aria-pressed="${authMode === 'login' ? 'true' : 'false'}"
     >
       Login
     </button>
@@ -87,6 +89,7 @@ function buildModeChips(authMode) {
       type="button"
       class="login-auth-chip ${authMode === 'register' ? 'is-active' : ''}"
       data-auth-mode="register"
+      aria-pressed="${authMode === 'register' ? 'true' : 'false'}"
     >
       Register
     </button>
@@ -99,7 +102,8 @@ export function buildAuthFormMarkup(authMode, role = 'learner', options = {}) {
     showRoleSelector = true,
     showModeSelector = true,
     allowRegister = true,
-    showGoogleButton = true
+    showGoogleButton = true,
+    isSubmitting = false
   } = options;
 
   const allowedRoles = Array.isArray(roles) && roles.length ? roles : ['learner', 'contributor'];
@@ -111,6 +115,7 @@ export function buildAuthFormMarkup(authMode, role = 'learner', options = {}) {
   const showTopControls = showRoleSelector || (showModeSelector && allowRegister);
 
   return `
+    <div class="login-auth-main" role="form" aria-busy="${isSubmitting ? 'true' : 'false'}">
     ${showTopControls ? `
       <div class="login-auth-top-controls">
         ${showRoleSelector ? `
@@ -136,25 +141,26 @@ export function buildAuthFormMarkup(authMode, role = 'learner', options = {}) {
     ${isLogin ? '' : `<div id="role-fields">${buildRegisterRoleFields(effectiveRole)}</div>`}
 
     <div class="login-auth-field">
-      <label class="login-auth-label">Email</label>
-      <input type="email" id="email" class="login-auth-control" />
+      <label class="login-auth-label" for="email">Email</label>
+      <input type="email" id="email" class="login-auth-control" autocomplete="email" />
     </div>
 
     <div class="login-auth-field">
-      <label class="login-auth-label">Password</label>
-      <input type="password" id="password" class="login-auth-control" />
+      <label class="login-auth-label" for="password">Password</label>
+      <input type="password" id="password" class="login-auth-control" autocomplete="${isLogin ? 'current-password' : 'new-password'}" />
     </div>
 
-    <button id="submitBtn" class="login-auth-button login-auth-button--primary">
-      ${isLogin ? 'Login' : 'Register'}
+    <button id="submitBtn" class="login-auth-button login-auth-button--primary" ${isSubmitting ? 'disabled' : ''}>
+      ${isSubmitting ? 'Working...' : (isLogin ? 'Login' : 'Register')}
     </button>
 
     ${showGoogleButton ? `
-      <button id="googleAuthBtn" class="login-auth-button login-auth-button--google">
-        Continue with Google
+      <button id="googleAuthBtn" class="login-auth-button login-auth-button--google" ${isSubmitting ? 'disabled' : ''}>
+        ${isSubmitting ? 'Working...' : 'Continue with Google'}
       </button>
     ` : ''}
 
-    <div id="message" class="login-auth-message"></div>
+    <div id="message" class="login-auth-message" role="status" aria-live="polite"></div>
+    </div>
   `;
 }

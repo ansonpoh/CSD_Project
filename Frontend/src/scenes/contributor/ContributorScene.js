@@ -34,6 +34,14 @@ function formatPercent(value) {
 }
 
 const MAX_APPROVED_NPCS_PER_MAP = 5;
+const QUICK_STATUS_FILTERS = ['PENDING_REVIEW', 'REJECTED', 'APPROVED', 'FLAGGED'];
+
+function formatStatusLabel(status) {
+  return String(status || '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export class ContributorScene extends Phaser.Scene {
   constructor() {
@@ -61,6 +69,7 @@ export class ContributorScene extends Phaser.Scene {
         page: 1,
         pageSize: 10
       },
+      isLoading: false,
       isGenerating: false,
       isSubmitting: false,
       editingContent: null,
@@ -136,6 +145,86 @@ export class ContributorScene extends Phaser.Scene {
         vertical-align: middle;
         margin-left: 8px;
       }
+      .dash-chip-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .dash-chip {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.04);
+        color: #dce8fc;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+      }
+      .dash-chip:hover,
+      .dash-chip:focus-visible {
+        border-color: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+      }
+      .dash-chip.is-active {
+        color: #071421;
+        border-color: transparent;
+        background: linear-gradient(135deg, #64d2ff, #ffc56d);
+      }
+      .dash-field--invalid label {
+        color: #ffb8c6;
+      }
+      .dash-input--invalid,
+      .dash-select--invalid,
+      .dash-textarea--invalid,
+      .dash-area--invalid {
+        border-color: rgba(255, 144, 158, 0.85) !important;
+        box-shadow: 0 0 0 1px rgba(255, 144, 158, 0.35);
+      }
+      .dash-field__error {
+        color: #ffc8d2;
+        font-size: 0.78rem;
+        line-height: 1.3;
+      }
+      .dash-skeleton-card {
+        padding: 18px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        display: grid;
+        gap: 10px;
+      }
+      .dash-skeleton-line {
+        height: 12px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.06) 20%,
+          rgba(255, 255, 255, 0.14) 50%,
+          rgba(255, 255, 255, 0.06) 80%
+        );
+        background-size: 220% 100%;
+        animation: dash-skeleton-wave 1.3s ease-in-out infinite;
+      }
+      .dash-skeleton-line--title {
+        height: 16px;
+        width: 55%;
+      }
+      .dash-skeleton-line--short {
+        width: 34%;
+      }
+      .dash-skeleton-line--medium {
+        width: 66%;
+      }
+      .dash-skeleton-line--long {
+        width: 92%;
+      }
+      @keyframes dash-skeleton-wave {
+        from { background-position: 200% 0; }
+        to { background-position: -20% 0; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -160,29 +249,29 @@ export class ContributorScene extends Phaser.Scene {
             <span class="dash-muted" id="contributor-profile-subtitle">Fetching contributor profile</span>
           </div>
 
-          <nav class="dash-nav">
-            <button type="button" class="dash-nav__button is-active" data-action="show-section" data-section="overview">
+          <nav class="dash-nav" role="tablist" aria-label="Contributor workspace sections">
+            <button type="button" class="dash-nav__button is-active" data-action="show-section" data-section="overview" role="tab" id="contributor-tab-overview" aria-controls="contributor-panel-overview" aria-selected="true" tabindex="0">
               <span>
                 <span class="dash-nav__label">Overview</span><br/>
                 <span class="dash-nav__hint">Snapshot and recent activity</span>
               </span>
               <span class="dash-nav__hint">01</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="content">
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="content" role="tab" id="contributor-tab-content" aria-controls="contributor-panel-content" aria-selected="false" tabindex="-1">
               <span>
                 <span class="dash-nav__label">My Content</span><br/>
                 <span class="dash-nav__hint">Submitted lessons and status</span>
               </span>
               <span class="dash-nav__hint">02</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="maps">
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="maps" role="tab" id="contributor-tab-maps" aria-controls="contributor-panel-maps" aria-selected="false" tabindex="-1">
               <span>
                 <span class="dash-nav__label">My Maps</span><br/>
                 <span class="dash-nav__hint">Submitted maps and review outcome</span>
               </span>
               <span class="dash-nav__hint">03</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="submit">
+            <button type="button" class="dash-nav__button" data-action="show-section" data-section="submit" role="tab" id="contributor-tab-submit" aria-controls="contributor-panel-submit" aria-selected="false" tabindex="-1">
               <span>
                 <span class="dash-nav__label">New Submission</span><br/>
                 <span class="dash-nav__hint">Create fresh lesson content</span>
@@ -211,10 +300,10 @@ export class ContributorScene extends Phaser.Scene {
 
           <div class="dash-scroll">
             <div id="contributor-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
-            <section class="dash-section is-active" data-section-panel="overview"><div id="contributor-overview"></div></section>
-            <section class="dash-section" data-section-panel="content"><div id="contributor-content"></div></section>
-            <section class="dash-section" data-section-panel="maps"><div id="contributor-maps"></div></section>
-            <section class="dash-section" data-section-panel="submit"><div id="contributor-submit"></div></section>
+            <section class="dash-section is-active" data-section-panel="overview" role="tabpanel" id="contributor-panel-overview" aria-labelledby="contributor-tab-overview"><div id="contributor-overview"></div></section>
+            <section class="dash-section" data-section-panel="content" role="tabpanel" id="contributor-panel-content" aria-labelledby="contributor-tab-content" hidden><div id="contributor-content"></div></section>
+            <section class="dash-section" data-section-panel="maps" role="tabpanel" id="contributor-panel-maps" aria-labelledby="contributor-tab-maps" hidden><div id="contributor-maps"></div></section>
+            <section class="dash-section" data-section-panel="submit" role="tabpanel" id="contributor-panel-submit" aria-labelledby="contributor-tab-submit" hidden><div id="contributor-submit"></div></section>
           </div>
         </section>
       </div>
@@ -228,6 +317,7 @@ export class ContributorScene extends Phaser.Scene {
     this.portalRoot.addEventListener('submit', this.handleSubmitEvent);
     this.portalRoot.addEventListener('input', this.handleInputEvent);
     this.portalRoot.addEventListener('change', this.handleChangeEvent);
+    this.portalRoot.addEventListener('keydown', this.handleKeydownEvent);
   }
 
   destroyPortal() {
@@ -236,6 +326,7 @@ export class ContributorScene extends Phaser.Scene {
       this.portalRoot.removeEventListener('submit', this.handleSubmitEvent);
       this.portalRoot.removeEventListener('input', this.handleInputEvent);
       this.portalRoot.removeEventListener('change', this.handleChangeEvent);
+      this.portalRoot.removeEventListener('keydown', this.handleKeydownEvent);
     }
     destroyDashboardRoot(this.portalRoot);
     this.portalRoot = null;
@@ -296,6 +387,14 @@ export class ContributorScene extends Phaser.Scene {
       return;
     }
 
+    if (action === 'quick-status-filter') {
+      event.preventDefault();
+      this.state.contentFilters.status = String(actionEl.dataset.status || 'ALL').toUpperCase();
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+
     if (action === 'content-prev-page') {
       event.preventDefault();
       const currentPage = Number(this.state.contentPagination.page || 1);
@@ -345,10 +444,23 @@ export class ContributorScene extends Phaser.Scene {
   };
 
   handleInputEvent = (event) => {
-    if (event.target?.id !== 'content-filter-query') return;
-    this.state.contentFilters.query = event.target.value || '';
-    this.state.contentPagination.page = 1;
-    this.renderContentSection();
+    const target = event.target;
+    if (!target) return;
+
+    if (target.id === 'content-filter-query') {
+      this.state.contentFilters.query = target.value || '';
+      this.state.contentPagination.page = 1;
+      this.renderContentSection();
+      return;
+    }
+
+    if (target.dataset?.role === 'narration-line') {
+      this.setNarrationsError('');
+    }
+
+    if (target.closest('#contributor-submit-form')) {
+      this.clearFieldError(target.id);
+    }
   };
 
   handleChangeEvent = (event) => {
@@ -356,7 +468,7 @@ export class ContributorScene extends Phaser.Scene {
     if (!target) return;
 
     if (target.id === 'content-filter-status') {
-      this.state.contentFilters.status = target.value || 'ALL';
+      this.state.contentFilters.status = String(target.value || 'ALL').toUpperCase();
       this.state.contentPagination.page = 1;
       this.renderContentSection();
       return;
@@ -378,6 +490,51 @@ export class ContributorScene extends Phaser.Scene {
       this.state.contentPagination.pageSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
       this.state.contentPagination.page = 1;
       this.renderContentSection();
+      return;
+    }
+
+    if (target.closest('#contributor-submit-form')) {
+      this.clearFieldError(target.id);
+    }
+  };
+
+  handleKeydownEvent = (event) => {
+    const tabButton = event.target?.closest('.dash-nav__button[data-section]');
+    if (!tabButton) return;
+    const key = event.key;
+    const tabs = Array.from(this.portalRoot?.querySelectorAll('.dash-nav__button[data-section]') || []);
+    if (!tabs.length) return;
+    const currentIndex = tabs.indexOf(tabButton);
+    if (currentIndex < 0) return;
+
+    if (key === 'ArrowDown' || key === 'ArrowRight') {
+      event.preventDefault();
+      const next = tabs[(currentIndex + 1) % tabs.length];
+      next?.focus();
+      this.showSection(next?.dataset.section || 'overview');
+      return;
+    }
+
+    if (key === 'ArrowUp' || key === 'ArrowLeft') {
+      event.preventDefault();
+      const next = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+      next?.focus();
+      this.showSection(next?.dataset.section || 'overview');
+      return;
+    }
+
+    if (key === 'Home') {
+      event.preventDefault();
+      tabs[0]?.focus();
+      this.showSection(tabs[0]?.dataset.section || 'overview');
+      return;
+    }
+
+    if (key === 'End') {
+      event.preventDefault();
+      const last = tabs[tabs.length - 1];
+      last?.focus();
+      this.showSection(last?.dataset.section || 'overview');
     }
   };
 
@@ -389,12 +546,12 @@ export class ContributorScene extends Phaser.Scene {
     });
     const filters = this.state.contentFilters || {};
     const query = String(filters.query || '').trim().toLowerCase();
-    const selectedStatus = filters.status || 'ALL';
+    const selectedStatus = String(filters.status || 'ALL').toUpperCase();
     const selectedTopicId = filters.topicId || 'ALL';
     const selectedSort = filters.sort || 'submitted_desc';
 
     let filteredRows = rows.filter((row) => {
-      const status = String(row?.status || '').trim();
+      const status = String(row?.status || '').trim().toUpperCase();
       const topicId = String(row?.topic?.topicId || '').trim();
       const title = String(row?.title || '');
       const topicName = String(row?.topic?.topicName || '');
@@ -431,7 +588,12 @@ export class ContributorScene extends Phaser.Scene {
   }
 
   async loadInitialData() {
+    this.state.isLoading = true;
     this.setStatus('Loading contributor workspace...', false);
+    this.renderOverview();
+    this.renderContentSection();
+    this.renderMapSubmissionsSection();
+    this.renderSubmitSection();
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -463,6 +625,7 @@ export class ContributorScene extends Phaser.Scene {
         return mapId && !mapAvailability.fullMapIds.has(mapId);
       });
       this.state.mapApprovedNpcCounts = mapAvailability.approvedNpcCountByMapId;
+      this.state.isLoading = false;
 
       gameState.setContributor(profile);
       gameState.setRole('contributor');
@@ -474,6 +637,7 @@ export class ContributorScene extends Phaser.Scene {
       this.renderSubmitSection();
       this.setStatus('Workspace updated.', false);
     } catch (error) {
+      this.state.isLoading = false;
       this.renderProfile();
       this.renderOverview(true);
       this.renderContentSection(true);
@@ -496,9 +660,73 @@ export class ContributorScene extends Phaser.Scene {
     }
   }
 
+  renderSkeletonLines(variant = 'default') {
+    const sets = {
+      default: ['title', 'long', 'medium'],
+      compact: ['medium', 'short'],
+      card: ['title', 'long', 'long', 'medium']
+    };
+    return (sets[variant] || sets.default)
+      .map((size) => `<div class="dash-skeleton-line dash-skeleton-line--${size}"></div>`)
+      .join('');
+  }
+
+  renderOverviewSkeleton(container) {
+    container.innerHTML = `
+      <div class="dash-hero">
+        <article class="dash-card">${this.renderSkeletonLines('card')}</article>
+        <article class="dash-card">${this.renderSkeletonLines('card')}</article>
+      </div>
+      <div class="dash-grid dash-grid--metrics">
+        <article class="dash-card dash-metric">${this.renderSkeletonLines('compact')}</article>
+        <article class="dash-card dash-metric">${this.renderSkeletonLines('compact')}</article>
+        <article class="dash-card dash-metric">${this.renderSkeletonLines('compact')}</article>
+        <article class="dash-card dash-metric">${this.renderSkeletonLines('compact')}</article>
+      </div>
+      <div class="dash-grid dash-grid--two">
+        <article class="dash-card">${this.renderSkeletonLines('card')}</article>
+        <article class="dash-card">${this.renderSkeletonLines('card')}</article>
+      </div>
+    `;
+  }
+
+  renderContentSkeleton(container) {
+    container.innerHTML = `
+      <div class="dash-card" style="margin-bottom:18px;">${this.renderSkeletonLines('default')}</div>
+      <div class="dash-card" style="margin-bottom:18px;">${this.renderSkeletonLines('card')}</div>
+      <div class="dash-list">
+        <article class="dash-skeleton-card">${this.renderSkeletonLines('card')}</article>
+        <article class="dash-skeleton-card">${this.renderSkeletonLines('card')}</article>
+        <article class="dash-skeleton-card">${this.renderSkeletonLines('card')}</article>
+      </div>
+    `;
+  }
+
+  renderMapSkeleton(container) {
+    container.innerHTML = `
+      <div class="dash-card" style="margin-bottom:18px;">${this.renderSkeletonLines('default')}</div>
+      <div class="dash-list">
+        <article class="dash-skeleton-card">${this.renderSkeletonLines('card')}</article>
+        <article class="dash-skeleton-card">${this.renderSkeletonLines('card')}</article>
+      </div>
+    `;
+  }
+
+  renderSubmitSkeleton(container) {
+    container.innerHTML = `
+      <div class="dash-card" style="margin-bottom:18px;">${this.renderSkeletonLines('default')}</div>
+      <div class="dash-card">${this.renderSkeletonLines('card')}</div>
+    `;
+  }
+
   renderOverview(hasError = false) {
     const container = this.portalRoot?.querySelector('#contributor-overview');
     if (!container) return;
+
+    if (this.state.isLoading && !hasError) {
+      this.renderOverviewSkeleton(container);
+      return;
+    }
 
     if (hasError) {
       container.innerHTML = renderEmptyState('Workspace unavailable', 'We could not load contributor data right now. Try refreshing once the backend is ready.');
@@ -643,6 +871,11 @@ export class ContributorScene extends Phaser.Scene {
     const container = this.portalRoot?.querySelector('#contributor-content');
     if (!container) return;
 
+    if (this.state.isLoading && !hasError) {
+      this.renderContentSkeleton(container);
+      return;
+    }
+
     if (hasError) {
       container.innerHTML = renderEmptyState('Content list unavailable', 'We could not read your submitted content right now. Refresh when the services settle.');
       return;
@@ -654,7 +887,7 @@ export class ContributorScene extends Phaser.Scene {
       return rightTime - leftTime;
     });
     const filters = this.state.contentFilters || {};
-    const selectedStatus = filters.status || 'ALL';
+    const selectedStatus = String(filters.status || 'ALL').toUpperCase();
     const selectedTopicId = filters.topicId || 'ALL';
     const selectedSort = filters.sort || 'submitted_desc';
 
@@ -672,11 +905,17 @@ export class ContributorScene extends Phaser.Scene {
 
     const statusValues = Array.from(new Set(
       rows
-        .map((row) => String(row?.status || '').trim())
+        .map((row) => String(row?.status || '').trim().toUpperCase())
         .filter(Boolean)
     )).sort((left, right) => left.localeCompare(right));
 
     const filteredRows = this.getFilteredContentRows();
+    const statusCounts = rows.reduce((acc, row) => {
+      const key = String(row?.status || '').toUpperCase();
+      if (!key) return acc;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
     const pageSize = Math.max(1, Number(this.state.contentPagination.pageSize || 10));
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
     const currentPage = Math.min(totalPages, Math.max(1, Number(this.state.contentPagination.page || 1)));
@@ -756,6 +995,25 @@ export class ContributorScene extends Phaser.Scene {
       `;
     }).join('');
 
+    const quickFilterChips = [
+      { status: 'ALL', label: 'All', count: rows.length },
+      ...QUICK_STATUS_FILTERS
+        .filter((status) => Number(statusCounts[status] || 0) > 0)
+        .map((status) => ({ status, label: formatStatusLabel(status), count: Number(statusCounts[status] || 0) }))
+    ]
+      .map((chip) => `
+        <button
+          type="button"
+          class="dash-chip${selectedStatus === chip.status ? ' is-active' : ''}"
+          data-action="quick-status-filter"
+          data-status="${escapeHtml(chip.status)}"
+          aria-pressed="${selectedStatus === chip.status ? 'true' : 'false'}"
+        >
+          ${escapeHtml(chip.label)} (${chip.count})
+        </button>
+      `)
+      .join('');
+
     container.innerHTML = `
       <div class="dash-card" style="margin-bottom:18px;">
         <div class="dash-inline">
@@ -803,6 +1061,9 @@ export class ContributorScene extends Phaser.Scene {
             </select>
           </div>
         </div>
+        <div class="dash-chip-group" aria-label="Quick content status filters">
+          ${quickFilterChips}
+        </div>
         <div class="dash-inline" style="margin-top:14px;">
           <span class="dash-muted">Showing ${filteredRows.length} of ${rows.length} submissions</span>
           <div class="dash-button-group">
@@ -836,6 +1097,11 @@ export class ContributorScene extends Phaser.Scene {
   renderSubmitSection(hasError = false) {
     const container = this.portalRoot?.querySelector('#contributor-submit');
     if (!container) return;
+
+    if (this.state.isLoading && !hasError) {
+      this.renderSubmitSkeleton(container);
+      return;
+    }
 
     if (hasError) {
       container.innerHTML = renderEmptyState('Submission form unavailable', 'We could not load the data needed for lesson creation.');
@@ -928,15 +1194,15 @@ export class ContributorScene extends Phaser.Scene {
         <div class="dash-form__grid">
           <div class="dash-field">
             <label for="content-topic">Topic</label>
-            <select id="content-topic" class="dash-select">${topicOptions}</select>
+            <select id="content-topic" class="dash-select" required>${topicOptions}</select>
           </div>
           <div class="dash-field">
             <label for="content-npc">NPC</label>
-            <select id="content-npc" class="dash-select">${npcOptions}</select>
+            <select id="content-npc" class="dash-select" required>${npcOptions}</select>
           </div>
           <div class="dash-field">
             <label for="content-map">Map</label>
-            <select id="content-map" class="dash-select">${mapOptions}</select>
+            <select id="content-map" class="dash-select" required>${mapOptions}</select>
           </div>
           <div class="dash-field">
             <label for="content-video">Optional video</label>
@@ -951,6 +1217,7 @@ export class ContributorScene extends Phaser.Scene {
             class="dash-input"
             type="text"
             maxlength="120"
+            required
             placeholder="Give the lesson a clear, specific title"
             value="${escapeHtml(isResubmission ? (editing?.title || '') : '')}"
           />
@@ -958,7 +1225,7 @@ export class ContributorScene extends Phaser.Scene {
 
         <div class="dash-field">
           <label for="content-description">Description</label>
-          <textarea id="content-description" class="dash-textarea"
+          <textarea id="content-description" class="dash-textarea" required
             placeholder="Describe what learners should understand after this lesson.">${escapeHtml(isResubmission ? (editing?.description || editing?.body || '') : '')}</textarea>
         </div>
 
@@ -974,6 +1241,7 @@ export class ContributorScene extends Phaser.Scene {
             </div>
           </div>
           <div id="contributor-narrations" class="dash-list"></div>
+          <div class="dash-field__error" data-submit-error-for="contributor-narrations" id="contributor-narrations-error" style="display:none;"></div>
         </div>
 
         <div id="contributor-submit-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -1006,6 +1274,7 @@ export class ContributorScene extends Phaser.Scene {
   addNarrationRow(value = '') {
     const container = this.portalRoot?.querySelector('#contributor-narrations');
     if (!container) return;
+    this.setNarrationsError('');
 
     const row = document.createElement('div');
     row.className = 'dash-row-card';
@@ -1023,6 +1292,7 @@ export class ContributorScene extends Phaser.Scene {
       if (!container.querySelector('[data-role="narration-line"]')) {
         this.addNarrationRow();
       }
+      this.setNarrationsError('');
     });
 
     container.appendChild(row);
@@ -1036,15 +1306,132 @@ export class ContributorScene extends Phaser.Scene {
       .filter(Boolean);
   }
 
+  clearFieldError(fieldId) {
+    if (!fieldId) return;
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+    const target = form.querySelector(`#${fieldId}`);
+    if (!target) return;
+
+    target.classList.remove('dash-input--invalid', 'dash-select--invalid', 'dash-textarea--invalid', 'dash-area--invalid');
+    target.removeAttribute('aria-invalid');
+    const field = target.closest('.dash-field');
+    field?.classList.remove('dash-field--invalid');
+
+    const errorEl = form.querySelector(`[data-submit-error-for="${fieldId}"]`);
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
+    }
+  }
+
+  clearSubmitValidation() {
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+
+    form.querySelectorAll('.dash-field--invalid').forEach((field) => {
+      field.classList.remove('dash-field--invalid');
+    });
+    form.querySelectorAll('.dash-input--invalid, .dash-select--invalid, .dash-textarea--invalid, .dash-area--invalid').forEach((control) => {
+      control.classList.remove('dash-input--invalid', 'dash-select--invalid', 'dash-textarea--invalid', 'dash-area--invalid');
+      control.removeAttribute('aria-invalid');
+    });
+    form.querySelectorAll('[data-submit-error-for]').forEach((errorEl) => {
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
+    });
+  }
+
+  setFieldError(fieldId, message) {
+    if (!fieldId || !message) return;
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+    const target = form.querySelector(`#${fieldId}`);
+    if (!target) return;
+
+    const className = target.tagName === 'SELECT'
+      ? 'dash-select--invalid'
+      : target.tagName === 'TEXTAREA'
+        ? 'dash-textarea--invalid'
+        : 'dash-input--invalid';
+    target.classList.add(className);
+    target.setAttribute('aria-invalid', 'true');
+    target.closest('.dash-field')?.classList.add('dash-field--invalid');
+
+    let errorEl = form.querySelector(`[data-submit-error-for="${fieldId}"]`);
+    if (!errorEl) {
+      errorEl = document.createElement('div');
+      errorEl.className = 'dash-field__error';
+      errorEl.setAttribute('data-submit-error-for', fieldId);
+      target.insertAdjacentElement('afterend', errorEl);
+    }
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+  }
+
+  setNarrationsError(message) {
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+    const container = form.querySelector('#contributor-narrations');
+    const errorEl = form.querySelector('[data-submit-error-for="contributor-narrations"]');
+    if (container) {
+      container.classList.toggle('dash-area--invalid', Boolean(message));
+      if (message) {
+        container.scrollIntoView({ block: 'nearest' });
+      }
+    }
+    if (errorEl) {
+      errorEl.textContent = message || '';
+      errorEl.style.display = message ? 'block' : 'none';
+    }
+  }
+
+  focusFirstFieldError(fieldIds = []) {
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+    const firstId = fieldIds.find((fieldId) => Boolean(form.querySelector(`#${fieldId}`)));
+    if (!firstId) return;
+    form.querySelector(`#${firstId}`)?.focus();
+  }
+
+  validateSubmissionFields({ forGeneration = false } = {}) {
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return { errors: [], values: null };
+    const values = {
+      topicId: form.querySelector('#content-topic')?.value?.trim() || '',
+      npcId: form.querySelector('#content-npc')?.value?.trim() || '',
+      mapId: form.querySelector('#content-map')?.value?.trim() || '',
+      title: form.querySelector('#content-title')?.value?.trim() || '',
+      description: form.querySelector('#content-description')?.value?.trim() || ''
+    };
+
+    const checks = forGeneration
+      ? [
+        { id: 'content-topic', ok: Boolean(values.topicId), message: 'Select a topic before generating narrations.' },
+        { id: 'content-title', ok: Boolean(values.title), message: 'Add a title before generating narrations.' },
+        { id: 'content-description', ok: Boolean(values.description), message: 'Add a description before generating narrations.' }
+      ]
+      : [
+        { id: 'content-topic', ok: Boolean(values.topicId), message: 'Topic is required.' },
+        { id: 'content-npc', ok: Boolean(values.npcId), message: 'NPC is required.' },
+        { id: 'content-map', ok: Boolean(values.mapId), message: 'Map is required.' },
+        { id: 'content-title', ok: Boolean(values.title), message: 'Title is required.' },
+        { id: 'content-description', ok: Boolean(values.description), message: 'Description is required.' }
+      ];
+
+    const errors = checks.filter((check) => !check.ok);
+    return { errors, values };
+  }
+
   async generateNarrations() {
     if (this.state.isGenerating) return;
 
-    const form = this.portalRoot?.querySelector('#contributor-submit-form');
-    const topicId = form?.querySelector('#content-topic')?.value?.trim();
-    const title = form?.querySelector('#content-title')?.value?.trim();
-    const description = form?.querySelector('#content-description')?.value?.trim();
-    if (!topicId || !title || !description) {
-      this.setSubmitStatus('Fill in topic, title, and description before generating narrations.', true);
+    this.clearSubmitValidation();
+    const { errors, values } = this.validateSubmissionFields({ forGeneration: true });
+    if (errors.length) {
+      errors.forEach((error) => this.setFieldError(error.id, error.message));
+      this.focusFirstFieldError(errors.map((error) => error.id));
+      this.setSubmitStatus('Fill in the highlighted fields before generating narrations.', true);
       return;
     }
 
@@ -1053,7 +1440,7 @@ export class ContributorScene extends Phaser.Scene {
     this.setSubmitStatus('Generating narration draft...', false);
 
     try {
-      const result = await apiService.generateNarrations(topicId, title, description);
+      const result = await apiService.generateNarrations(values.topicId, values.title, values.description);
       const lines = Array.isArray(result?.narrations) ? result.narrations : [];
       const container = this.portalRoot?.querySelector('#contributor-narrations');
       if (container) {
@@ -1076,34 +1463,35 @@ export class ContributorScene extends Phaser.Scene {
     const form = this.portalRoot?.querySelector('#contributor-submit-form');
     if (!form) return;
 
-    const topicId = form.querySelector('#content-topic')?.value?.trim();
-    const npcId = form.querySelector('#content-npc')?.value?.trim();
-    const mapId = form.querySelector('#content-map')?.value?.trim();
-    const title = form.querySelector('#content-title')?.value?.trim();
-    const description = form.querySelector('#content-description')?.value?.trim();
+    this.clearSubmitValidation();
+    const { errors, values } = this.validateSubmissionFields();
+    if (errors.length) {
+      errors.forEach((error) => this.setFieldError(error.id, error.message));
+      this.focusFirstFieldError(errors.map((error) => error.id));
+      this.setSubmitStatus('Please fix the highlighted fields and try again.', true);
+      return;
+    }
+
+    const topicId = values.topicId;
+    const npcId = values.npcId;
+    const mapId = values.mapId;
+    const title = values.title;
+    const description = values.description;
     const videoFile = form.querySelector('#content-video')?.files?.[0] || null;
     const narrations = this.collectNarrations();
 
     const resubmitFromId = form.querySelector('#content-resubmit-from-id')?.value?.trim() || null;
     const isResubmission = Boolean(resubmitFromId);
+    this.setNarrationsError('');
 
-    const missing = [
-      !topicId && 'topic',
-      !npcId && 'NPC',
-      !mapId && 'map',
-      !title && 'title',
-      !description && 'description',
-    ].filter(Boolean);
-    if (missing.length) {
-      this.setSubmitStatus(`Missing required fields: ${missing.join(', ')}. Please fill them in and try again.`, true);
-      console.warn('[ContributorScene] submitContent: missing fields', { topicId, npcId, mapId, title, description });
-      return;
-    }
     if (!isResubmission && !this.isMapSelectable(mapId)) {
+      this.setFieldError('content-map', `Selected map is no longer available. Choose another map with less than ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs.`);
+      this.focusFirstFieldError(['content-map']);
       this.setSubmitStatus(`Selected map is no longer available. Maps with ${MAX_APPROVED_NPCS_PER_MAP} approved NPCs cannot be used for new content.`, true);
       return;
     }
     if (!narrations.length) {
+      this.setNarrationsError('Add at least one narration line before submitting.');
       this.setSubmitStatus('Add at least one narration line before submitting.', true);
       return;
     }
@@ -1119,7 +1507,6 @@ export class ContributorScene extends Phaser.Scene {
       }
 
       const payload = {
-        contributorId: this.state.profile.contributorId,
         topicId,
         npcId,
         mapId,
@@ -1184,6 +1571,8 @@ export class ContributorScene extends Phaser.Scene {
     const form = this.portalRoot?.querySelector('#contributor-submit-form');
     if (!form) return;
     form.reset();
+    this.clearSubmitValidation();
+    this.setNarrationsError('');
     const container = this.portalRoot.querySelector('#contributor-narrations');
     if (container) {
       container.innerHTML = '';
@@ -1224,6 +1613,11 @@ export class ContributorScene extends Phaser.Scene {
   renderMapSubmissionsSection(hasError = false) {
     const container = this.portalRoot?.querySelector('#contributor-maps');
     if (!container) return;
+
+    if (this.state.isLoading && !hasError) {
+      this.renderMapSkeleton(container);
+      return;
+    }
 
     if (hasError) {
       container.innerHTML = renderEmptyState('Map submissions unavailable', 'We could not load your map submission history.');
@@ -1345,7 +1739,9 @@ export class ContributorScene extends Phaser.Scene {
   }
 
   showSection(section) {
-    this.state.activeSection = section;
+    const allowedSections = ['overview', 'content', 'maps', 'submit'];
+    const targetSection = allowedSections.includes(section) ? section : 'overview';
+    this.state.activeSection = targetSection;
     const config = {
       overview: ['Overview', 'Track your content pipeline and jump straight into the next submission.'],
       content: ['My Content', 'Everything you have submitted, sorted by freshness and moderation status.'],
@@ -1354,13 +1750,18 @@ export class ContributorScene extends Phaser.Scene {
     };
 
     this.portalRoot?.querySelectorAll('.dash-nav__button[data-section]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.section === section);
+      const isActive = button.dataset.section === targetSection;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      button.tabIndex = isActive ? 0 : -1;
     });
     this.portalRoot?.querySelectorAll('.dash-section').forEach((panel) => {
-      panel.classList.toggle('is-active', panel.dataset.sectionPanel === section);
+      const isActive = panel.dataset.sectionPanel === targetSection;
+      panel.classList.toggle('is-active', isActive);
+      panel.hidden = !isActive;
     });
 
-    const [title, subtitle] = config[section] || config.overview;
+    const [title, subtitle] = config[targetSection] || config.overview;
     const titleEl = this.portalRoot?.querySelector('#contributor-main-title');
     const subtitleEl = this.portalRoot?.querySelector('#contributor-main-subtitle');
     if (titleEl) titleEl.textContent = title;

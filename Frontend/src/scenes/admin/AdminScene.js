@@ -39,6 +39,7 @@ export class AdminScene extends Phaser.Scene {
     super({ key: 'AdminScene' });
     this.portalRoot = null;
     this.toastHost = null;
+    this.historyModalTriggerEl = null;
     this.mapPreviewTilesetImageCache = new Map();
     this.state = {
       activeSection: 'overview',
@@ -94,36 +95,116 @@ export class AdminScene extends Phaser.Scene {
             <span class="dash-muted" id="admin-profile-subtitle">Fetching admin profile</span>
           </div>
 
-          <nav class="dash-nav">
-            <button type="button" class="dash-nav__button is-active" data-action="show-section" data-section="overview">
+          <nav class="dash-nav" role="tablist" aria-label="Admin dashboard sections">
+            <button
+              type="button"
+              id="admin-tab-overview"
+              class="dash-nav__button is-active"
+              data-action="show-section"
+              data-section="overview"
+              role="tab"
+              aria-selected="true"
+              aria-controls="admin-panel-overview"
+              tabindex="0"
+            >
               <span><span class="dash-nav__label">Overview</span><br/><span class="dash-nav__hint">Queue health and snapshot</span></span>
               <span class="dash-nav__hint">01</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="review">
+            <button
+              type="button"
+              id="admin-tab-review"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="review"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-review"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Review Queue</span><br/><span class="dash-nav__hint">Moderate pending content</span></span>
               <span class="dash-nav__hint">02</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="map-review">
+            <button
+              type="button"
+              id="admin-tab-map-review"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="map-review"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-map-review"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Map Review</span><br/><span class="dash-nav__hint">Approve, reject, then publish maps</span></span>
               <span class="dash-nav__hint">03</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="flags">
+            <button
+              type="button"
+              id="admin-tab-flags"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="flags"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-flags"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Flag Reports</span><br/><span class="dash-nav__hint">Resolve learner complaints</span></span>
               <span class="dash-nav__hint">04</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="contributors">
+            <button
+              type="button"
+              id="admin-tab-contributors"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="contributors"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-contributors"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Contributors</span><br/><span class="dash-nav__hint">Profile and status lookup</span></span>
               <span class="dash-nav__hint">05</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="telemetry">
+            <button
+              type="button"
+              id="admin-tab-telemetry"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="telemetry"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-telemetry"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Telemetry</span><br/><span class="dash-nav__hint">Encounter funnel metrics</span></span>
               <span class="dash-nav__hint">06</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="question-bank">
+            <button
+              type="button"
+              id="admin-tab-question-bank"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="question-bank"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-question-bank"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Quiz Bank</span><br/><span class="dash-nav__hint">Build and publish map quizzes</span></span>
               <span class="dash-nav__hint">07</span>
             </button>
-            <button type="button" class="dash-nav__button" data-action="show-section" data-section="missions">
+            <button
+              type="button"
+              id="admin-tab-missions"
+              class="dash-nav__button"
+              data-action="show-section"
+              data-section="missions"
+              role="tab"
+              aria-selected="false"
+              aria-controls="admin-panel-missions"
+              tabindex="-1"
+            >
               <span><span class="dash-nav__label">Real-World Missions</span><br/><span class="dash-nav__hint">Manage offline missions</span></span>
               <span class="dash-nav__hint">08</span>
             </button>
@@ -144,20 +225,19 @@ export class AdminScene extends Phaser.Scene {
             <div class="dash-main__actions">
               <button type="button" class="dash-button dash-button--secondary" data-action="refresh-current">Refresh current section</button>
               <button type="button" class="dash-button" data-action="show-section" data-section="review">Open review queue</button>
-              <button type="button" class="dash-button dash-button--ghost" data-action="logout">Logout</button>
             </div>
           </header>
 
           <div class="dash-scroll">
-            <div id="admin-status" class="dash-status"></div>
-            <section class="dash-section is-active" data-section-panel="overview"><div id="admin-overview"></div></section>
-            <section class="dash-section" data-section-panel="review"><div id="admin-review"></div></section>
-            <section class="dash-section" data-section-panel="map-review"><div id="admin-map-review"></div></section>
-            <section class="dash-section" data-section-panel="flags"><div id="admin-flags"></div></section>
-            <section class="dash-section" data-section-panel="contributors"><div id="admin-contributors"></div></section>
-            <section class="dash-section" data-section-panel="telemetry"><div id="admin-telemetry"></div></section>
-            <section class="dash-section" data-section-panel="question-bank"><div id="admin-question-bank"></div></section>
-            <section class="dash-section" data-section-panel="missions"><div id="admin-missions"></div></section>
+            <div id="admin-status" class="dash-status" role="status" aria-live="polite" aria-atomic="true"></div>
+            <section id="admin-panel-overview" class="dash-section is-active" data-section-panel="overview" role="tabpanel" aria-labelledby="admin-tab-overview"><div id="admin-overview"></div></section>
+            <section id="admin-panel-review" class="dash-section" data-section-panel="review" role="tabpanel" aria-labelledby="admin-tab-review" hidden><div id="admin-review"></div></section>
+            <section id="admin-panel-map-review" class="dash-section" data-section-panel="map-review" role="tabpanel" aria-labelledby="admin-tab-map-review" hidden><div id="admin-map-review"></div></section>
+            <section id="admin-panel-flags" class="dash-section" data-section-panel="flags" role="tabpanel" aria-labelledby="admin-tab-flags" hidden><div id="admin-flags"></div></section>
+            <section id="admin-panel-contributors" class="dash-section" data-section-panel="contributors" role="tabpanel" aria-labelledby="admin-tab-contributors" hidden><div id="admin-contributors"></div></section>
+            <section id="admin-panel-telemetry" class="dash-section" data-section-panel="telemetry" role="tabpanel" aria-labelledby="admin-tab-telemetry" hidden><div id="admin-telemetry"></div></section>
+            <section id="admin-panel-question-bank" class="dash-section" data-section-panel="question-bank" role="tabpanel" aria-labelledby="admin-tab-question-bank" hidden><div id="admin-question-bank"></div></section>
+            <section id="admin-panel-missions" class="dash-section" data-section-panel="missions" role="tabpanel" aria-labelledby="admin-tab-missions" hidden><div id="admin-missions"></div></section>
           </div>
         </section>
       </div>
@@ -169,16 +249,19 @@ export class AdminScene extends Phaser.Scene {
 
     this.portalRoot.addEventListener('click', this.handleClick);
     this.portalRoot.addEventListener('change', this.handleChange);
+    this.portalRoot.addEventListener('keydown', this.handleKeydown);
   }
 
   destroyPortal() {
     if (this.portalRoot) {
       this.portalRoot.removeEventListener('click', this.handleClick);
       this.portalRoot.removeEventListener('change', this.handleChange);
+      this.portalRoot.removeEventListener('keydown', this.handleKeydown);
     }
     destroyDashboardRoot(this.portalRoot);
     this.portalRoot = null;
     this.toastHost = null;
+    this.historyModalTriggerEl = null;
   }
 
   handleClick = (event) => {
@@ -247,8 +330,7 @@ export class AdminScene extends Phaser.Scene {
     }
     if (action === 'close-history-modal') {
       event.preventDefault();
-      const modal = this.portalRoot.querySelector('#history-modal-overlay');
-      if (modal) modal.remove();
+      this.closeHistoryModal();
       return;
     }
     if (action === 'ban-contributor' || action === 'unban-contributor') {
@@ -357,6 +439,65 @@ export class AdminScene extends Phaser.Scene {
     if (event.target?.id === 'quiz-map-select') {
       this.state.selectedQuizMapId = event.target.value || '';
     }
+  };
+
+  handleKeydown = (event) => {
+    const modal = this.portalRoot?.querySelector('#history-modal-overlay');
+    if (modal) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeHistoryModal();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusables = Array.from(
+          modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        ).filter((element) => !element.hasAttribute('disabled'));
+        if (focusables.length > 0) {
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          const active = document.activeElement;
+          if (event.shiftKey && active === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && active === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    }
+
+    if (!(event.target instanceof HTMLElement)) return;
+    const tabButton = event.target.closest('.dash-nav__button[role="tab"]');
+    if (!tabButton) return;
+
+    const tabs = Array.from(this.portalRoot?.querySelectorAll('.dash-nav__button[role="tab"]') || []);
+    const currentIndex = tabs.indexOf(tabButton);
+    if (currentIndex < 0) return;
+
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      nextIndex = (currentIndex + 1) % tabs.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      nextIndex = tabs.length - 1;
+    } else {
+      return;
+    }
+
+    const nextTab = tabs[nextIndex];
+    const nextSection = nextTab?.dataset.section;
+    if (!nextSection) return;
+    this.showSection(nextSection);
+    nextTab.focus();
   };
 
   async loadDashboard() {
@@ -515,17 +656,16 @@ export class AdminScene extends Phaser.Scene {
           </div>
         </article>
 
-        <article class="dash-card">
-          <div class="dash-card__headline">
-            <h3>Funnel summary</h3>
-            <span class="dash-muted">Live snapshot</span>
-          </div>
-          <div class="dash-mini-list">
-            <div class="dash-mini-list__item"><span>Map entered</span><strong>${metricOrZero(telemetry.mapEntered)}</strong></div>
+          <article class="dash-card">
+            <div class="dash-card__headline">
+              <h3>Funnel summary</h3>
+              <span class="dash-muted">Live snapshot</span>
+            </div>
+            <div class="dash-mini-list">
             <div class="dash-mini-list__item"><span>Combat won</span><strong>${metricOrZero(telemetry.combatWon)}</strong></div>
             <div class="dash-mini-list__item"><span>Reward claimed</span><strong>${metricOrZero(telemetry.rewardClaimed)}</strong></div>
-          </div>
-        </article>
+            </div>
+          </article>
       </div>
 
       <div class="dash-grid dash-grid--metrics">
@@ -855,7 +995,7 @@ export class AdminScene extends Phaser.Scene {
       || null;
 
     const directory = this.state.contributors.map((contributor) => `
-      <button type="button" class="dash-row-card" data-action="select-contributor" data-contributor-id="${escapeHtml(contributor.contributorId || '')}" style="text-align:left;">
+      <button type="button" class="dash-row-card dash-row-card--button" data-action="select-contributor" data-contributor-id="${escapeHtml(contributor.contributorId || '')}">
         <div class="dash-row-card__header">
           <div class="dash-row-card__title">${escapeHtml(contributor.fullName || contributor.email || 'Unknown contributor')}</div>
           ${renderBadge(contributor.isActive ? 'ACTIVE' : 'INACTIVE')}
@@ -883,7 +1023,7 @@ export class AdminScene extends Phaser.Scene {
         </div>
         <div class="dash-divider"></div>
         <p>${escapeHtml(selected.bio || 'No bio provided.')}</p>
-        <div class="dash-button-group" style="margin-top:18px;">
+        <div class="dash-button-group dash-mt-18">
           <button type="button" class="dash-button dash-button--secondary" data-action="show-submission-history" data-contributor-id="${escapeHtml(selected.contributorId || '')}">List Submission History</button>
           ${selected.isActive
             ? `<button type="button" class="dash-button dash-button--danger" data-action="ban-contributor" data-contributor-id="${escapeHtml(selected.contributorId || '')}">Ban contributor</button>`
@@ -893,7 +1033,7 @@ export class AdminScene extends Phaser.Scene {
     ` : renderEmptyState('No contributors found', 'Once contributor accounts exist, this directory will show their profile details.');
 
     container.innerHTML = `
-      <div class="dash-card" style="margin-bottom:18px;">
+      <div class="dash-card dash-mb-18">
         <div class="dash-inline">
           <div>
             <h3 style="margin:0 0 8px;">Contributor directory</h3>
@@ -913,6 +1053,7 @@ export class AdminScene extends Phaser.Scene {
 
   async showSubmissionHistory(contributorId) {
     if (!contributorId) return;
+    this.historyModalTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.setStatus('Loading submission history...', false);
     
     try {
@@ -925,47 +1066,69 @@ export class AdminScene extends Phaser.Scene {
   }
 
   renderHistoryModal(historyData) {
-    let modal = this.portalRoot?.querySelector('#history-modal-overlay');
-    if (modal) modal.remove();
+    this.closeHistoryModal();
 
     const rows = historyData.map((item) => `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-        <td style="padding: 12px 8px;">${renderBadge(item.status || 'UNKNOWN')}</td>
-        <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(formatDate(item.submittedAt))}</td>
-        <td style="padding: 12px 8px;">${escapeHtml(item.topic?.topicName || 'None')}</td>
-        <td style="padding: 12px 8px; color: #a1a1aa;">${escapeHtml(previewText(item.body || '', 60))}</td>
-        <td style="padding: 12px 8px; color: #ffb8c6; font-style: italic;">${escapeHtml(item.rejectionFeedback || '—')}</td>
+      <tr class="dash-table__row">
+        <td>${renderBadge(item.status || 'UNKNOWN')}</td>
+        <td class="dash-table__muted">${escapeHtml(formatDate(item.submittedAt))}</td>
+        <td>${escapeHtml(item.topic?.topicName || 'None')}</td>
+        <td class="dash-table__muted">${escapeHtml(previewText(item.body || '', 60))}</td>
+        <td class="dash-table__feedback">${escapeHtml(item.rejectionFeedback || '-')}</td>
       </tr>
     `).join('');
 
-    modal = document.createElement('div');
+    const modal = document.createElement('div');
     modal.id = 'history-modal-overlay';
-    modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; padding: 24px;';
+    modal.className = 'dash-modal-overlay';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'history-modal-title');
     
     modal.innerHTML = `
-      <div class="dash-card" style="width: 100%; max-width: 900px; max-height: 80vh; overflow-y: auto; background-color: #12080b; border: 1px solid rgba(255,255,255,0.1);">
-        <div class="dash-inline" style="margin-bottom: 16px;">
-          <h3 style="margin: 0;">Submission History</h3>
+      <div class="dash-card dash-modal" data-modal-card>
+        <div class="dash-inline dash-modal__header">
+          <h3 id="history-modal-title" class="dash-modal__title">Submission History</h3>
           <button type="button" class="dash-button dash-button--ghost" data-action="close-history-modal">Close</button>
         </div>
-        <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 14px;">
+        <table class="dash-table">
           <thead>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
-              <th style="padding: 12px 8px;">Status</th>
-              <th style="padding: 12px 8px;">Submitted At</th>
-              <th style="padding: 12px 8px;">Topic</th>
-              <th style="padding: 12px 8px;">Body Preview</th>
-              <th style="padding: 12px 8px;">Rejection Feedback</th>
+            <tr class="dash-table__head-row">
+              <th>Status</th>
+              <th>Submitted At</th>
+              <th>Topic</th>
+              <th>Body Preview</th>
+              <th>Rejection Feedback</th>
             </tr>
           </thead>
           <tbody>
-            ${rows || '<tr><td colspan="5" style="text-align: center; padding: 24px; color: #a1a1aa;">No submissions found for this contributor.</td></tr>'}
+            ${rows || '<tr><td colspan="5" class="dash-table__empty">No submissions found for this contributor.</td></tr>'}
           </tbody>
         </table>
       </div>
     `;
 
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        this.closeHistoryModal();
+      }
+    });
     this.portalRoot?.appendChild(modal);
+    const closeButton = modal.querySelector('[data-action="close-history-modal"]');
+    if (closeButton instanceof HTMLElement) {
+      closeButton.focus();
+    }
+  }
+
+  closeHistoryModal() {
+    const modal = this.portalRoot?.querySelector('#history-modal-overlay');
+    if (modal) {
+      modal.remove();
+    }
+    if (this.historyModalTriggerEl && document.contains(this.historyModalTriggerEl)) {
+      this.historyModalTriggerEl.focus();
+    }
+    this.historyModalTriggerEl = null;
   }
 
   renderTelemetrySection(hasError = false) {
@@ -978,6 +1141,13 @@ export class AdminScene extends Phaser.Scene {
     }
 
     const telemetry = this.state.telemetry || {};
+    const winRate = Number(telemetry.winRate || 0);
+    const lossRate = Number(telemetry.lossRate || 0);
+    const rewardClaimRate = Number.isFinite(Number(telemetry.rewardClaimRate))
+      ? Number(telemetry.rewardClaimRate)
+      : (Number(telemetry.combatWon || 0) > 0
+        ? ((Number(telemetry.rewardClaimed || 0) * 100) / Number(telemetry.combatWon || 0))
+        : 0);
     const mapOptions = [
       '<option value="">All maps</option>',
       ...this.state.maps.map((map) => (
@@ -986,45 +1156,43 @@ export class AdminScene extends Phaser.Scene {
     ].join('');
 
     container.innerHTML = `
-      <div class="dash-card" style="margin-bottom:18px;">
+      <div class="dash-card dash-mb-18">
         <div class="dash-inline">
           <div>
             <h3 style="margin:0 0 8px;">Encounter telemetry</h3>
             <p>Filter by map to inspect where learners are entering, fighting, winning, and claiming rewards.</p>
           </div>
           <div class="dash-button-group">
-            <select id="telemetry-map-select" class="dash-select" style="min-width:220px;">${mapOptions}</select>
+            <label class="dash-sr-only" for="telemetry-map-select">Filter telemetry by map</label>
+            <select id="telemetry-map-select" class="dash-select dash-map-select">${mapOptions}</select>
             <button type="button" class="dash-button dash-button--secondary" data-action="refresh-current">Refresh telemetry</button>
           </div>
         </div>
-      </div>
+        </div>
 
-      <div class="dash-grid dash-grid--metrics">
-        <article class="dash-card dash-metric"><span class="dash-metric__label">Map entered</span><span class="dash-metric__value">${metricOrZero(telemetry.mapEntered)}</span><span class="dash-metric__delta">Learner sessions entering a map</span></article>
+        <div class="dash-grid dash-grid--metrics-3">
         <article class="dash-card dash-metric"><span class="dash-metric__label">Combat started</span><span class="dash-metric__value">${metricOrZero(telemetry.combatStarted)}</span><span class="dash-metric__delta">Encounter attempts initiated</span></article>
         <article class="dash-card dash-metric"><span class="dash-metric__label">Combat won</span><span class="dash-metric__value">${metricOrZero(telemetry.combatWon)}</span><span class="dash-metric__delta">Successful encounter completions</span></article>
         <article class="dash-card dash-metric"><span class="dash-metric__label">Reward claimed</span><span class="dash-metric__value">${metricOrZero(telemetry.rewardClaimed)}</span><span class="dash-metric__delta">Learners finishing the loop</span></article>
-      </div>
+        </div>
 
-      <div class="dash-grid dash-grid--two">
-        <article class="dash-card">
-          <div class="dash-card__headline"><h3>Conversion rates</h3><span class="dash-muted">Percentages</span></div>
-          <div class="dash-mini-list">
-            <div class="dash-mini-list__item"><span>Talk rate</span><strong>${Number(telemetry.talkRate || 0).toFixed(2)}%</strong></div>
-            <div class="dash-mini-list__item"><span>Unlock rate</span><strong>${Number(telemetry.unlockRate || 0).toFixed(2)}%</strong></div>
-            <div class="dash-mini-list__item"><span>Win rate</span><strong>${Number(telemetry.winRate || 0).toFixed(2)}%</strong></div>
-            <div class="dash-mini-list__item"><span>Loss rate</span><strong>${Number(telemetry.lossRate || 0).toFixed(2)}%</strong></div>
-            <div class="dash-mini-list__item"><span>Reward claim rate</span><strong>${Number(telemetry.rewardClaimRate || 0).toFixed(2)}%</strong></div>
-          </div>
-        </article>
-        <article class="dash-card">
-          <div class="dash-card__headline"><h3>Interpretation</h3><span class="dash-muted">What to watch</span></div>
-          <p>${Number(telemetry.rewardClaimRate || 0) < 30
+        <div class="dash-grid dash-grid--two">
+          <article class="dash-card">
+            <div class="dash-card__headline"><h3>Conversion rates</h3><span class="dash-muted">Percentages</span></div>
+            <div class="dash-mini-list">
+            <div class="dash-mini-list__item"><span>Win rate</span><strong>${winRate.toFixed(2)}%</strong></div>
+            <div class="dash-mini-list__item"><span>Loss rate</span><strong>${lossRate.toFixed(2)}%</strong></div>
+            <div class="dash-mini-list__item"><span>Reward claim rate</span><strong>${rewardClaimRate.toFixed(2)}%</strong></div>
+            </div>
+          </article>
+          <article class="dash-card">
+            <div class="dash-card__headline"><h3>Interpretation</h3><span class="dash-muted">What to watch</span></div>
+          <p>${rewardClaimRate < 30
             ? 'Reward claim rate is low, which suggests learners are dropping before the final loop completes. Inspect map flow and encounter difficulty.'
-            : Number(telemetry.winRate || 0) < 50
+            : winRate < 50
               ? 'Win rate is under half, so difficulty or encounter clarity may be too harsh. Review monster pairing and combat pacing.'
               : 'The encounter funnel looks relatively healthy. Use map-specific filtering to isolate where learners still lose momentum.'}</p>
-        </article>
+          </article>
       </div>
     `;
   }
@@ -1488,7 +1656,7 @@ export class AdminScene extends Phaser.Scene {
     const statusEl = this.portalRoot?.querySelector('#admin-status');
     if (!statusEl) return;
     statusEl.textContent = message || '';
-    statusEl.style.color = isError ? '#ffb8c6' : '';
+    statusEl.classList.toggle('is-error', Boolean(isError));
   }
 
   showSection(section) {
@@ -1505,10 +1673,16 @@ export class AdminScene extends Phaser.Scene {
     };
 
     this.portalRoot?.querySelectorAll('.dash-nav__button[data-section]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.section === section);
+      const isActive = button.dataset.section === section;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      button.setAttribute('tabindex', isActive ? '0' : '-1');
     });
     this.portalRoot?.querySelectorAll('.dash-section').forEach((panel) => {
-      panel.classList.toggle('is-active', panel.dataset.sectionPanel === section);
+      const isActive = panel.dataset.sectionPanel === section;
+      panel.classList.toggle('is-active', isActive);
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
 
     const [title, subtitle] = config[section] || config.overview;
@@ -1554,40 +1728,40 @@ export class AdminScene extends Phaser.Scene {
     const bankHtml = bankQuestions.length === 0
       ? renderEmptyState('No questions in bank', 'Generate a draft or add questions for this map.')
       : bankQuestions.map((q) => `
-        <div class="dash-card" style="margin-bottom:10px;padding:14px 16px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-            <div style="flex:1;">
-              <p style="margin:0 0 8px;font-size:14px;">${escapeHtml(q.scenarioText)}</p>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+        <div class="dash-card dash-qbank-item">
+          <div class="dash-qbank-item__layout">
+            <div class="dash-qbank-item__content">
+              <p class="dash-qbank-item__text">${escapeHtml(q.scenarioText)}</p>
+              <div class="dash-qbank-item__options">
                 ${(q.options || []).map((o) => `
-                  <span style="font-size:12px;padding:2px 8px;border-radius:4px;background:${o.isCorrect ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)'};border:1px solid ${o.isCorrect ? '#4ade80' : 'rgba(255,255,255,0.12)'};">
-                    ${escapeHtml(o.optionText)}${o.isCorrect ? ' ✓' : ''}
+                  <span class="dash-qbank-chip ${o.isCorrect ? 'dash-qbank-chip--correct' : ''}">
+                    ${escapeHtml(o.optionText)}${o.isCorrect ? ' [correct]' : ''}
                   </span>`).join('')}
               </div>
-              <span style="font-size:11px;color:#b58d84;">${q.isMultiSelect ? 'Multi-select' : 'Single-select'}</span>
+              <span class="dash-qbank-item__type">${q.isMultiSelect ? 'Multi-select' : 'Single-select'}</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;align-items:flex-end;">
+            <div class="dash-qbank-item__actions">
               ${renderBadge(q.status)}
               ${q.status === 'PENDING_REVIEW' ? `
-                <button class="dash-button" style="font-size:12px;padding:4px 10px;" data-action="approve-bank-question" data-bank-question-id="${q.bankQuestionId}">Approve</button>
-                <button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;" data-action="reject-bank-question" data-bank-question-id="${q.bankQuestionId}">Reject</button>
+                <button class="dash-button dash-button--xs" data-action="approve-bank-question" data-bank-question-id="${q.bankQuestionId}">Approve</button>
+                <button class="dash-button dash-button--secondary dash-button--xs" data-action="reject-bank-question" data-bank-question-id="${q.bankQuestionId}">Reject</button>
               ` : ''}
               ${q.status === 'APPROVED' && mapQuiz && !quizScenarioTexts.has(normalizeScenarioText(q.scenarioText)) ? `
-                <button class="dash-button" style="font-size:12px;padding:4px 10px;" data-action="add-to-quiz" data-bank-question-id="${q.bankQuestionId}">Add to Quiz</button>
+                <button class="dash-button dash-button--xs" data-action="add-to-quiz" data-bank-question-id="${q.bankQuestionId}">Add to Quiz</button>
               ` : ''}
             </div>
           </div>
         </div>`).join('');
 
     const quizHtml = !mapQuiz
-      ? `<div style="margin-bottom:16px;">${renderEmptyState('No quiz for this map', 'Create a quiz to start adding questions.')}</div>
+      ? `<div class="dash-qbank-draft-hint">${renderEmptyState('No quiz for this map', 'Create a quiz to start adding questions.')}</div>
          <button class="dash-button" data-action="create-map-quiz">Create Quiz</button>`
       : `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="dash-qbank-quiz-header">
           <div>
             <strong>${escapeHtml(mapQuiz.title || 'Untitled Quiz')}</strong>
-            <span style="margin-left:8px;">${renderBadge(mapQuiz.isPublished ? 'published' : 'draft')}</span>
-            <p class="dash-muted" style="margin:4px 0 0;">${escapeHtml(mapQuiz.description || '')}</p>
+            <span class="dash-qbank-quiz-badge">${renderBadge(mapQuiz.isPublished ? 'published' : 'draft')}</span>
+            <p class="dash-muted dash-qbank-quiz-description">${escapeHtml(mapQuiz.description || '')}</p>
           </div>
           ${mapQuiz.isPublished
             ? `<button class="dash-button dash-button--secondary" data-action="unpublish-map-quiz">Unpublish</button>`
@@ -1597,12 +1771,12 @@ export class AdminScene extends Phaser.Scene {
           ${(mapQuiz.questions || []).length === 0
             ? renderEmptyState('No questions added yet', 'Approve questions in the bank, then add them here.')
             : (mapQuiz.questions || []).map((q, i) => `
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;margin-bottom:6px;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
-                <div style="flex:1;">
-                  <span style="font-size:12px;color:#b58d84;">Q${i + 1}${q.isMultiSelect ? ' · multi' : ''}</span>
-                  <p style="margin:4px 0 0;font-size:13px;">${escapeHtml(q.scenarioText)}</p>
+              <div class="dash-qbank-quiz-item">
+                <div class="dash-qbank-quiz-item__content">
+                  <span class="dash-qbank-quiz-item__meta">Q${i + 1}${q.isMultiSelect ? ' - multi' : ''}</span>
+                  <p class="dash-qbank-quiz-item__text">${escapeHtml(q.scenarioText)}</p>
                 </div>
-                <button class="dash-button dash-button--secondary" style="font-size:12px;padding:4px 10px;margin-left:12px;" data-action="remove-from-quiz" data-question-id="${q.questionId}">
+                <button class="dash-button dash-button--secondary dash-button--xs dash-qbank-quiz-item__remove" data-action="remove-from-quiz" data-question-id="${q.questionId}">
                   ${mapQuiz.isPublished ? 'Unpublish & Remove' : 'Remove'}
                 </button>
               </div>`).join('')}
@@ -1611,48 +1785,49 @@ export class AdminScene extends Phaser.Scene {
     const isGenerating = Boolean(this.state.quizDraftLoading);
 
     const draftHtml = `
-      <article class="dash-card" style="margin-top:20px;">
+      <article class="dash-card dash-mt-18">
         <div class="dash-card__headline">
           <h3>Draft Questions</h3>
-          <span class="dash-muted">${draft.length > 0 ? `${draft.length} question${draft.length !== 1 ? 's' : ''} — edit then save to bank` : 'Add questions manually or generate from map content'}</span>
+          <span class="dash-muted">${draft.length > 0 ? `${draft.length} question${draft.length !== 1 ? 's' : ''} - edit then save to bank` : 'Add questions manually or generate from map content'}</span>
         </div>
         ${isGenerating ? `
-          <div style="display:flex;align-items:center;gap:12px;padding:20px 0;">
-            <div style="width:20px;height:20px;border:3px solid rgba(255,163,123,0.3);border-top-color:#ff9c6a;border-radius:50%;animation:dash-spin 0.8s linear infinite;flex-shrink:0;"></div>
-            <span style="color:#b58d84;font-size:14px;">Generating questions from map content...</span>
+          <div class="dash-qbank-loading">
+            <div class="dash-qbank-spinner"></div>
+            <span class="dash-qbank-loading-text">Generating questions from map content...</span>
           </div>
         ` : ''}
         <form id="draft-questions-form">
           ${draft.map((q, i) => `
-            <div style="padding:14px;margin-bottom:12px;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <label style="font-size:12px;color:#b58d84;font-weight:600;">Question ${i + 1}</label>
-                <button type="button" class="dash-button dash-button--secondary" style="font-size:11px;padding:2px 8px;" data-action="remove-draft-question" data-question-index="${i}">Remove</button>
+            <div class="dash-qbank-draft-item">
+              <div class="dash-qbank-draft-item__header">
+                <label class="dash-qbank-draft-item__label" for="scenario_${i}">Question ${i + 1}</label>
+                <button type="button" class="dash-button dash-button--secondary dash-button--2xs" data-action="remove-draft-question" data-question-index="${i}">Remove</button>
               </div>
-              <textarea name="scenario_${i}" style="width:100%;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#eef4ff;font-size:13px;resize:vertical;" rows="2" placeholder="Enter question / scenario text...">${escapeHtml(q.scenarioText)}</textarea>
-              <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
-                <span style="font-size:11px;color:#b58d84;">Options — check the correct answer(s)</span>
+              <textarea id="scenario_${i}" name="scenario_${i}" class="dash-qbank-draft-input dash-qbank-draft-input--textarea" rows="2" placeholder="Enter question / scenario text...">${escapeHtml(q.scenarioText)}</textarea>
+              <div class="dash-qbank-draft-options">
+                <span class="dash-qbank-draft-options__hint">Options - check the correct answer(s)</span>
                 ${(q.options || []).map((o, j) => `
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" name="correct_${i}_${j}" ${o.isCorrect ? 'checked' : ''} style="accent-color:#ff9c6a;width:16px;height:16px;flex-shrink:0;">
-                    <input type="text" name="option_${i}_${j}" value="${escapeHtml(o.optionText)}" placeholder="Option text..." style="flex:1;padding:6px 8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#eef4ff;font-size:13px;">
+                  <div class="dash-qbank-draft-option-row">
+                    <input type="checkbox" name="correct_${i}_${j}" ${o.isCorrect ? 'checked' : ''} class="dash-qbank-draft-check" aria-label="Mark option ${j + 1} as correct for question ${i + 1}">
+                    <input type="text" name="option_${i}_${j}" value="${escapeHtml(o.optionText)}" placeholder="Option text..." class="dash-qbank-draft-input" aria-label="Option ${j + 1} text for question ${i + 1}">
                   </div>`).join('')}
-                <button type="button" class="dash-button dash-button--ghost" style="font-size:12px;padding:4px 10px;align-self:flex-start;" data-action="add-draft-option" data-question-index="${i}">+ Add Option</button>
+                <button type="button" class="dash-button dash-button--ghost dash-button--xs" data-action="add-draft-option" data-question-index="${i}">+ Add Option</button>
               </div>
             </div>`).join('')}
-          <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;">
+          <div class="dash-qbank-draft-actions">
             <button type="button" class="dash-button" data-action="add-blank-question" ${isGenerating ? 'disabled' : ''}>+ Add Question</button>
             <button type="button" class="dash-button dash-button--secondary" data-action="generate-bank-draft" ${isGenerating ? 'disabled' : ''}>${isGenerating ? 'Generating...' : 'Generate AI Draft'}</button>
-            ${draft.length > 0 && !isGenerating ? `<button type="button" class="dash-button" style="margin-left:auto;" data-action="save-bank-draft">Save All to Bank</button>` : ''}
+            ${draft.length > 0 && !isGenerating ? `<button type="button" class="dash-button dash-push-right" data-action="save-bank-draft">Save All to Bank</button>` : ''}
           </div>
         </form>
       </article>`;
 
     container.innerHTML = `
-      <article class="dash-card" style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <select id="quiz-map-select" style="flex:1;min-width:200px;padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;">
-            <option value="">— Select a map —</option>
+      <article class="dash-card dash-mb-20">
+        <div class="dash-qbank-map-row">
+          <label class="dash-sr-only" for="quiz-map-select">Select map for quiz management</label>
+          <select id="quiz-map-select" class="dash-qbank-map-select">
+            <option value="">- Select a map -</option>
             ${mapOptions}
           </select>
           <button class="dash-button" data-action="load-quiz-map">Load</button>
@@ -1661,7 +1836,7 @@ export class AdminScene extends Phaser.Scene {
 
       ${this.state.selectedQuizMapId ? `
         ${draftHtml}
-        <div class="dash-grid dash-grid--two" style="align-items:start;margin-top:20px;">
+        <div class="dash-grid dash-grid--two dash-grid-top dash-mt-18">
           <article class="dash-card">
             <div class="dash-card__headline"><h3>Question Bank</h3><span class="dash-muted">${bankQuestions.length} questions</span></div>
             ${bankHtml}
@@ -1866,7 +2041,7 @@ export class AdminScene extends Phaser.Scene {
       const updated = await apiService.publishQuiz(quizId);
       this.state.mapQuiz = updated;
       this.renderQuestionBankSection();
-      showToast(this.toastHost, 'Quiz published — learners can now access it.');
+      showToast(this.toastHost, 'Quiz published - learners can now access it.');
       this.setStatus('', false);
     } catch (error) {
       this.setStatus(getErrorMessage(error, 'Failed to publish quiz'), true);
@@ -1902,7 +2077,7 @@ export class AdminScene extends Phaser.Scene {
             <div class="dash-row-card__title">${escapeHtml(m.title || 'Untitled')}</div>
             <div class="dash-row-card__meta">
               <span>${escapeHtml(m.type || '')}</span>
-              <span>${m.rewardXp} XP · ${m.rewardGold} Gold</span>
+              <span>${m.rewardXp} XP - ${m.rewardGold} Gold</span>
             </div>
           </div>
           ${renderBadge((m.active ?? m.isActive) ? 'ACTIVE' : 'INACTIVE')}
@@ -1928,8 +2103,8 @@ export class AdminScene extends Phaser.Scene {
           </div>
           ${renderBadge('FLAGGED_FOR_REVIEW')}
         </div>
-        <div class="dash-row-card__body" style="font-style:italic;">"${escapeHtml(a.reflection || '')}"</div>
-        <div class="dash-detail-list" style="margin-bottom:8px;">
+        <div class="dash-row-card__body dash-text-italic">"${escapeHtml(a.reflection || '')}"</div>
+        <div class="dash-detail-list dash-mb-8">
           <span>AI note: ${escapeHtml(a.aiReviewNote || 'None')}</span>
         </div>
         <div class="dash-button-group">
@@ -1940,26 +2115,31 @@ export class AdminScene extends Phaser.Scene {
     `).join('');
 
     container.innerHTML = `
-      <article class="dash-card" style="margin-bottom:20px;">
+      <article class="dash-card dash-mb-20">
         <div class="dash-card__headline">
           <h3>Create New Mission</h3>
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <input id="mission-title" type="text" placeholder="Mission title" style="padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
-          <select id="mission-type" style="padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
+        <div class="dash-mission-form">
+          <label class="dash-sr-only" for="mission-title">Mission title</label>
+          <input id="mission-title" type="text" placeholder="Mission title" class="dash-mission-input">
+          <label class="dash-sr-only" for="mission-type">Mission type</label>
+          <select id="mission-type" class="dash-mission-input">
             <option value="OBSERVATION">Observation</option>
             <option value="INTERACTION">Interaction</option>
           </select>
-          <textarea id="mission-description" rows="3" placeholder="Describe the mission..." style="padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;resize:vertical;"></textarea>
-          <div style="display:flex;gap:10px;">
-            <input id="mission-xp" type="number" placeholder="XP reward" style="width:115px;padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
-            <input id="mission-gold" type="number" placeholder="Gold reward" style="width:115px;padding:8px 12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,163,123,0.3);border-radius:6px;color:#eef4ff;font-size:13px;">
-            <button type="button" class="dash-button" data-action="create-mission" style="margin-left:auto;">Add Mission</button>
+          <label class="dash-sr-only" for="mission-description">Mission description</label>
+          <textarea id="mission-description" rows="3" placeholder="Describe the mission..." class="dash-mission-input"></textarea>
+          <div class="dash-mission-inline">
+            <label class="dash-sr-only" for="mission-xp">XP reward</label>
+            <input id="mission-xp" type="number" placeholder="XP reward" class="dash-mission-input dash-mission-input--narrow">
+            <label class="dash-sr-only" for="mission-gold">Gold reward</label>
+            <input id="mission-gold" type="number" placeholder="Gold reward" class="dash-mission-input dash-mission-input--narrow">
+            <button type="button" class="dash-button dash-push-right" data-action="create-mission">Add Mission</button>
           </div>
         </div>
       </article>
 
-      <div class="dash-grid dash-grid--two" style="align-items:start;">
+      <div class="dash-grid dash-grid--two dash-grid-top">
         <article class="dash-card">
           <div class="dash-card__headline">
             <h3>Mission Pool</h3>
@@ -2043,7 +2223,7 @@ export class AdminScene extends Phaser.Scene {
       await apiService.reviewReflection(attemptId, approve, approve ? 'Approved by admin.' : 'Rejected by admin.');
       this.state.flaggedReflections = this.state.flaggedReflections.filter((a) => a.attemptId !== attemptId);
       this.renderMissionsSection();
-      showToast(this.toastHost, approve ? 'Reflection approved — reward granted.' : 'Reflection rejected.');
+      showToast(this.toastHost, approve ? 'Reflection approved - reward granted.' : 'Reflection rejected.');
       this.setStatus('', false);
     } catch (error) {
       this.setStatus(getErrorMessage(error, 'Failed to review reflection'), true);
@@ -2056,3 +2236,4 @@ export class AdminScene extends Phaser.Scene {
     routeToLogin(this, { hardReload: true });
   }
 }
+

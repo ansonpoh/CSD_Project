@@ -83,14 +83,10 @@ export const draftMethods = {
       });
 
       modal.querySelectorAll('[data-delete-draft-id]').forEach((button) => {
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
           const draftId = button.getAttribute('data-delete-draft-id');
           if (!draftId) return;
-          const confirmed = window.confirm('Delete this draft permanently? This action cannot be undone.');
-          if (!confirmed) return;
-          await this.deleteDraftById(draftId);
-          this.closeLoadDraftModal();
-          await this.openLoadDraftModal();
+          this.openDeleteDraftConfirmModal(draftId);
         });
       });
     } catch (error) {
@@ -192,6 +188,52 @@ export const draftMethods = {
     } catch (error) {
       this.setStatus(`Submission failed: ${error?.response?.data?.message || error?.message || 'unknown error'}`);
     }
+  },
+
+  openDeleteDraftConfirmModal(draftId) {
+    if (!draftId || !this.modalHostEl) return;
+
+    if (this.uiModal?.parentNode) this.uiModal.parentNode.removeChild(this.uiModal);
+    this.uiModal = null;
+
+    const modal = document.createElement('div');
+    modal.className = 'me-surface me-modal';
+    modal.innerHTML = `
+      <div class="me-modal__header">
+        <div>
+          <div class="me-sidebar__title">Delete Draft</div>
+          <h3>Delete this draft?</h3>
+        </div>
+      </div>
+      <div class="me-copy" style="margin-bottom: 18px;">
+        This action is permanent. The draft and its saved snapshots will be removed.
+      </div>
+      <div class="me-chip-row">
+        <button type="button" class="me-action me-action--ghost" id="me-cancel-delete-draft">Cancel</button>
+        <button type="button" class="me-action me-action--warning" id="me-confirm-delete-draft">Delete Draft</button>
+      </div>
+    `;
+
+    this.modalHostEl.classList.add('is-open');
+    this.modalHostEl.innerHTML = '<div class="me-modal-backdrop"></div>';
+    this.modalHostEl.appendChild(modal);
+    this.uiModal = modal;
+
+    const closeAndReturnToLibrary = async () => {
+      this.closeLoadDraftModal();
+      await this.openLoadDraftModal();
+    };
+
+    modal.querySelector('#me-cancel-delete-draft')?.addEventListener('click', async (event) => {
+      event.preventDefault();
+      await closeAndReturnToLibrary();
+    });
+
+    modal.querySelector('#me-confirm-delete-draft')?.addEventListener('click', async (event) => {
+      event.preventDefault();
+      await this.deleteDraftById(draftId);
+      await closeAndReturnToLibrary();
+    });
   },
 
   async deleteDraftById(draftId) {

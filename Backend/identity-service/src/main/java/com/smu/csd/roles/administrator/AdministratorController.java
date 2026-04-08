@@ -21,6 +21,10 @@ import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping("/api/administrators")
@@ -41,10 +45,16 @@ public class AdministratorController {
     //     );
     //     return ResponseEntity.status(HttpStatus.CREATED).body(admin);
     // }
-    @PostMapping("add")
+    @PostMapping("/add")
     @PreAuthorize("hasRole('ADMIN')")
-    public Administrator addAdministrator(@Valid @RequestBody Administrator administrator) throws ResourceAlreadyExistsException {
-        return service.saveAdministrator(administrator);
+    public ResponseEntity<Administrator> addAdministrator(@Valid @RequestBody CreateAdminRequest request)
+            throws ResourceAlreadyExistsException {
+        Administrator administrator = Administrator.builder()
+                .supabaseUserId(request.supabaseUserId())
+                .email(request.email())
+                .fullName(request.fullName())
+                .build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.saveAdministrator(administrator));
     }
 
     @GetMapping("/all")
@@ -78,7 +88,7 @@ public class AdministratorController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Administrator> updateAdministrator(
             @PathVariable UUID id,
-            @RequestBody UpdateAdminRequest request) throws ResourceNotFoundException {
+            @Valid @RequestBody UpdateAdminRequest request) throws ResourceNotFoundException {
         Administrator admin = service.updateAdministrator(id, request.fullName(), request.isActive());
         return ResponseEntity.ok(admin);
     }
@@ -99,6 +109,14 @@ public class AdministratorController {
     // Records: When frontend sends JSON like {"email": "x", "fullName": "y"}, Spring converts it to these objects.
     // We use records instead of Entity directly so frontend can only send the fields we allow (not id, createdAt, etc).
     // basically means that we only accept these fields
-    public record CreateAdminRequest(UUID supabaseUserId, String email, String fullName) {}
-    public record UpdateAdminRequest(String fullName, Boolean isActive) {}
+    public record CreateAdminRequest(
+            @NotNull UUID supabaseUserId,
+            @NotBlank @Email @Size(max = 254) String email,
+            @NotBlank @Size(max = 120) String fullName
+    ) {}
+
+    public record UpdateAdminRequest(
+            @Size(max = 120) String fullName,
+            Boolean isActive
+    ) {}
 }

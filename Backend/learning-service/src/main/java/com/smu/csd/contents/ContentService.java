@@ -9,6 +9,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -54,15 +55,21 @@ public class ContentService {
         String body;
         try {
             body = objectMapper.writeValueAsString(narrations);
-            if (resubmittedFromId != null) {
-                Content original = contentRepository.findById(resubmittedFromId)
-                    .orElseThrow(() -> new ResourceNotFoundException("original submission", "submissionid", resubmittedFromId));
-                if (original.getStatus() != Content.Status.REJECTED) {
-                    throw new IllegalStateException("Can only resubmit rejected content");
-                }
-            }
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid narrations format: " + e.getMessage());
+        }
+
+        if (resubmittedFromId != null) {
+            Content original = contentRepository.findById(resubmittedFromId)
+                .orElseThrow(() -> new ResourceNotFoundException("original submission", "submissionid", resubmittedFromId));
+
+            if (!contributorId.equals(original.getContributorId())) {
+                throw new AccessDeniedException("Cannot resubmit content owned by another contributor");
+            }
+
+            if (original.getStatus() != Content.Status.REJECTED) {
+                throw new IllegalStateException("Can only resubmit rejected content");
+            }
         }
 
         String normalized = duplicateDetectionService.normalize(title, narrations);

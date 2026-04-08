@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.ResponseEntity;
 
 import com.smu.csd.exception.ResourceAlreadyExistsException;
 import com.smu.csd.exception.ResourceNotFoundException;
@@ -33,14 +34,20 @@ public class AdministratorControllerErrorTest {
 
     @Test
     public void testCreateAdministrator_DuplicateEmail() throws Exception {
-        // Note: saveAdministrator doesn't throw exceptions - duplicate handling
-        // would need to be added to the service layer. This test documents expected behavior.
         Administrator admin = new Administrator();
+        admin.setSupabaseUserId(UUID.randomUUID());
         admin.setEmail("test@example.com");
+        admin.setFullName("Admin User");
         when(service.saveAdministrator(any(Administrator.class))).thenReturn(admin);
 
-        // Currently returns the saved admin - no duplicate check in service
-        Administrator result = controller.addAdministrator(admin);
+        AdministratorController.CreateAdminRequest request =
+                new AdministratorController.CreateAdminRequest(
+                        admin.getSupabaseUserId(),
+                        admin.getEmail(),
+                        admin.getFullName()
+                );
+        ResponseEntity<Administrator> response = controller.addAdministrator(request);
+        Administrator result = response.getBody();
 
         assertNotNull(result);
     }

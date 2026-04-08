@@ -37,7 +37,7 @@ spring:
         - id: identity-service
           uri: ${IDENTITY_URL:http://localhost:8081}
           predicates:
-            - Path=/api/auth/**, /api/administrators/**, /api/contributors/**
+            - Path=/api/auth/role/me, /api/auth/role/has/**, /api/administrators/**, /api/contributors/**
 
         # ─────────────────────────────────────────────
         # PHASE 3: Game World Service

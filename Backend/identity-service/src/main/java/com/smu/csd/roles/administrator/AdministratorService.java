@@ -82,7 +82,8 @@ public class AdministratorService {
 
     // Used after login to fetch the admin's profile.
     public Administrator getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId);
+        return repository.findBySupabaseUserId(supabaseUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Administrator", "supabaseUserId", supabaseUserId));
     }
 
     public boolean isAdministrator(UUID supabaseUserId) {

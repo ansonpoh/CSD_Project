@@ -1,6 +1,7 @@
 package com.smu.csd.roles.administrator;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -50,7 +51,7 @@ public class AdministratorControllerSecurityIntegrationTest {
                 .isActive(true)
                 .build();
 
-        when(administratorService.getAllAdministrators()).thenReturn(List.of(administrator));
+        when(administratorService.getAllAdministrators(anyInt(), anyInt())).thenReturn(List.of(administrator));
 
         mockMvc.perform(get("/api/administrators/all"))
                 .andExpect(status().isOk())

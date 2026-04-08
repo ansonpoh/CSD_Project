@@ -1,6 +1,7 @@
 package com.smu.csd.roles.administrator;
 
 import java.util.UUID;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -12,7 +13,7 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
     // But we may need to query by OTHER columns (supabaseUserId, email),
     // so we declare these methods. Spring auto-generates the SQL.
 
-    Administrator findBySupabaseUserId(UUID supabaseUserId);
+    Optional<Administrator> findBySupabaseUserId(UUID supabaseUserId);
 
     boolean existsBySupabaseUserId(UUID supabaseUserId);
 

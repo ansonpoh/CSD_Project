@@ -53,6 +53,10 @@ public class LearnerService {
     @Transactional
     public Learner createLearner(UUID supabaseUserId, String username, String email, String fullName)
             throws ResourceAlreadyExistsException {
+        if (repository.existsByUsernameIgnoreCase(username)) {
+            throw new ResourceAlreadyExistsException("Username is already in use.");
+        }
+
         if (repository.existsByEmail(email)) {
             throw new ResourceAlreadyExistsException("Learner", "email", email);
         }
@@ -81,11 +85,11 @@ public class LearnerService {
     }
 
     public List<Learner> getAllLearners(int page, int size) {
-        return repository.findAll(
+        return repository.findByIs_activeTrue(
                 PageRequest.of(
-                        normalizePage(page),
-                        normalizeSize(size),
-                        Sort.by(Sort.Direction.ASC, "learnerId")
+                    normalizePage(page),
+                    normalizeSize(size),
+                    Sort.by(Sort.Direction.ASC, "learnerId")
                 )
         ).getContent();
     }
@@ -96,19 +100,28 @@ public class LearnerService {
     }
 
     public Learner getBySupabaseUserId(UUID supabaseUserId) throws ResourceNotFoundException {
-        return repository.findBySupabaseUserId(supabaseUserId);
+        Learner learner = repository.findBySupabaseUserId(supabaseUserId);
+        if (learner == null || !Boolean.TRUE.equals(learner.getIs_active())) {
+            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
+        }
+        return learner;
     }
 
     @Transactional
     public Learner awardXpAndGoldBySupabaseUserId(UUID supabaseUserId, Integer xpAwarded, Integer goldAwarded)
             throws ResourceNotFoundException {
         Learner learner = getBySupabaseUserId(supabaseUserId);
-        if (learner == null) {
-            throw new ResourceNotFoundException("Learner", "supabaseUserId", supabaseUserId);
-        }
 
-        int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + safeInt(xpAwarded);
-        int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + safeInt(goldAwarded);
+        int updatedXp = clampToIntRange(
+                (long) safeInt(learner.getTotal_xp()) + safeInt(xpAwarded),
+                0,
+                Integer.MAX_VALUE
+        );
+        int updatedGold = clampToIntRange(
+                (long) safeInt(learner.getGold()) + safeInt(goldAwarded),
+                0,
+                Integer.MAX_VALUE
+        );
         int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
 
         learner.setTotal_xp(updatedXp);
@@ -135,7 +148,7 @@ public class LearnerService {
     }
 
     public boolean existsBySupabaseUserId(UUID supabaseUserId) {
-        return repository.existsBySupabaseUserId(supabaseUserId);
+        return repository.existsBySupabaseUserIdAndIs_activeTrue(supabaseUserId);
     }
 
     @Transactional
@@ -167,6 +180,12 @@ public class LearnerService {
 
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private int clampToIntRange(long value, int min, int max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return (int) value;
     }
 
     private int normalizePage(int page) {

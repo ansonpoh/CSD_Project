@@ -195,6 +195,7 @@ export const uiMethods = {
         width: ${EDITOR_LAYOUT.leftPanelCollapsedWidth}px;
         padding-left: 14px;
         padding-right: 14px;
+        overflow: visible;
       }
 
       .me-shell.is-left-collapsed .me-sidebar--left .me-sidebar__section:not(.me-sidebar__section--pin) {
@@ -203,13 +204,18 @@ export const uiMethods = {
 
       .me-shell.is-left-collapsed .me-sidebar--left .me-sidebar__headline {
         margin-bottom: 0;
+        justify-content: center;
       }
 
       .me-shell.is-left-collapsed .me-sidebar--left .me-sidebar__title {
-        margin-bottom: 0;
+        display: none;
       }
 
       .me-shell.is-left-collapsed .me-sidebar--left .me-sidebar__headline h3 {
+        display: none;
+      }
+
+      .me-shell.is-left-collapsed .me-sidebar--left .me-sidebar__headline > div:first-child {
         display: none;
       }
 
@@ -535,6 +541,7 @@ export const uiMethods = {
         width: 42px;
         min-width: 42px;
         padding: 0;
+        flex-shrink: 0;
       }
 
       .me-edge-tab {

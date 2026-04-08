@@ -331,6 +331,11 @@ export function ensureDashboardPortalStyles() {
       margin-bottom: 22px;
     }
 
+    .dash-grid--metrics-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 22px;
+    }
+
     .dash-grid--two {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -531,6 +536,10 @@ export function ensureDashboardPortalStyles() {
       font-size: 14px;
     }
 
+    .dash-status.is-error {
+      color: #ffb8c6;
+    }
+
     .dash-divider {
       height: 1px;
       background: rgba(255, 255, 255, 0.08);
@@ -638,6 +647,365 @@ export function ensureDashboardPortalStyles() {
       outline: none;
     }
 
+    .dash-table {
+      width: 100%;
+      text-align: left;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .dash-table th,
+    .dash-table td {
+      padding: 12px 8px;
+      vertical-align: top;
+    }
+
+    .dash-table__head-row {
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .dash-table__row {
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .dash-table__muted {
+      color: #a1a1aa;
+    }
+
+    .dash-table__feedback {
+      color: #ffb8c6;
+      font-style: italic;
+    }
+
+    .dash-table__empty {
+      text-align: center;
+      padding: 24px;
+      color: #a1a1aa;
+    }
+
+    .dash-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .dash-modal {
+      width: 100%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
+      background-color: #12080b;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .dash-modal__header {
+      margin-bottom: 16px;
+    }
+
+    .dash-modal__title {
+      margin: 0;
+    }
+
+    .dash-row-card--button {
+      text-align: left;
+      width: 100%;
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .dash-mt-18 {
+      margin-top: 18px;
+    }
+
+    .dash-mb-18 {
+      margin-bottom: 18px;
+    }
+
+    .dash-mb-8 {
+      margin-bottom: 8px;
+    }
+
+    .dash-mb-20 {
+      margin-bottom: 20px;
+    }
+
+    .dash-text-italic {
+      font-style: italic;
+    }
+
+    .dash-map-select {
+      min-width: 220px;
+    }
+
+    .dash-qbank-map-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .dash-qbank-map-select {
+      flex: 1;
+      min-width: 200px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,163,123,0.3);
+      border-radius: 6px;
+      color: #eef4ff;
+    }
+
+    .dash-qbank-item {
+      margin-bottom: 10px;
+      padding: 14px 16px;
+    }
+
+    .dash-qbank-item__layout {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .dash-qbank-item__content {
+      flex: 1;
+    }
+
+    .dash-qbank-item__text {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .dash-qbank-item__options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .dash-qbank-item__type {
+      font-size: 11px;
+      color: #b58d84;
+    }
+
+    .dash-qbank-item__actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 120px;
+      align-items: flex-end;
+    }
+
+    .dash-qbank-chip {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .dash-qbank-chip--correct {
+      background: rgba(74,222,128,0.15);
+      border-color: #4ade80;
+    }
+
+    .dash-button--xs {
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+
+    .dash-button--2xs {
+      font-size: 11px;
+      padding: 2px 8px;
+    }
+
+    .dash-qbank-quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .dash-qbank-quiz-badge {
+      margin-left: 8px;
+    }
+
+    .dash-qbank-quiz-description {
+      margin: 4px 0 0;
+    }
+
+    .dash-qbank-quiz-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .dash-qbank-quiz-item__content {
+      flex: 1;
+    }
+
+    .dash-qbank-quiz-item__meta {
+      font-size: 12px;
+      color: #b58d84;
+    }
+
+    .dash-qbank-quiz-item__text {
+      margin: 4px 0 0;
+      font-size: 13px;
+    }
+
+    .dash-qbank-quiz-item__remove {
+      margin-left: 12px;
+    }
+
+    .dash-qbank-draft-hint {
+      margin-bottom: 16px;
+    }
+
+    .dash-qbank-loading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 0;
+    }
+
+    .dash-qbank-spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,163,123,0.3);
+      border-top-color: #ff9c6a;
+      border-radius: 50%;
+      animation: dash-spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .dash-qbank-loading-text {
+      color: #b58d84;
+      font-size: 14px;
+    }
+
+    .dash-qbank-draft-item {
+      padding: 14px;
+      margin-bottom: 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .dash-qbank-draft-item__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .dash-qbank-draft-item__label {
+      font-size: 12px;
+      color: #b58d84;
+      font-weight: 600;
+    }
+
+    .dash-qbank-draft-input {
+      width: 100%;
+      padding: 8px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      color: #eef4ff;
+      font-size: 13px;
+    }
+
+    .dash-qbank-draft-input--textarea {
+      resize: vertical;
+    }
+
+    .dash-qbank-draft-options {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .dash-qbank-draft-options__hint {
+      font-size: 11px;
+      color: #b58d84;
+    }
+
+    .dash-qbank-draft-option-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dash-qbank-draft-check {
+      accent-color: #ff9c6a;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .dash-qbank-draft-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .dash-push-right {
+      margin-left: auto;
+    }
+
+    .dash-grid-top {
+      align-items: start;
+    }
+
+    .dash-mission-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .dash-mission-inline {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .dash-mission-input {
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,163,123,0.3);
+      border-radius: 6px;
+      color: #eef4ff;
+      font-size: 13px;
+    }
+
+    .dash-mission-input--narrow {
+      width: 115px;
+    }
+
+    .dash-sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
     @keyframes dash-spin {
       to { transform: rotate(360deg); }
     }
@@ -656,6 +1024,7 @@ export function ensureDashboardPortalStyles() {
     @media (max-width: 1200px) {
       .dash-hero,
       .dash-grid--metrics,
+      .dash-grid--metrics-3,
       .dash-grid--two,
       .dash-form__grid,
       .dash-split {
@@ -682,6 +1051,7 @@ export function ensureDashboardPortalStyles() {
     @media (max-width: 720px) {
       .dash-hero,
       .dash-grid--metrics,
+      .dash-grid--metrics-3,
       .dash-grid--two,
       .dash-form__grid,
       .dash-split {

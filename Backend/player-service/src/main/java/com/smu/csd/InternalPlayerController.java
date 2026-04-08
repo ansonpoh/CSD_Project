@@ -60,9 +60,17 @@ public class InternalPlayerController {
         return learnerRepository.findById(learnerId).map(learner -> {
             int xpAwarded = request == null ? 0 : safeInt(request.xpAwarded());
             int goldAwarded = request == null ? 0 : safeInt(request.goldAwarded());
-            int updatedXp = (learner.getTotal_xp() != null ? learner.getTotal_xp() : 0) + xpAwarded;
+            int updatedXp = clampToIntRange(
+                    (long) safeInt(learner.getTotal_xp()) + xpAwarded,
+                    0,
+                    Integer.MAX_VALUE
+            );
             int updatedLevel = (int) Math.floor(Math.sqrt(updatedXp / 100.0)) + 1;
-            int updatedGold = (learner.getGold() != null ? learner.getGold() : 0) + goldAwarded;
+            int updatedGold = clampToIntRange(
+                    (long) safeInt(learner.getGold()) + goldAwarded,
+                    0,
+                    Integer.MAX_VALUE
+            );
             
             learner.setTotal_xp(updatedXp);
             learner.setLevel(updatedLevel);
@@ -145,5 +153,11 @@ public class InternalPlayerController {
 
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private int clampToIntRange(long value, int min, int max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return (int) value;
     }
 }

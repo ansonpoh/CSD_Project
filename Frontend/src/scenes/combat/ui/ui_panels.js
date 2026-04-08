@@ -85,6 +85,7 @@ export const combatSceneUiPanelMethods = {
       color: P.textMain,
       lineSpacing: logLineSpacing
     }));
+    this.battleLogTopY = logY;
   },
 
   drawHpBar(gfx, x, y, maxW, h, pct, color) {

@@ -11,22 +11,29 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.smu.csd.monsters.monster_map.MonsterMap;
 import com.smu.csd.monsters.monster_map.MonsterMapRepository;
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.maps.MapRepository;
+import com.smu.csd.monsters.monster_map.MonsterMapAssignRequest;
 
 public class MonsterServiceUnitTest {
 
     private MonsterService service;
     private MonsterRepository repository;
     private MonsterMapRepository monsterMapRepository;
+    private MapRepository mapRepository;
 
     @BeforeEach
     public void setUp() {
         repository = mock(MonsterRepository.class);
         monsterMapRepository = mock(MonsterMapRepository.class);
-        service = new MonsterService(repository, monsterMapRepository);
+        mapRepository = mock(MapRepository.class);
+        service = new MonsterService(repository, monsterMapRepository, mapRepository);
+        ReflectionTestUtils.setField(service, "minMonstersPerMap", 1);
+        ReflectionTestUtils.setField(service, "maxMonstersPerMap", 2);
     }
 
     @Test
@@ -143,5 +150,53 @@ public class MonsterServiceUnitTest {
 
         verify(repository).existsById(monsterId);
         verify(repository).deleteById(monsterId);
+    }
+
+    @Test
+    public void testAssignMonstersToMap_RejectsOutOfRangeCount() {
+        UUID mapId = UUID.randomUUID();
+        IllegalArgumentException exception = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.assignMonstersToMap(new MonsterMapAssignRequest(mapId, List.of()))
+        );
+        assertTrue(exception.getMessage().contains("between 1 and 2 monsters"));
+    }
+
+    @Test
+    public void testAssignMonstersToMap_Success() {
+        UUID mapId = UUID.randomUUID();
+        UUID firstMonsterId = UUID.randomUUID();
+        UUID secondMonsterId = UUID.randomUUID();
+
+        com.smu.csd.maps.Map map = new com.smu.csd.maps.Map();
+        map.setMapId(mapId);
+        map.setPublished(true);
+        map.setStatus(com.smu.csd.maps.Map.Status.APPROVED);
+
+        Monster firstMonster = new Monster();
+        firstMonster.setMonsterId(firstMonsterId);
+        firstMonster.setName("First");
+
+        Monster secondMonster = new Monster();
+        secondMonster.setMonsterId(secondMonsterId);
+        secondMonster.setName("Second");
+
+        when(mapRepository.findById(mapId)).thenReturn(java.util.Optional.of(map));
+        when(repository.findById(firstMonsterId)).thenReturn(java.util.Optional.of(firstMonster));
+        when(repository.findById(secondMonsterId)).thenReturn(java.util.Optional.of(secondMonster));
+
+        MonsterMap existingFirst = new MonsterMap();
+        existingFirst.setMonster(firstMonster);
+        MonsterMap existingSecond = new MonsterMap();
+        existingSecond.setMonster(secondMonster);
+        when(monsterMapRepository.findAllByMapMapId(mapId)).thenReturn(List.of(existingFirst, existingSecond));
+
+        List<Monster> result = service.assignMonstersToMap(
+            new MonsterMapAssignRequest(mapId, List.of(firstMonsterId, secondMonsterId))
+        );
+
+        assertEquals(2, result.size());
+        verify(monsterMapRepository).deleteAllByMapMapId(mapId);
+        verify(monsterMapRepository, times(2)).save(any(MonsterMap.class));
     }
 }

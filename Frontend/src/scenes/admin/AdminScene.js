@@ -59,6 +59,8 @@ export class AdminScene extends Phaser.Scene {
       bankQuestions: [],
       bankDraft: [],
       mapQuiz: null,
+      allMonsters: [],
+      mapMonsters: [],
       quizDraftLoading: false,
       missions: [],
       flaggedReflections: []
@@ -414,6 +416,16 @@ export class AdminScene extends Phaser.Scene {
       void this.unpublishMapQuiz();
       return;
     }
+    if (action === 'add-map-monster') {
+      event.preventDefault();
+      void this.addMonsterToMap(actionEl.dataset.monsterId);
+      return;
+    }
+    if (action === 'remove-map-monster') {
+      event.preventDefault();
+      void this.removeMonsterFromMap(actionEl.dataset.monsterId);
+      return;
+    }
     if (action === 'create-mission') {
       event.preventDefault();
       void this.createMission();
@@ -438,6 +450,7 @@ export class AdminScene extends Phaser.Scene {
     }
     if (event.target?.id === 'quiz-map-select') {
       this.state.selectedQuizMapId = event.target.value || '';
+      this.state.mapMonsters = [];
     }
   };
 
@@ -1668,7 +1681,7 @@ export class AdminScene extends Phaser.Scene {
       flags: ['Flag Reports', 'Resolve learner reports and keep audit notes attached to the decision.'],
       contributors: ['Contributors', 'Inspect contributor profiles and active status without modal sprawl.'],
       telemetry: ['Telemetry', 'Inspect encounter funnel metrics with optional map filtering.'],
-      'question-bank': ['Quiz Bank', 'Generate, approve, and publish quiz questions for each map.'],
+      'question-bank': ['Quiz Bank', 'Generate quiz questions and assign 1-2 monsters for each map.'],
       'missions': ['Real-World Missions', 'Manage offline missions and review flagged reflections.']
     };
 
@@ -1710,6 +1723,7 @@ export class AdminScene extends Phaser.Scene {
       this.state.selectedQuizMapId = '';
       this.state.bankQuestions = [];
       this.state.mapQuiz = null;
+      this.state.mapMonsters = [];
       this.state.bankDraft = [];
     }
 
@@ -1720,6 +1734,8 @@ export class AdminScene extends Phaser.Scene {
     const bankQuestions = this.state.bankQuestions || [];
     const mapQuiz = this.state.mapQuiz;
     const draft = this.state.bankDraft || [];
+    const allMonsters = this.state.allMonsters || [];
+    const mapMonsters = this.state.mapMonsters || [];
 
     const approvedQuestions = bankQuestions.filter((q) => q.status === 'APPROVED');
     const normalizeScenarioText = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -1781,6 +1797,46 @@ export class AdminScene extends Phaser.Scene {
                 </button>
               </div>`).join('')}
         </div>`;
+
+    const mapMonsterIds = new Set(mapMonsters.map((monster) => String(monster?.monsterId || monster?.monster_id || '')));
+    const availableMonsters = allMonsters.filter((monster) => !mapMonsterIds.has(String(monster?.monsterId || monster?.monster_id || '')));
+
+    const monsterPoolHtml = availableMonsters.length === 0
+      ? renderEmptyState('No available monsters', 'All monsters are already assigned to this map or none exist.')
+      : availableMonsters.map((monster) => `
+        <div class="dash-qbank-quiz-item">
+          <div class="dash-qbank-quiz-item__content">
+            <span class="dash-qbank-quiz-item__meta">${escapeHtml(monster.name || 'Unnamed Monster')}</span>
+            <p class="dash-qbank-quiz-item__text">${escapeHtml(monster.description || 'No description provided.')}</p>
+          </div>
+          <button
+            class="dash-button dash-button--xs dash-qbank-quiz-item__remove"
+            data-action="add-map-monster"
+            data-monster-id="${escapeHtml(monster.monsterId || monster.monster_id || '')}"
+            ${mapMonsters.length >= 2 ? 'disabled' : ''}
+          >
+            Add to Map
+          </button>
+        </div>
+      `).join('');
+
+    const mapMonsterHtml = mapMonsters.length === 0
+      ? renderEmptyState('No monsters assigned', 'Assign at least 1 monster to this map.')
+      : mapMonsters.map((monster, index) => `
+        <div class="dash-qbank-quiz-item">
+          <div class="dash-qbank-quiz-item__content">
+            <span class="dash-qbank-quiz-item__meta">Monster ${index + 1}${index === mapMonsters.length - 1 ? ' [BOSS]' : ''}</span>
+            <p class="dash-qbank-quiz-item__text">${escapeHtml(monster.name || 'Unnamed Monster')}</p>
+          </div>
+          <button
+            class="dash-button dash-button--secondary dash-button--xs dash-qbank-quiz-item__remove"
+            data-action="remove-map-monster"
+            data-monster-id="${escapeHtml(monster.monsterId || monster.monster_id || '')}"
+          >
+            Remove
+          </button>
+        </div>
+      `).join('');
 
     const isGenerating = Boolean(this.state.quizDraftLoading);
 
@@ -1846,6 +1902,16 @@ export class AdminScene extends Phaser.Scene {
             ${quizHtml}
           </article>
         </div>
+        <div class="dash-grid dash-grid--two dash-grid-top dash-mt-18">
+          <article class="dash-card">
+            <div class="dash-card__headline"><h3>Monster Bank</h3><span class="dash-muted">${availableMonsters.length} available</span></div>
+            ${monsterPoolHtml}
+          </article>
+          <article class="dash-card">
+            <div class="dash-card__headline"><h3>Map Monsters</h3><span class="dash-muted">${mapMonsters.length} assigned (required: 1-2)</span></div>
+            ${mapMonsterHtml}
+          </article>
+        </div>
       ` : renderEmptyState('Select a map to begin', 'Choose a map above to manage its quiz questions.')}
     `;
   }
@@ -1861,6 +1927,7 @@ export class AdminScene extends Phaser.Scene {
       this.state.selectedQuizMapId = '';
       this.state.bankQuestions = [];
       this.state.mapQuiz = null;
+      this.state.mapMonsters = [];
       this.state.bankDraft = [];
       this.renderQuestionBankSection();
       this.setStatus('Only approved and published maps can be selected for quiz management.', true);
@@ -1868,12 +1935,16 @@ export class AdminScene extends Phaser.Scene {
     }
     this.setStatus('Loading quiz data...', false);
     try {
-      const [bankQuestions, mapQuiz] = await Promise.all([
+      const [bankQuestions, mapQuiz, allMonsters, mapMonsters] = await Promise.all([
         apiService.getBankQuestionsByMap(mapId).catch(() => []),
-        apiService.getQuizForAdmin(mapId).catch(() => null)
+        apiService.getQuizForAdmin(mapId).catch(() => null),
+        apiService.getAllMonsters().catch(() => []),
+        apiService.getMonstersByMap(mapId).catch(() => [])
       ]);
       this.state.bankQuestions = Array.isArray(bankQuestions) ? bankQuestions : [];
       this.state.mapQuiz = mapQuiz || null;
+      this.state.allMonsters = Array.isArray(allMonsters) ? allMonsters : [];
+      this.state.mapMonsters = Array.isArray(mapMonsters) ? mapMonsters : [];
       this.state.bankDraft = [];
       this.renderQuestionBankSection();
       this.setStatus('Quiz data loaded.', false);
@@ -2061,6 +2132,55 @@ export class AdminScene extends Phaser.Scene {
     } catch (error) {
       this.setStatus(getErrorMessage(error, 'Failed to unpublish quiz'), true);
     }
+  }
+
+  async saveMapMonsterAssignments(monsterIds) {
+    const mapId = this.state.selectedQuizMapId;
+    if (!mapId) return;
+
+    if (monsterIds.length < 1 || monsterIds.length > 2) {
+      this.setStatus('Each map must have at least 1 and at most 2 monsters.', true);
+      return;
+    }
+
+    this.setStatus('Updating map monsters...', false);
+    try {
+      const updated = await apiService.assignMonstersToMap(mapId, monsterIds);
+      this.state.mapMonsters = Array.isArray(updated) ? updated : [];
+      this.renderQuestionBankSection();
+      showToast(this.toastHost, 'Map monsters updated.');
+      this.setStatus('', false);
+    } catch (error) {
+      this.setStatus(getErrorMessage(error, 'Failed to update map monsters'), true);
+    }
+  }
+
+  async addMonsterToMap(monsterId) {
+    if (!monsterId) return;
+    const existing = this.state.mapMonsters || [];
+    const existingIds = existing.map((monster) => String(monster?.monsterId || monster?.monster_id || ''));
+    if (existingIds.includes(String(monsterId))) {
+      this.setStatus('This monster is already assigned to the map.', true);
+      return;
+    }
+    if (existing.length >= 2) {
+      this.setStatus('A map can only have up to 2 monsters.', true);
+      return;
+    }
+    await this.saveMapMonsterAssignments([...existingIds, String(monsterId)]);
+  }
+
+  async removeMonsterFromMap(monsterId) {
+    if (!monsterId) return;
+    const existing = this.state.mapMonsters || [];
+    if (existing.length <= 1) {
+      this.setStatus('A map must keep at least 1 monster.', true);
+      return;
+    }
+    const nextIds = existing
+      .map((monster) => String(monster?.monsterId || monster?.monster_id || ''))
+      .filter((id) => id !== String(monsterId));
+    await this.saveMapMonsterAssignments(nextIds);
   }
 
   renderMissionsSection() {

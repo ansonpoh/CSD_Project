@@ -194,13 +194,15 @@ export function buildHud(scene, learner) {
   });
 
   const usernameRight = scene.usernameText.getBounds().right;
+  const levelRight = scene.levelText.getBounds().right;
   const xpBounds = scene.xpText.getBounds();
   const xpSidePadding = 20;
   const xpSafeLeftEdge = Math.min(
     xpBounds.left - xpSidePadding,
     xpBarX - xpSidePadding
   );
-  const topButtonsLeftEdge = usernameRight + 24;
+  // Start top buttons after both username and level labels to prevent overlap.
+  const topButtonsLeftEdge = Math.max(usernameRight, levelRight) + 24;
   const topButtonsRightEdge = Math.min(rightEdge - 8, xpSafeLeftEdge);
   const topButtonsAvailableWidth = Math.max(0, topButtonsRightEdge - topButtonsLeftEdge);
   const topButtonsWidthSum = topButtons.reduce((total, button) => total + button.width, 0);

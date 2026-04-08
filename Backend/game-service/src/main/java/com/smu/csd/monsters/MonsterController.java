@@ -1,14 +1,15 @@
 package com.smu.csd.monsters;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
+import com.smu.csd.monsters.monster_map.MonsterMapAssignRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,6 +55,12 @@ public class MonsterController {
     @PostMapping("/add")
     public Monster addMonster(@Valid @RequestBody Monster monster) {
         return service.saveMonster(monster);
+    }
+
+    @PostMapping("/map/assign")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Monster> assignMonstersToMap(@RequestBody MonsterMapAssignRequest request) {
+        return service.assignMonstersToMap(request);
     }
 
     @PutMapping("/{monster_id}")

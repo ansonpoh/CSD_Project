@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { P } from '../constants.js';
 
 export const combatSceneUiLayoutMethods = {
@@ -31,11 +32,19 @@ export const combatSceneUiLayoutMethods = {
     const panelW = width - 100;
     const panelH = 205;
 
-    const qBg = this.add.graphics();
-    qBg.fillStyle(0x081832, 0.98);
-    qBg.fillRoundedRect(panelX, panelY, panelW, panelH, 5);
-    qBg.lineStyle(2, P.borderBlue, 0.9);
-    qBg.strokeRoundedRect(panelX, panelY, panelW, panelH, 5);
+    this.quizPanelLayout = {
+      panelX,
+      panelY,
+      panelW,
+      minPanelH: panelH,
+      panelBottomPad: 16,
+      optionTopGap: 18,
+      optionW: Math.floor((panelW - 20) / 2),
+      optionH: 64,
+      optionGapX: 20,
+      optionGapY: 12
+    };
+    this.quizPanelBg = this.add.graphics();
 
     this.questionMetaText = this.add.text(panelX + 16, panelY + 14, 'Preparing quiz...', this.getCombatTextStyle({
       fontSize: '20px',
@@ -69,16 +78,22 @@ export const combatSceneUiLayoutMethods = {
       lineSpacing: 8,
       wordWrap: { width: panelW - 32, useAdvancedWrap: true }
     }));
+    this.quizQuestionBaseFontSize = 28;
+    this.quizQuestionMinFontSize = 20;
 
-    const optionW = Math.floor((panelW - 20) / 2);
-    const optionH = 64;
-    const optionStartY = panelY + panelH + 18;
+    const {
+      optionW,
+      optionH
+    } = this.quizPanelLayout;
+    const optionStartY = panelY + panelH + this.quizPanelLayout.optionTopGap;
+    this.quizDefaultOptionStartY = optionStartY;
+    this.quizCurrentOptionStartY = optionStartY;
 
     for (let i = 0; i < 4; i += 1) {
       const col = i % 2;
       const row = Math.floor(i / 2);
-      const x = panelX + col * (optionW + 20);
-      const y = optionStartY + row * (optionH + 12);
+      const x = panelX + col * (optionW + this.quizPanelLayout.optionGapX);
+      const y = optionStartY + row * (optionH + this.quizPanelLayout.optionGapY);
       const btn = this.makeButton(
         x,
         y,
@@ -94,7 +109,7 @@ export const combatSceneUiLayoutMethods = {
     }
 
     // Confirm button for multi-select questions (hidden by default)
-    const confirmY = optionStartY + 2 * (optionH + 12);
+    const confirmY = optionStartY + 2 * (optionH + this.quizPanelLayout.optionGapY);
     const hintW = 220;
     const hintH = 50;
     const hintX = panelX + panelW - hintW;
@@ -112,9 +127,9 @@ export const combatSceneUiLayoutMethods = {
     );
 
     this.confirmBtn = this.makeButton(
-      panelX + Math.floor((panelW - 20) / 2) + 20,
+      panelX + optionW + this.quizPanelLayout.optionGapX,
       confirmY,
-      Math.floor((panelW - 20) / 2),
+      optionW,
       optionH,
       'Confirm Selection',
       0x1a5c2a,
@@ -125,7 +140,90 @@ export const combatSceneUiLayoutMethods = {
     this.confirmBtn.container.setVisible(false);
     this.confirmBtn.setEnabled(false);
 
+    this.reflowQuizPanelLayout();
     this.refreshQuizMeta();
+  },
+
+  reflowQuizPanelLayout() {
+    const layout = this.quizPanelLayout;
+    if (!layout || !this.quizPanelBg || !this.questionText) return;
+
+    this.questionText.setFontSize(this.quizQuestionBaseFontSize || 28);
+    this.questionText.setLineSpacing(8);
+
+    const maxOptionStartY = this.getQuizOptionMaxStartY();
+    let metrics = this.computeQuizPanelMetrics(layout);
+
+    while (metrics.minOptionStartY > maxOptionStartY
+      && Number(this.questionText.style.fontSize) > (this.quizQuestionMinFontSize || 20)) {
+      const nextSize = Math.max((this.quizQuestionMinFontSize || 20), Number(this.questionText.style.fontSize) - 2);
+      this.questionText.setFontSize(nextSize);
+      this.questionText.setLineSpacing(nextSize >= 26 ? 8 : 6);
+      metrics = this.computeQuizPanelMetrics(layout);
+    }
+
+    const optionStartY = Phaser.Math.Clamp(
+      metrics.minOptionStartY,
+      this.quizDefaultOptionStartY,
+      maxOptionStartY
+    );
+
+    this.quizCurrentOptionStartY = optionStartY;
+    this.redrawQuizPanelBackground(layout, metrics.panelH);
+    this.positionQuizOptionButtons(optionStartY);
+  },
+
+  computeQuizPanelMetrics(layout) {
+    const textBottoms = [
+      this.questionMetaText ? this.questionMetaText.y + this.questionMetaText.height : layout.panelY,
+      this.questionTargetText ? this.questionTargetText.y + this.questionTargetText.height : layout.panelY,
+      this.hintMessageText ? this.hintMessageText.y + this.hintMessageText.height : layout.panelY,
+      this.questionText ? this.questionText.y + this.questionText.height : layout.panelY
+    ];
+
+    const contentBottom = Math.max(...textBottoms);
+    const panelH = Math.max(layout.minPanelH, Math.ceil(contentBottom - layout.panelY + layout.panelBottomPad));
+    const minOptionStartY = layout.panelY + panelH + layout.optionTopGap;
+    return { panelH, minOptionStartY };
+  },
+
+  redrawQuizPanelBackground(layout, panelH) {
+    this.quizPanelBg.clear();
+    this.quizPanelBg.fillStyle(0x081832, 0.98);
+    this.quizPanelBg.fillRoundedRect(layout.panelX, layout.panelY, layout.panelW, panelH, 5);
+    this.quizPanelBg.lineStyle(2, P.borderBlue, 0.9);
+    this.quizPanelBg.strokeRoundedRect(layout.panelX, layout.panelY, layout.panelW, panelH, 5);
+  },
+
+  positionQuizOptionButtons(optionStartY) {
+    const layout = this.quizPanelLayout;
+    if (!layout) return;
+
+    this.optionButtons.forEach((btn, i) => {
+      if (!btn?.container) return;
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = layout.panelX + col * (layout.optionW + layout.optionGapX);
+      const y = optionStartY + row * (layout.optionH + layout.optionGapY);
+      btn.container.setPosition(x, y);
+    });
+
+    if (this.confirmBtn?.container) {
+      const confirmY = optionStartY + 2 * (layout.optionH + layout.optionGapY);
+      this.confirmBtn.container.setPosition(layout.panelX + layout.optionW + layout.optionGapX, confirmY);
+    }
+  },
+
+  getQuizOptionMaxStartY() {
+    const layout = this.quizPanelLayout;
+    if (!layout) return Number.POSITIVE_INFINITY;
+
+    const logTop = Number.isFinite(this.battleLogTopY)
+      ? this.battleLogTopY
+      : this.cameras.main.height - 160;
+
+    const optionsBlockHeight = (2 * layout.optionH) + layout.optionGapY;
+    return logTop - optionsBlockHeight - 12;
   },
 
   createActionButtons(width) {

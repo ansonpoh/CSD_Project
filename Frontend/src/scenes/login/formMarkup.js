@@ -1,9 +1,3 @@
-import { PLAYER_PRESETS } from '../../services/playerProfile.js';
-
-function buildPresetOptions() {
-  return PLAYER_PRESETS.map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join('');
-}
-
 function buildLearnerFields() {
   return `
     <div class="login-auth-field">
@@ -13,15 +7,6 @@ function buildLearnerFields() {
     <div class="login-auth-field">
       <label class="login-auth-label" for="fullname">Full Name</label>
       <input type="text" id="fullname" class="login-auth-control" autocomplete="name" />
-    </div>
-    <div class="login-auth-field">
-      <label class="login-auth-label" for="avatarPreset">Character Style</label>
-      <select id="avatarPreset" class="login-auth-control">
-        ${buildPresetOptions()}
-      </select>
-      <div id="avatarPresetHint" class="login-auth-hint">
-        ${PLAYER_PRESETS[0].summary}
-      </div>
     </div>
   `;
 }

@@ -1,5 +1,3 @@
-import { getPresetById } from '../../services/playerProfile.js';
-
 const AUTH_FORM_STYLE_ID = 'login-auth-form-styles';
 
 function ensureAuthFormStyles() {
@@ -122,12 +120,6 @@ function ensureAuthFormStyles() {
       color: var(--login-auth-text);
     }
 
-    .login-auth-hint {
-      margin-top: 8px;
-      color: var(--login-auth-muted);
-      font-size: 12px;
-    }
-
     .login-auth-button {
       width: 100%;
       border-radius: 5px;
@@ -205,22 +197,8 @@ function preventInputPropagation(container) {
   });
 }
 
-function bindAvatarPresetHint(container) {
-  const avatarPresetSelect = query(container, '#avatarPreset');
-
-  if (!avatarPresetSelect) return;
-
-  avatarPresetSelect.addEventListener('change', () => {
-    const preset = getPresetById(avatarPresetSelect.value);
-    const hint = query(container, '#avatarPresetHint');
-
-    if (hint) hint.textContent = preset.summary;
-  });
-}
-
 export function wireRoleFieldEvents(container) {
   preventInputPropagation(container);
-  bindAvatarPresetHint(container);
 }
 
 export function wireAuthForm(scene) {
@@ -253,8 +231,6 @@ export function wireAuthForm(scene) {
   passwordInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !scene.isSubmitting) scene.handleSubmit();
   });
-
-  bindAvatarPresetHint(loginForm);
 
   if (!scene.isSubmitting) {
     query(loginForm, '#email')?.focus();

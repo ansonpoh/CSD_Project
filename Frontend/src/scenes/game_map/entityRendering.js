@@ -20,15 +20,13 @@ export const entityRenderingMethods = {
       });
     };
 
-    // Reserve broad side lanes where persistent HUD panels/buttons live.
-    // This prevents entities from spawning behind translucent UI cards.
-    const topHudBuffer = 126;
-    const bottomHudBuffer = 92;
-    const sideLaneHeight = Math.max(0, cam.height - topHudBuffer - bottomHudBuffer);
-    const leftLaneWidth = 340;
-    const rightLaneWidth = 320;
-    pushRect(0, topHudBuffer, leftLaneWidth, sideLaneHeight, 0);
-    pushRect(cam.width - rightLaneWidth, topHudBuffer, rightLaneWidth, sideLaneHeight, 0);
+    // Reserve top-left and top-right HUD quadrants so NPC/monster spawns never
+    // hide behind BACK/EVENT/MINIGAME (left) or SHOP/QUEST (right) overlays.
+    const topQuadrantHeight = Math.max(250, Math.floor(cam.height * 0.58));
+    const leftQuadrantWidth = Math.max(300, Math.floor(cam.width * 0.42));
+    const rightQuadrantWidth = Math.max(300, Math.floor(cam.width * 0.40));
+    pushRect(0, 0, leftQuadrantWidth, topQuadrantHeight, 0);
+    pushRect(cam.width - rightQuadrantWidth, 0, rightQuadrantWidth, topQuadrantHeight, 0);
 
     // BACK / SHOP buttons
     pushRect(20, 70, 120, 40);
@@ -61,9 +59,12 @@ export const entityRenderingMethods = {
 
     // Right quest chain panel + claim button
     if (this.questCardBounds) {
+      // Reserve a taller area than current text height, since quest content can
+      // expand after entities are already spawned.
       const questHeight = Math.max(
         Number(this.questCardBounds.minHeight || 230),
-        Number(this.questCardBounds.height || 0)
+        Number(this.questCardBounds.height || 0),
+        Math.floor(cam.height * 0.58)
       );
       pushRect(this.questCardBounds.x, this.questCardBounds.y, this.questCardBounds.width, questHeight, 20);
     }
@@ -285,6 +286,21 @@ export const entityRenderingMethods = {
     return Boolean(cache.reachable[tileY * cache.mapWidth + tileX]);
   },
 
+  getSpawnWorldBounds(spawnRadius = 16) {
+    const worldBounds = this.physics?.world?.bounds;
+    const fallbackWidth = Number(this.map?.widthInPixels) || this.cameras.main.width;
+    const fallbackHeight = Number(this.map?.heightInPixels) || this.cameras.main.height;
+    const left = Number.isFinite(worldBounds?.x) ? worldBounds.x : 0;
+    const top = Number.isFinite(worldBounds?.y) ? worldBounds.y : 0;
+    const right = Number.isFinite(worldBounds?.right) ? worldBounds.right : fallbackWidth;
+    const bottom = Number.isFinite(worldBounds?.bottom) ? worldBounds.bottom : fallbackHeight;
+    const minX = left + spawnRadius;
+    const minY = top + spawnRadius;
+    const maxX = right - spawnRadius;
+    const maxY = bottom - spawnRadius;
+    return { minX, minY, maxX, maxY };
+  },
+
   getWalkableSpawnPoint(preferredX, preferredY, occupied = [], options = {}) {
     const minGap = Number.isFinite(options.minGap) ? options.minGap : 18;
     const maxRadius = Number.isFinite(options.maxRadius) ? options.maxRadius : 260;
@@ -369,28 +385,36 @@ export const entityRenderingMethods = {
   },
 
   createNPCs() {
-    const columns = 4;
-    const spacingX = 170;
-    const spacingY = 120;
-    const startX = 220;
-    const startY = 440;
+    const totalNpcs = Array.isArray(this.npcs) ? this.npcs.length : 0;
+    const spawnRadius = 16;
+    const { minX, minY, maxX, maxY } = this.getSpawnWorldBounds(spawnRadius);
+    const width = Math.max(1, maxX - minX);
+    const height = Math.max(1, maxY - minY);
+    const columns = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, totalNpcs))));
+    const rows = Math.max(1, Math.ceil(Math.max(1, totalNpcs) / columns));
     const occupied = [];
 
     this.npcs.forEach((npc, index) => {
       if (!npc || !npc.name) return;
 
       const col = index % columns;
-      const row = Math.floor(index / columns);
-      const preferredX = startX + col * spacingX + Phaser.Math.Between(-20, 20);
-      const preferredY = startY + row * spacingY + Phaser.Math.Between(-12, 12);
+      const row = Math.min(rows - 1, Math.floor(index / columns));
+      const cellWidth = width / columns;
+      const cellHeight = height / rows;
+      const baseX = minX + (col + 0.5) * cellWidth;
+      const baseY = minY + (row + 0.5) * cellHeight;
+      const jitterX = Phaser.Math.FloatBetween(-cellWidth * 0.28, cellWidth * 0.28);
+      const jitterY = Phaser.Math.FloatBetween(-cellHeight * 0.28, cellHeight * 0.28);
+      const preferredX = Phaser.Math.Clamp(baseX + jitterX, minX, maxX);
+      const preferredY = Phaser.Math.Clamp(baseY + jitterY, minY, maxY);
       const npcName = npc.name;
       const config = NPCRegistry[npcName] || NPCRegistry.orc;
       const footprintRadius = this.getEntityFootprintRadius(config, 28);
       const { x, y } = this.getWalkableSpawnPoint(preferredX, preferredY, occupied, {
         minGap: 20,
-        maxRadius: 280,
+        maxRadius: Math.max(220, Math.floor(Math.min(width, height) * 0.45)),
         maxAttempts: 160,
-        spawnRadius: 16,
+        spawnRadius,
         footprintRadius
       });
       occupied.push({ x, y, radius: footprintRadius });

@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MonsterMapRepository extends JpaRepository<MonsterMap, UUID> {
     List<MonsterMap> findAllByMapMapId(UUID map_id);
+    void deleteAllByMapMapId(UUID mapId);
 }

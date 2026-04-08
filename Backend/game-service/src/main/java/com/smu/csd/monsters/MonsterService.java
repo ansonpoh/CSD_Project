@@ -1,15 +1,19 @@
 package com.smu.csd.monsters;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.smu.csd.exception.ResourceNotFoundException;
+import com.smu.csd.maps.MapRepository;
 import com.smu.csd.monsters.monster_map.MonsterMap;
+import com.smu.csd.monsters.monster_map.MonsterMapAssignRequest;
 import com.smu.csd.monsters.monster_map.MonsterMapRepository;
 
 import lombok.NonNull;
@@ -21,10 +25,22 @@ public class MonsterService {
 
     private final MonsterRepository repository;
     private final MonsterMapRepository monsterMapRepository;
+    private final MapRepository mapRepository;
 
-    public MonsterService(MonsterRepository repository, MonsterMapRepository monsterMapRepository) {
+    @Value("${game.limits.min-monsters-per-map:1}")
+    private int minMonstersPerMap;
+
+    @Value("${game.limits.max-monsters-per-map:2}")
+    private int maxMonstersPerMap;
+
+    public MonsterService(
+            MonsterRepository repository,
+            MonsterMapRepository monsterMapRepository,
+            MapRepository mapRepository
+    ) {
         this.repository = repository;
         this.monsterMapRepository = monsterMapRepository;
+        this.mapRepository = mapRepository;
     }
 
     //Get Requests
@@ -52,6 +68,47 @@ public class MonsterService {
             .stream()
             .map(MonsterMap::getMonster)
             .collect(Collectors.toList());
+    }
+
+    public List<Monster> assignMonstersToMap(@NonNull MonsterMapAssignRequest request) {
+        UUID mapId = request.mapId();
+        if (mapId == null) {
+            throw new IllegalArgumentException("mapId is required.");
+        }
+
+        List<UUID> incomingMonsterIds = request.monsterIds() == null ? List.of() : request.monsterIds();
+        List<UUID> uniqueMonsterIds = incomingMonsterIds.stream()
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+
+        if (uniqueMonsterIds.size() < minMonstersPerMap || uniqueMonsterIds.size() > maxMonstersPerMap) {
+            throw new IllegalArgumentException(
+                "Each map must have between " + minMonstersPerMap + " and " + maxMonstersPerMap + " monsters."
+            );
+        }
+
+        com.smu.csd.maps.Map map = mapRepository.findById(mapId)
+            .orElseThrow(() -> new ResourceNotFoundException("Map", "id", mapId));
+
+        if (!Boolean.TRUE.equals(map.getPublished()) || map.getStatus() != com.smu.csd.maps.Map.Status.APPROVED) {
+            throw new IllegalStateException("Only approved and published maps can receive monster assignments.");
+        }
+
+        List<Monster> monsters = uniqueMonsterIds.stream()
+            .map(this::getMonsterById)
+            .toList();
+
+        monsterMapRepository.deleteAllByMapMapId(mapId);
+
+        monsters.forEach(monster -> monsterMapRepository.save(
+            MonsterMap.builder()
+                .map(map)
+                .monster(monster)
+                .build()
+        ));
+
+        return getMonstersByMapId(mapId);
     }
 
     //Post Requests

@@ -59,6 +59,7 @@ export const combatSceneQuizFlowMethods = {
     if (this.hintBtn?.container?.visible) {
       this.hintBtn.setEnabled(!this.hintRequestInFlight && hintCount > 0 && !this.battleOver);
     }
+    this.reflowQuizPanelLayout?.();
   },
 
   async handleUseHint() {
@@ -84,6 +85,7 @@ export const combatSceneQuizFlowMethods = {
     this.hintRequestInFlight = true;
     this.hintBtn?.setEnabled(false);
     this.hintMessageText?.setText('Generating hint...');
+    this.reflowQuizPanelLayout?.();
 
     try {
       const hintResponse = await apiService.generateQuizHint(payload);
@@ -97,11 +99,13 @@ export const combatSceneQuizFlowMethods = {
 
       this.currentHintQuestionId = question.questionId;
       this.hintMessageText?.setText(`Hint: ${hintText}`);
+      this.reflowQuizPanelLayout?.();
       this.addLog('Hint used for this question.');
       this.refreshQuizMeta();
     } catch (error) {
       console.warn('Failed to use hint item:', error);
       this.hintMessageText?.setText('');
+      this.reflowQuizPanelLayout?.();
       this.addLog('Hint failed. Item was not consumed.');
     } finally {
       this.hintRequestInFlight = false;

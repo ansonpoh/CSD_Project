@@ -213,6 +213,11 @@ class ApiService {
     return data;
   }
 
+  async assignMonstersToMap(mapId, monsterIds) {
+    const { data } = await this.api.post('/monsters/map/assign', { mapId, monsterIds });
+    return data;
+  }
+
   async generateMonsterEncounterQuiz(payload) {
     const { data } = await this.api.post('/quizzes/monster-encounter', payload);
     return data;

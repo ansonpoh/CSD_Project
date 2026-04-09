@@ -93,4 +93,3 @@ For the deploy workflow:
 - `PROD_FRONTEND_URL`
 
 Platform runtime variables are documented in [render-vercel.md](/Users/justinlimchunkiat/SMU/CSD/CSD_Project/docs/deployment/render-vercel.md).
-

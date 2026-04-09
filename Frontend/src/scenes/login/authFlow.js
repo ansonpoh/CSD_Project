@@ -1,4 +1,4 @@
-import { apiService } from '../../services/api.js';
+import { apiService, getFriendlyErrorMessage } from '../../services/api.js';
 import { dailyQuestService } from '../../services/dailyQuests.js';
 import { gameState } from '../../services/gameState.js';
 import { supabase } from '../../config/supabaseClient.js';
@@ -119,7 +119,7 @@ function buildRouteResultFromRole(role) {
   if (role === 'learner') return buildStartGameResult();
   if (role === 'contributor') return buildSceneResult('ContributorScene');
   if (role === 'admin') return buildSceneResult('AdminScene');
-  return buildMessageResult('Unsupported role');
+  return buildMessageResult('This account type is not supported here.');
 }
 
 function isAlreadyRegisteredError(error) {
@@ -168,14 +168,18 @@ function extractErrorMessage(error, fallbackMessage = 'Registration failed. Plea
   const backendMessage = error?.response?.data?.message;
   const normalizedBackendMessage = normalizeRegistrationConflictMessage(backendMessage);
   if (normalizedBackendMessage) return normalizedBackendMessage;
-  if (typeof backendMessage === 'string' && backendMessage.trim()) return backendMessage;
+  if (typeof backendMessage === 'string' && backendMessage.trim()) {
+    return getFriendlyErrorMessage(error, fallbackMessage);
+  }
 
   const directMessage = error?.message;
   const normalizedDirectMessage = normalizeRegistrationConflictMessage(directMessage);
   if (normalizedDirectMessage) return normalizedDirectMessage;
-  if (typeof directMessage === 'string' && directMessage.trim()) return directMessage;
+  if (typeof directMessage === 'string' && directMessage.trim()) {
+    return getFriendlyErrorMessage(error, fallbackMessage);
+  }
 
-  return fallbackMessage;
+  return getFriendlyErrorMessage(error, fallbackMessage);
 }
 
 function withUsernameSuffix(base, suffix) {
@@ -287,7 +291,7 @@ export async function loginWithRole({ role, email, password }) {
       }
     }
     await supabase.auth.signOut();
-    return buildMessageResult('Invalid Credentials');
+    return buildMessageResult('You are not authorized to access this portal with this account.');
   }
 
   if (!data.session?.access_token) {
@@ -312,7 +316,7 @@ export async function loginWithRole({ role, email, password }) {
     return buildSceneResult('AdminScene');
   }
 
-  return buildMessageResult('Unsupported role');
+  return buildMessageResult('This account type is not supported here.');
 }
 
 export async function registerWithRole({ role, username, fullname, bio, avatarPreset, email, password }) {
@@ -347,7 +351,7 @@ export async function registerWithRole({ role, username, fullname, bio, avatarPr
     return buildSceneResult('ContributorScene');
   }
 
-  return buildMessageResult('Unsupported role');
+  return buildMessageResult('This account type is not supported here.');
 }
 
 async function beginGoogleOAuth({ kind, role, username, fullname, bio, avatarPreset }) {
@@ -424,7 +428,7 @@ export async function resumeGoogleOAuthIntent() {
     }
     if (intent.role && roleInfo.role !== intent.role) {
       await supabase.auth.signOut();
-      return buildMessageResult('Invalid Credentials');
+      return buildMessageResult('You are not authorized to access this portal with this account.');
     }
     if (roleInfo.role === 'learner') {
       await hydrateLearnerSession();
@@ -468,7 +472,7 @@ export async function resumeGoogleOAuthIntent() {
 
     clearOAuthIntent();
     await supabase.auth.signOut();
-    return buildRerenderResult('Unsupported role');
+    return buildRerenderResult('This account type is not supported here.');
   }
 
   // Legacy "continue" behavior for users returning with older stored OAuth intent.
@@ -476,7 +480,7 @@ export async function resumeGoogleOAuthIntent() {
     clearOAuthIntent();
     if (intent.role && roleInfo.role !== intent.role) {
       await supabase.auth.signOut();
-      return buildMessageResult('Invalid Credentials');
+      return buildMessageResult('You are not authorized to access this portal with this account.');
     }
     if (roleInfo.role === 'learner') {
       await hydrateLearnerSession();
@@ -530,5 +534,5 @@ export async function resumeGoogleOAuthIntent() {
 
   clearOAuthIntent();
   await supabase.auth.signOut();
-  return buildRerenderResult('Unsupported role');
+  return buildRerenderResult('This account type is not supported here.');
 }

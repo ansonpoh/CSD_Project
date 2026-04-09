@@ -1,4 +1,4 @@
-import { apiService } from "../services/api.js";
+import { apiService, getFriendlyErrorMessage } from "../services/api.js";
 import { supabase } from "../config/supabaseClient.js";
 
 function showTableError(message) {
@@ -124,7 +124,7 @@ async function handleSubmit() {
 
     await loadContents();
   } catch (error) {
-    submitError.textContent = error.message || "Submission failed.";
+    submitError.textContent = getFriendlyErrorMessage(error, "Submission failed. Please try again.");
     submitError.classList.remove("d-none");
   } finally {
     submitBtn.disabled = false;
@@ -155,6 +155,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (error) {
     console.error("Error loading contents:", error);
     tableBody.innerHTML = "";
-    showTableError(error.message);
+    showTableError(getFriendlyErrorMessage(error, "Unable to load your submitted content."));
   }
 });

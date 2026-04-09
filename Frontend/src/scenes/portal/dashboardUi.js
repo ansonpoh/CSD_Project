@@ -1,4 +1,5 @@
 import { FONT_STACKS } from '../../config/typography.js';
+import { getFriendlyErrorMessage } from '../../services/api.js';
 
 const STYLE_ID = 'modern-dashboard-portal-styles';
 
@@ -1117,12 +1118,7 @@ export function previewText(value, maxLength = 200) {
 }
 
 export function getErrorMessage(error, fallback) {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message ||
-    fallback
-  );
+  return getFriendlyErrorMessage(error, fallback);
 }
 
 export function renderEmptyState(title, body) {

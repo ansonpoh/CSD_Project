@@ -16,6 +16,7 @@ import {
   resumeGoogleOAuthIntent
 } from './authFlow.js';
 import { transitionToScene } from '../shared/sceneTransition.js';
+import { getFriendlyErrorMessage } from '../../services/api.js';
 
 export class LoginScene extends Phaser.Scene {
   constructor({
@@ -132,7 +133,7 @@ export class LoginScene extends Phaser.Scene {
 
       this.applyAuthResult(result);
     } catch (error) {
-      this.setMessage(error.message || 'Authentication failed');
+      this.setMessage(getFriendlyErrorMessage(error, 'Authentication failed. Please try again.'));
     } finally {
       this.setSubmitting(false);
     }
@@ -150,7 +151,7 @@ export class LoginScene extends Phaser.Scene {
       const form = readRegisterForm(this.loginForm);
       await registerWithGoogle(form);
     } catch (error) {
-      this.setMessage(error.message || 'Google authentication failed');
+      this.setMessage(getFriendlyErrorMessage(error, 'Google authentication failed. Please try again.'));
     } finally {
       this.setSubmitting(false);
     }
@@ -171,7 +172,7 @@ export class LoginScene extends Phaser.Scene {
       if (mountFallbackForm && !this.loginForm) {
         this.mountAuthForm();
       }
-      this.setMessage(error.message || 'Google authentication failed');
+      this.setMessage(getFriendlyErrorMessage(error, 'Google authentication failed. Please try again.'));
     }
   }
 

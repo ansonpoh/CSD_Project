@@ -1,6 +1,123 @@
 import axios from 'axios';
 import { supabase } from '../config/supabaseClient';
 
+function firstNonEmptyString(...values) {
+  return values.find((value) => typeof value === 'string' && value.trim()) || '';
+}
+
+function isGenericHttpMessage(message = '') {
+  const normalized = String(message || '').trim().toLowerCase();
+  if (!normalized) return true;
+
+  return (
+    /^request failed with status code \d+$/.test(normalized) ||
+    normalized === 'unauthorized' ||
+    normalized === 'forbidden' ||
+    normalized === 'not found' ||
+    normalized === 'bad request' ||
+    normalized === 'internal server error' ||
+    normalized === 'network error'
+  );
+}
+
+function getKnownAuthMessage(message = '') {
+  const normalized = String(message || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (normalized.includes('invalid login credentials') || normalized === 'invalid credentials') {
+    return 'Incorrect email or password.';
+  }
+
+  if (normalized.includes('email not confirmed') || normalized.includes('confirm your email')) {
+    return 'Please verify your email address before logging in.';
+  }
+
+  if (normalized.includes('already registered')) {
+    return 'An account with this email already exists. Please log in instead.';
+  }
+
+  if (
+    normalized.includes('jwt expired') ||
+    normalized.includes('token has expired') ||
+    normalized.includes('refresh token') ||
+    normalized.includes('session expired')
+  ) {
+    return 'Your session has expired. Please log in again.';
+  }
+
+  return null;
+}
+
+export function getFriendlyErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
+  const status = error?.response?.status;
+  const requestUrl = String(error?.config?.url || '').toLowerCase();
+  const backendMessage = firstNonEmptyString(
+    error?.response?.data?.message,
+    error?.response?.data?.error,
+    error?.message
+  );
+
+  const knownAuthMessage = getKnownAuthMessage(backendMessage);
+  if (knownAuthMessage) return knownAuthMessage;
+
+  if (backendMessage && !isGenericHttpMessage(backendMessage)) {
+    return backendMessage;
+  }
+
+  if (!error?.response) {
+    if (error?.code === 'ERR_NETWORK') {
+      return 'Unable to reach the server. Please check your connection and try again.';
+    }
+    return fallback;
+  }
+
+  if (status === 400) {
+    return 'Some information looks invalid. Please review your input and try again.';
+  }
+
+  if (status === 401) {
+    return requestUrl.includes('/auth/')
+      ? 'Your session has expired. Please log in again.'
+      : 'Please log in to continue.';
+  }
+
+  if (status === 403) {
+    return 'You are not authorized to access this page or perform this action.';
+  }
+
+  if (status === 404) {
+    return 'We could not find what you were looking for.';
+  }
+
+  if (status === 409) {
+    return 'That item already exists or conflicts with existing data.';
+  }
+
+  if (status >= 500) {
+    return 'Something went wrong on our side. Please try again in a moment.';
+  }
+
+  return fallback;
+}
+
+function normalizeApiError(error) {
+  const fallback = firstNonEmptyString(error?.message, 'Request failed. Please try again.');
+  const friendlyMessage = getFriendlyErrorMessage(error, fallback);
+
+  error.message = friendlyMessage;
+  error.userMessage = friendlyMessage;
+
+  if (
+    error?.response?.data &&
+    typeof error.response.data === 'object' &&
+    isGenericHttpMessage(error.response.data.message || error.response.data.error)
+  ) {
+    error.response.data.message = friendlyMessage;
+  }
+
+  return error;
+}
+
 class ApiService {
   constructor() {
     this.accessToken = null;
@@ -37,7 +154,12 @@ class ApiService {
         config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
-    })
+    });
+
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => Promise.reject(normalizeApiError(error))
+    );
   }
 
   // Auth

@@ -31,6 +31,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.ai.AIModerationResult;
+import com.smu.csd.ai.AIModerationResultRepository;
 import com.smu.csd.exception.ResourceNotFoundException;
 import com.smu.csd.ai.AIService;
 import com.smu.csd.contents.topics.Topic;
@@ -43,6 +44,7 @@ public class ContentServiceUnitTest {
     private VectorStore vectorStore;
     private TopicService topicService;
     private AIService aiService;
+    private AIModerationResultRepository moderationResultRepository;
     private ObjectMapper objectMapper;
     private RestTemplate restTemplate;
     private ContentService service;
@@ -54,15 +56,18 @@ public class ContentServiceUnitTest {
         vectorStore = mock(VectorStore.class);
         topicService = mock(TopicService.class);
         aiService = mock(AIService.class);
+        moderationResultRepository = mock(AIModerationResultRepository.class);
         objectMapper = new ObjectMapper();
         restTemplate = mock(RestTemplate.class);
-        service = new ContentService(contentRepository, topicService, duplicateDetectionService, vectorStore, aiService, objectMapper, restTemplate);
+        service = new ContentService(contentRepository, topicService, duplicateDetectionService, vectorStore, aiService,
+                moderationResultRepository, objectMapper, restTemplate);
     }
 
     @Test
     void submitContent_RejectsInvalidNarrationSerialization() throws Exception {
         ObjectMapper failingMapper = mock(ObjectMapper.class);
-        ContentService failingService = new ContentService(contentRepository, topicService, duplicateDetectionService, vectorStore, aiService, failingMapper, restTemplate);
+        ContentService failingService = new ContentService(contentRepository, topicService, duplicateDetectionService,
+                vectorStore, aiService, moderationResultRepository, failingMapper, restTemplate);
         UUID topicId = UUID.randomUUID();
         Topic topic = topic(topicId);
         doReturn(topic).when(topicService).getById(topicId);

@@ -1,8 +1,10 @@
 package com.smu.csd.contents;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -16,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smu.csd.ai.AIModerationResult;
+import com.smu.csd.ai.AIModerationResultRepository;
 import com.smu.csd.ai.AIService;
 import com.smu.csd.contents.topics.Topic;
 import com.smu.csd.contents.topics.TopicService;
@@ -29,6 +32,7 @@ public class ContentService {
     private final VectorStore vectorStore;
     private final TopicService topicService;
     private final AIService aiService;
+    private final AIModerationResultRepository moderationResultRepository;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
@@ -37,12 +41,14 @@ public class ContentService {
 
     public ContentService(ContentRepository contentRepository, TopicService topicService,
             DuplicateDetectionService duplicateDetectionService, VectorStore vectorStore,
-            AIService aiService, ObjectMapper objectMapper, RestTemplate restTemplate) {
+            AIService aiService, AIModerationResultRepository moderationResultRepository,
+            ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.contentRepository = contentRepository;
         this.duplicateDetectionService = duplicateDetectionService;
         this.vectorStore = vectorStore;
         this.topicService = topicService;
         this.aiService = aiService;
+        this.moderationResultRepository = moderationResultRepository;
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
     }
@@ -194,18 +200,18 @@ public class ContentService {
     }
 
     public List<Content> getByContributorId(UUID contributorId) {
-        return contentRepository.findByContributorId(contributorId);
+        return attachAutoRejectionReasons(contentRepository.findByContributorId(contributorId));
     }
 
     public List<Content> getByContributorIdWithFallback(UUID contributorId, UUID supabaseUserId) {
         List<Content> rows = contentRepository.findByContributorId(contributorId);
         if (!rows.isEmpty()) {
-            return rows;
+            return attachAutoRejectionReasons(rows);
         }
         if (supabaseUserId == null || supabaseUserId.equals(contributorId)) {
-            return rows;
+            return attachAutoRejectionReasons(rows);
         }
-        return contentRepository.findByContributorId(supabaseUserId);
+        return attachAutoRejectionReasons(contentRepository.findByContributorId(supabaseUserId));
     }
 
     public List<Content> getByStatus(Content.Status status) {
@@ -251,5 +257,54 @@ public class ContentService {
         content.setAdminComments(adminComments);
         content.setFeedbackDate(java.time.LocalDateTime.now());
         return contentRepository.save(content);
+    }
+
+    private List<Content> attachAutoRejectionReasons(List<Content> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return rows;
+        }
+
+        List<UUID> rejectedWithoutReason = rows.stream()
+                .filter(content -> content != null
+                        && content.getContentId() != null
+                        && content.getStatus() == Content.Status.REJECTED
+                        && (content.getRejectionReason() == null || content.getRejectionReason().isBlank()))
+                .map(Content::getContentId)
+                .toList();
+
+        if (rejectedWithoutReason.isEmpty()) {
+            return rows;
+        }
+
+        Map<UUID, AIModerationResult> moderationByContentId = moderationResultRepository
+                .findByContent_ContentIdIn(rejectedWithoutReason)
+                .stream()
+                .filter(result -> result.getContent() != null && result.getContent().getContentId() != null)
+                .collect(Collectors.toMap(
+                        result -> result.getContent().getContentId(),
+                        result -> result,
+                        (left, right) -> {
+                            if (left.getScreenedAt() == null) return right;
+                            if (right.getScreenedAt() == null) return left;
+                            return right.getScreenedAt().isAfter(left.getScreenedAt()) ? right : left;
+                        }
+                ));
+
+        for (Content content : rows) {
+            if (content == null || content.getContentId() == null) continue;
+            if (content.getStatus() != Content.Status.REJECTED) continue;
+            if (content.getRejectionReason() != null && !content.getRejectionReason().isBlank()) continue;
+
+            AIModerationResult moderation = moderationByContentId.get(content.getContentId());
+            if (moderation == null) continue;
+            if (moderation.getReasoning() == null || moderation.getReasoning().isBlank()) continue;
+
+            content.setRejectionReason(moderation.getReasoning());
+            if (content.getFeedbackDate() == null) {
+                content.setFeedbackDate(moderation.getScreenedAt());
+            }
+        }
+
+        return rows;
     }
 }

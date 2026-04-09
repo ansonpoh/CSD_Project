@@ -120,9 +120,13 @@ public class AIService {
         // Only update status for decisive verdicts - NEEDS_REVIEW stays PENDING_REVIEW
         if (normalized.aiVerdict() == AIModerationResult.Verdict.APPROVED) {
             content.setStatus(Content.Status.APPROVED);
+            content.setRejectionReason(null);
+            content.setFeedbackDate(null);
             contentRepository.save(content);
         } else if (normalized.aiVerdict() == AIModerationResult.Verdict.REJECTED) {
             content.setStatus(Content.Status.REJECTED);
+            content.setRejectionReason(normalized.reasoning());
+            content.setFeedbackDate(java.time.LocalDateTime.now());
             contentRepository.save(content);
         }
     }

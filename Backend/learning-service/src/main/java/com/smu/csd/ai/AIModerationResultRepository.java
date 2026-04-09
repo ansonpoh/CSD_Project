@@ -14,6 +14,9 @@ public interface AIModerationResultRepository extends JpaRepository<AIModeration
     // Check if content has already been screened (avoid double-screening on resubmit)
     boolean existsByContent_ContentId(UUID contentId);
 
+    // Batch fetch moderation results for contributor content history.
+    List<AIModerationResult> findByContent_ContentIdIn(List<UUID> contentIds);
+
     // Power the moderator dashboard queue, e.g. findByAiVerdict(Verdict.NEEDS_REVIEW)
     List<AIModerationResult> findByAiVerdictOrderByScreenedAtDesc(AIModerationResult.Verdict aiVerdict);
 }

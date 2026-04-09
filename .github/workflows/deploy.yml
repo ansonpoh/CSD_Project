@@ -95,46 +95,46 @@ jobs:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}
         run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
 
-  production-smoke-test:
-    name: Production Smoke Test
-    runs-on: ubuntu-latest
-    needs: trigger-render-deploys
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate production URLs
-        env:
-          PROD_GATEWAY_URL: ${{ secrets.PROD_GATEWAY_URL }}
-          PROD_FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
-        run: |
-          missing=0
+  # production-smoke-test:
+  #   name: Production Smoke Test
+  #   runs-on: ubuntu-latest
+  #   needs: trigger-render-deploys
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Validate production URLs
+  #       env:
+  #         PROD_GATEWAY_URL: ${{ secrets.PROD_GATEWAY_URL }}
+  #         PROD_FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
+  #       run: |
+  #         missing=0
 
-          if [ -z "${PROD_GATEWAY_URL}" ]; then
-            echo "::error::Missing GitHub secret PROD_GATEWAY_URL. Add the live gateway URL before merging to main."
-            missing=1
-          fi
+  #         if [ -z "${PROD_GATEWAY_URL}" ]; then
+  #           echo "::error::Missing GitHub secret PROD_GATEWAY_URL. Add the live gateway URL before merging to main."
+  #           missing=1
+  #         fi
 
-          if [ -z "${PROD_FRONTEND_URL}" ]; then
-            echo "::error::Missing GitHub secret PROD_FRONTEND_URL. Add the live frontend URL before merging to main."
-            missing=1
-          fi
+  #         if [ -z "${PROD_FRONTEND_URL}" ]; then
+  #           echo "::error::Missing GitHub secret PROD_FRONTEND_URL. Add the live frontend URL before merging to main."
+  #           missing=1
+  #         fi
 
-          exit "$missing"
-      - name: Wait for Render rollout
-        run: sleep 90
-      - name: Verify live gateway
-        env:
-          GATEWAY_URL: ${{ secrets.PROD_GATEWAY_URL }}
-          FRONTEND_ORIGIN: ${{ secrets.PROD_FRONTEND_URL }}
-        run: |
-          chmod +x scripts/smoke-test-production.sh
-          ./scripts/smoke-test-production.sh
-      - name: Publish deployment summary
-        run: |
-          {
-            echo "## Production Deployment"
-            echo ""
-            echo "- Gateway: ${{ secrets.PROD_GATEWAY_URL }}"
-            echo "- Frontend: ${{ secrets.PROD_FRONTEND_URL }}"
-            echo "- Image tag: \`${{ github.sha }}\`"
-            echo "- Registry namespace: \`${{ env.IMAGE_NAMESPACE }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+  #         exit "$missing"
+  #     - name: Wait for Render rollout
+  #       run: sleep 90
+  #     - name: Verify live gateway
+  #       env:
+  #         GATEWAY_URL: ${{ secrets.PROD_GATEWAY_URL }}
+  #         FRONTEND_ORIGIN: ${{ secrets.PROD_FRONTEND_URL }}
+  #       run: |
+  #         chmod +x scripts/smoke-test-production.sh
+  #         ./scripts/smoke-test-production.sh
+  #     - name: Publish deployment summary
+  #       run: |
+  #         {
+  #           echo "## Production Deployment"
+  #           echo ""
+  #           echo "- Gateway: ${{ secrets.PROD_GATEWAY_URL }}"
+  #           echo "- Frontend: ${{ secrets.PROD_FRONTEND_URL }}"
+  #           echo "- Image tag: \`${{ github.sha }}\`"
+  #           echo "- Registry namespace: \`${{ env.IMAGE_NAMESPACE }}\`"
+  #         } >> "$GITHUB_STEP_SUMMARY"

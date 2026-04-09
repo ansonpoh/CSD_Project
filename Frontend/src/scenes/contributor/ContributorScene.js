@@ -493,6 +493,12 @@ export class ContributorScene extends Phaser.Scene {
       return;
     }
 
+    if (target.id === 'content-topic') {
+      this.refreshSubmitMapOptions();
+      this.clearFieldError('content-topic');
+      return;
+    }
+
     if (target.closest('#contributor-submit-form')) {
       this.clearFieldError(target.id);
     }
@@ -1094,6 +1100,52 @@ export class ContributorScene extends Phaser.Scene {
     `;
   }
 
+  getMapTopicId(map) {
+    return String(map?.topicId || map?.topic?.topicId || '').trim();
+  }
+
+  getMapOptionsForTopic(maps, topicId) {
+    const selectedTopicId = String(topicId || '').trim();
+    if (!selectedTopicId) return [];
+    return (Array.isArray(maps) ? maps : []).filter((map) => this.getMapTopicId(map) === selectedTopicId);
+  }
+
+  buildSubmitMapOptions(maps, selectedMapId = '') {
+    if (!Array.isArray(maps) || !maps.length) {
+      return '<option value="">No maps available for selected topic</option>';
+    }
+
+    const selected = String(selectedMapId || '').trim();
+    return maps.map((map) => {
+      const mapId = String(map?.mapId || '').trim();
+      const isSelected = selected && mapId === selected;
+      const count = Number(this.state.mapApprovedNpcCounts[mapId] || 0);
+      return `<option value="${escapeHtml(mapId)}"${isSelected ? ' selected' : ''}>${escapeHtml(map?.name || 'Unnamed Map')} (${count}/${MAX_APPROVED_NPCS_PER_MAP})</option>`;
+    }).join('');
+  }
+
+  refreshSubmitMapOptions() {
+    const form = this.portalRoot?.querySelector('#contributor-submit-form');
+    if (!form) return;
+
+    const mapSelect = form.querySelector('#content-map');
+    const topicSelect = form.querySelector('#content-topic');
+    if (!mapSelect || !topicSelect) return;
+
+    const topicId = topicSelect.value?.trim() || '';
+    const isResubmission = Boolean(this.state.editingContent);
+    const mapsForForm = isResubmission ? this.state.maps : this.state.availableMaps;
+    const filteredMaps = this.getMapOptionsForTopic(mapsForForm, topicId);
+    const currentValue = String(mapSelect.value || '').trim();
+    const nextSelectedMapId = filteredMaps.some((map) => String(map?.mapId || '') === currentValue)
+      ? currentValue
+      : String(filteredMaps[0]?.mapId || '').trim();
+
+    mapSelect.innerHTML = this.buildSubmitMapOptions(filteredMaps, nextSelectedMapId);
+    mapSelect.value = nextSelectedMapId;
+    mapSelect.disabled = !filteredMaps.length;
+  }
+
   renderSubmitSection(hasError = false) {
     const container = this.portalRoot?.querySelector('#contributor-submit');
     if (!container) return;
@@ -1127,9 +1179,20 @@ export class ContributorScene extends Phaser.Scene {
     }
 
     const mapsForForm = isResubmission ? this.state.maps : this.state.availableMaps;
+    const selectedTopicId = String(
+      isResubmission
+        ? (editing?.topic?.topicId || this.state.topics[0]?.topicId || '')
+        : (this.state.topics[0]?.topicId || '')
+    ).trim();
+    const filteredMapsForTopic = this.getMapOptionsForTopic(mapsForForm, selectedTopicId);
+    const selectedMapId = String(
+      isResubmission
+        ? (editing?.mapId || filteredMapsForTopic[0]?.mapId || '')
+        : (filteredMapsForTopic[0]?.mapId || '')
+    ).trim();
 
     const topicOptions = this.state.topics.map((topic) => {
-      const selected = isResubmission && String(topic?.topicId || '') === String(editing?.topic?.topicId || '') ? ' selected' : '';
+      const selected = String(topic?.topicId || '').trim() === selectedTopicId ? ' selected' : '';
       return `<option value="${escapeHtml(topic?.topicId || '')}"${selected}>${escapeHtml(topic?.topicName || 'Untitled Topic')}</option>`;
     }).join('');
 
@@ -1138,11 +1201,7 @@ export class ContributorScene extends Phaser.Scene {
       return `<option value="${escapeHtml(npc?.npcId || '')}"${selected}>${escapeHtml(npc?.name || 'Unnamed NPC')}</option>`;
     }).join('');
 
-    const mapOptions = mapsForForm.map((map) => {
-      const selected = isResubmission && String(map?.mapId || '') === String(editing?.mapId || '') ? ' selected' : '';
-      const count = Number(this.state.mapApprovedNpcCounts[String(map?.mapId || '')] || 0);
-      return `<option value="${escapeHtml(map?.mapId || '')}"${selected}>${escapeHtml(map?.name || 'Unnamed Map')} (${count}/${MAX_APPROVED_NPCS_PER_MAP})</option>`;
-    }).join('');
+    const mapOptions = this.buildSubmitMapOptions(filteredMapsForTopic, selectedMapId);
 
     const existingNarrations = isResubmission && Array.isArray(editing?.narrations)
       ? editing.narrations
@@ -1202,7 +1261,7 @@ export class ContributorScene extends Phaser.Scene {
           </div>
           <div class="dash-field">
             <label for="content-map">Map</label>
-            <select id="content-map" class="dash-select" required>${mapOptions}</select>
+            <select id="content-map" class="dash-select" required${filteredMapsForTopic.length ? '' : ' disabled'}>${mapOptions}</select>
           </div>
           <div class="dash-field">
             <label for="content-video">Optional video</label>

@@ -7,8 +7,6 @@ const TOOLS = [
   ['erase', 'Erase'],
   ['fill', 'Fill'],
   ['rect', 'Rect'],
-  ['npc_spawn', 'NPC'],
-  ['monster_spawn', 'Monster']
 ];
 
 function buttonMarkup(prefix, value, label) {

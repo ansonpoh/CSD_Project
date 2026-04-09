@@ -69,9 +69,7 @@ export const combatSceneUiPanelMethods = {
     const logPaddingY = 12;
     const logFontSize = 19;
     const logLineSpacing = 8;
-    const usableHeight = logH - (logPaddingY * 2);
-    const lineAdvance = logFontSize + logLineSpacing;
-    this.maxBattleLogLines = Math.max(1, Math.floor((usableHeight - logFontSize) / lineAdvance) + 1);
+    this.maxBattleLogLines = 3;
 
     const logBg = this.add.graphics();
     logBg.fillStyle(P.bgPanel, 0.92);
